@@ -1,3 +1,29 @@
+<!--
+Sync Impact Report
+==================
+Version change: (unversioned) → 1.1.0
+Rationale: MINOR bump — no prior explicit version footer existed, so this amendment also
+establishes governance versioning (Ratified/Last Amended/Version). The substantive change
+(firm decision on Redis, replacing an open "Redis o In-Memory" choice) tightens an existing
+mandatory rule, without removing or redefining a principle — treated as materially expanded
+guidance rather than a MAJOR incompatible change.
+
+Modified sections:
+- 5.2 Capa de Caché e Índices — replaced ambiguous "Redis o In-Memory" with a firm mandate
+  for Redis as the sole caching layer.
+
+Added sections:
+- Governance: amendment procedure / Sync Impact Report requirement and semantic versioning
+  policy (previously implicit/undocumented).
+- Version/Ratified/Last Amended footer (previously absent).
+
+Removed sections: none.
+
+Follow-up TODOs: none.
+This report is scratch material for review of this amendment and may be removed before/at
+the next amendment.
+-->
+
 # Spec Kit Constitution — Football Player Market Valuation & Token Trading System
 
 Proyecto: Desarrollo de Aplicaciones — Universidad Nacional de Quilmes (UNQ)
@@ -111,7 +137,7 @@ La API Backend debe exponer sin excepción los siguientes contratos:
 
 ### 5.2 Capa de Caché e Índices (Obligatorio)
 
-* **Caché Mandatorio:** Implementación de una capa de caché (ej. Redis o In-Memory) para optimizar consultas frecuentes del catálogo y funcionar de fallback ante caídas externas.
+* **Caché Mandatorio (Redis):** El sistema debe implementar una capa de caché basada en **Redis** de forma obligatoria, para optimizar consultas frecuentes del catálogo y funcionar de fallback ante caídas externas.
 * **Indexación:** Definición de índices en base de datos para optimizar búsquedas por liga, equipo, posición, historial de cotizaciones y transacciones.
 
 ### 5.3 Observabilidad (Obligatorio)
@@ -147,3 +173,7 @@ Una feature se considera terminada para este proyecto únicamente cuando:
 ## 8. Gobernanza de la Constitution
 
 * Esta Constitution es la norma suprema del repositorio. Cualquier cambio en sus reglas requiere la aprobación explícita de ambas integrantes del equipo (**Abril Orlando** y **Guadalupe Zitterkopf**).
+* Toda enmienda debe documentarse mediante un Sync Impact Report (versión anterior → nueva, secciones/principios modificados, agregados o eliminados) y actualizar la fecha de última enmienda.
+* Versionado semántico: MAJOR ante eliminación o redefinición incompatible de principios/secciones; MINOR ante agregado o expansión material de una regla o justificación; PATCH ante aclaraciones o correcciones de redacción sin cambio de fondo.
+
+**Version**: 1.1.0 | **Ratified**: 2026-09-15 | **Last Amended**: 2026-09-15
