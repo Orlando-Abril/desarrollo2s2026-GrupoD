@@ -1,99 +1,122 @@
-# Sistema de Valoración de Jugadores y Mercado de Tokens
+# Sistema de Valoracion de Jugadores y Mercado de Tokens
 
-Trabajo práctico para la materia **Desarrollo de Aplicaciones** — **Universidad Nacional de Quilmes (UNQ)**.
+Trabajo practico para la materia **Desarrollo de Aplicaciones** - **Universidad Nacional de Quilmes (UNQ)**.
 
 ### Integrantes
+
 * Abril Orlando
 * Guadalupe Zitterkopf
 
 ---
 
-## 📌 Descripción del Proyecto
+## Descripcion del proyecto
 
-El sistema es una plataforma web (Backend REST + Frontend) que modela un mercado financiero basado en el rendimiento deportivo de futbolistas de las 5 grandes ligas de Europa (Premier League, La Liga, Serie A, Bundesliga y Ligue 1).
+El sistema es una plataforma web que modela un mercado financiero basado en el rendimiento deportivo de futbolistas de las 5 grandes ligas de Europa (Premier League, La Liga, Serie A, Bundesliga y Ligue 1).
 
-A partir de datos estadísticos y resultados de partidos, el sistema calcula cotizaciones periódicas para cada jugador mediante estrategias de valuación configurables. Los usuarios pueden comprar y vender tokens de futbolistas, gestionando su portfolio e historial de inversiones en tiempo real.
-
----
-
-## ⚙️ Arquitectura y Componentes
-
-El backend sigue un diseño en capas para asegurar modularidad, mantenibilidad y tolerancia a fallos:
-
-* **Controllers:** Exposición de endpoints REST y validación de entrada.
-* **Services:** Lógica de negocio (mercado, cálculo de scores, valuación y gestión de portfolios).
-* **Repositories:** Persistencia y acceso a datos con optimización de índices.
-* **Adapters:** Integración con fuentes externas (API de Football-Data.org y scraper de WhoScored).
-
-### Requisitos Técnicos y No Funcionales
-* **Scheduler:** Tareas automáticas (jobs batch) para la actualización semanal de cotizaciones y estadísticas.
-* **Caché:** Capa de almacenamiento en caché para mitigar latencia y permitir operación offline/resiliente ante caídas de APIs externas.
-* **Auditoría y Observabilidad:** Registro inmutable de transacciones financieras, logging estructurado y Correlation IDs para trazabilidad.
-* **Documentación:** Especificación de endpoints con OpenAPI / Swagger.
+A partir de datos estadisticos y resultados de partidos, el sistema calcula cotizaciones periodicas para cada jugador mediante estrategias de valuacion configurables. Los usuarios pueden comprar y vender tokens de futbolistas, gestionando su portfolio e historial de inversiones en tiempo real.
 
 ---
 
-## ⚽ Dominio y Modelo de Negocio
+## Estructura del repositorio
 
-1. **Emisión de Tokens:** Cada jugador posee un total inicial de 100 tokens emitidos en poder de un superusuario inicial, con un valor base inicial de 1 crédito.
-2. **Estrategias de Valuación:** Cálculo de scores ponderados según métricas de rendimiento (goles, asistencias, tiros, pases clave, intercepciones, tackles, rating, minutos jugados, tarjetas). El sistema soporta múltiples estrategias configurables con trazabilidad de versión.
-3. **Operaciones de Mercado:** 
-   * **Compra:** Validación de liquidez y disponibilidad de tokens a la cotización vigente.
-   * **Venta:** Validación de tenencia de tokens, liquidación de saldo y actualización de posición.
-4. **Portfolio:** Visualización de saldo, cantidad de tokens por jugador, precio promedio de compra (PPC), valuación actual y resultado neto (ganancia/pérdida).
+```text
+.
++-- backend/              # API REST Spring Boot + Maven
+|   +-- pom.xml
+|   +-- mvnw
+|   +-- mvnw.cmd
+|   +-- src/
++-- frontend/             # React + Vite
+|   +-- package.json
+|   +-- src/
++-- .github/workflows/    # CI backend y frontend
++-- .agents/
++-- .claude/
++-- .specify/
++-- README.md
+```
 
 ---
 
-## 🚀 Instalación y Puesta en Marcha
+## Arquitectura y componentes
 
-### Pasos para ejecución local
+El backend sigue un diseno en capas para asegurar modularidad, mantenibilidad y tolerancia a fallos:
 
-1. **Clonar el repositorio:**
+* **Controllers:** Exposicion de endpoints REST y validacion de entrada.
+* **Services:** Logica de negocio (mercado, calculo de scores, valuacion y gestion de portfolios).
+* **Repositories:** Persistencia y acceso a datos con optimizacion de indices.
+* **Adapters:** Integracion con fuentes externas (API de Football-Data.org y scraper de WhoScored).
 
-   ```bash
-   git clone https://github.com/Orlando-Abril/desarrollo2s2026-GrupoD.git
-   cd desarrollo2s2026-GrupoD
-   ```
+### Requisitos tecnicos y no funcionales
 
-2. **Configurar variables de entorno:**
+* **Scheduler:** Tareas automaticas para la actualizacion semanal de cotizaciones y estadisticas.
+* **Cache:** Capa de almacenamiento en cache para mitigar latencia y permitir operacion resiliente ante caidas de APIs externas.
+* **Auditoria y observabilidad:** Registro inmutable de transacciones financieras, logging estructurado y Correlation IDs para trazabilidad.
+* **Documentacion:** Especificacion de endpoints con OpenAPI / Swagger.
 
-   Configurar localmente la contraseña de PostgreSQL mediante la variable de entorno:
+---
 
-   ```env
-   DB_PASSWORD=tu_contraseña_de_postgresql
-   ```
+## Dominio y modelo de negocio
 
-   En IntelliJ IDEA se puede configurar desde:
+1. **Emision de tokens:** Cada jugador posee un total inicial de 100 tokens emitidos en poder de un superusuario inicial, con un valor base inicial de 1 credito.
+2. **Estrategias de valuacion:** Calculo de scores ponderados segun metricas de rendimiento. El sistema soporta multiples estrategias configurables con trazabilidad de version.
+3. **Operaciones de mercado:** Compra y venta de tokens con validacion de liquidez, disponibilidad, tenencia y actualizacion de posiciones.
+4. **Portfolio:** Visualizacion de saldo, cantidad de tokens por jugador, precio promedio de compra, valuacion actual y resultado neto.
 
-   ```text
-   Run → Edit Configurations → DemoApplication → Modify options → Environment variables
-   ```
+---
 
-   La aplicación utiliza esta variable desde `application.properties`:
+## Ejecucion local
 
-   ```properties
-   spring.datasource.url=jdbc:postgresql://localhost:5432/desarrollo2_grupod
-   spring.datasource.username=postgres
-   spring.datasource.password=${DB_PASSWORD}
-   ```
+### Backend
 
-3. **Instalar dependencias y levantar el servicio:**
+El backend utiliza Java, Spring Boot, Maven, PostgreSQL y Redis.
 
-   El proyecto utiliza **Java 22, Spring Boot, Maven y PostgreSQL**.
+Configurar localmente la contrasena de PostgreSQL mediante la variable de entorno:
 
-   Maven descargará automáticamente las dependencias definidas en `pom.xml`.
+```env
+DB_PASSWORD=tu_contrasena_de_postgresql
+```
 
+La aplicacion utiliza esta variable desde `backend/src/main/resources/application.properties`:
 
-4. **Acceso al servicio:**
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/desarrollo2_grupod
+spring.datasource.username=postgres
+spring.datasource.password=${DB_PASSWORD}
+```
 
-   Una vez iniciado el backend, estará disponible en:
+La base de datos PostgreSQL debe existir con el nombre:
 
-   ```text
-   http://localhost:8080
-   ```
+```text
+desarrollo2_grupod
+```
 
-   La aplicación requiere tener creada previamente una base de datos PostgreSQL llamada:
+Para compilar y verificar el backend:
 
-   ```text
-   desarrollo2_grupod
-   ```
+```bash
+cd backend
+./mvnw verify
+```
+
+Una vez iniciado, el backend queda disponible en:
+
+```text
+http://localhost:8080
+```
+
+### Frontend
+
+El frontend esta creado con React + Vite.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Para generar el build:
+
+```bash
+cd frontend
+npm run build
+```
