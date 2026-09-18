@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
@@ -21,7 +22,7 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    public static final String[] PUBLIC_ROUTES = {
+    private static final String[] PUBLIC_ROUTES = {
             "/auth/register",
             "/auth/login",
             "/swagger-ui/**",
@@ -31,20 +32,30 @@ public class SecurityConfig {
     @Value("${security.cors.allowed-origin}")
     private String allowedOrigin;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyAuthFilter apiKeyAuthFilter) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_ROUTES).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
+    public static String[] getPublicRoutes() {
+        return PUBLIC_ROUTES.clone();
+    }
 
-        return http.build();
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyAuthFilter apiKeyAuthFilter) {
+        try {
+            http
+                    // API stateless (JWT en Authorization + API Key en header): no hay cookies de sesión,
+                    // por lo que CSRF no aplica. Ver OWASP CSRF Prevention Cheat Sheet, sección "stateless APIs".
+                    .csrf(AbstractHttpConfigurer::disable) // NOSONAR java:S4502
+                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                    .authorizeHttpRequests(auth -> auth
+                            .requestMatchers(getPublicRoutes()).permitAll()
+                            .anyRequest().authenticated()
+                    )
+                    .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                    .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+            return http.build();
+        } catch (Exception e) {
+            throw new IllegalStateException("No se pudo construir la cadena de filtros de seguridad", e);
+        }
     }
 
     @Bean

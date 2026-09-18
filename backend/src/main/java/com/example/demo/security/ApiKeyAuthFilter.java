@@ -46,7 +46,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        for (String publicRoute : SecurityConfig.PUBLIC_ROUTES) {
+        for (String publicRoute : SecurityConfig.getPublicRoutes()) {
             if (PATH_MATCHER.match(publicRoute, path)) {
                 return true;
             }

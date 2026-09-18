@@ -10,6 +10,7 @@ import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Date;
 
 @Component
@@ -29,13 +30,13 @@ public class JwtUtil {
             throw new IllegalArgumentException("username no puede ser nulo ni vacío");
         }
 
-        Date issuedAt = new Date();
-        Date expiration = new Date(issuedAt.getTime() + expirationMs);
+        Instant issuedAt = Instant.now();
+        Instant expiration = issuedAt.plusMillis(expirationMs);
 
         return Jwts.builder()
                 .subject(username)
-                .issuedAt(issuedAt)
-                .expiration(expiration)
+                .issuedAt(Date.from(issuedAt))
+                .expiration(Date.from(expiration))
                 .signWith(signingKey)
                 .compact();
     }
