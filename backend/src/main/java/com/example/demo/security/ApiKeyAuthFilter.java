@@ -19,9 +19,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -65,7 +62,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        Optional<ApiKey> apiKey = apiKeyRepository.findByKeyHash(sha256Hex(rawKey));
+        Optional<ApiKey> apiKey = apiKeyRepository.findByKeyHash(ApiKeyHasher.sha256Hex(rawKey));
 
         if (apiKey.isEmpty() || !apiKey.get().isActive()) {
             respondUnauthorized(response, "API key inválida o inactiva");
@@ -87,16 +84,6 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.getWriter().write(objectMapper.writeValueAsString(new ErrorBody("unauthorized", message)));
-    }
-
-    private static String sha256Hex(String rawKey) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = digest.digest(rawKey.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hashBytes);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 no disponible en esta JVM", e);
-        }
     }
 
     private record ErrorBody(String error, String message) {
