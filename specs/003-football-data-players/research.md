@@ -61,7 +61,9 @@ perdería el fallback tras expirar el TTL.
 **Decision**: Usar el id numérico de Football-Data convertido a `String` como
 `Player.externalId`, y `PlayerRepository.findByExternalId` para upsert. Mapear las
 posiciones externas a los cuatro valores locales, calcular edad desde `dateOfBirth` en
-la fecha de sincronización y omitir únicamente jugadores sin identidad mínima.
+la fecha de sincronización y omitir únicamente jugadores sin `externalId`, nombre o
+equipo. Nacionalidad ausente queda nula y posición ausente/no reconocida produce un
+conjunto vacío para no perder una identidad válida.
 
 **Rationale**: `externalId` y su índice ya existen para correlación. El upsert garantiza
 cero duplicados en reimportaciones. La fecha de nacimiento es más estable que una edad
@@ -71,6 +73,68 @@ transportada y permite completar el campo opcional. En updates se preservan `id`
 **Alternatives considered**: Dedupe por nombre/equipo es inestable ante transferencias y
 homónimos; reemplazar filas completas arriesga valores de mercado y relaciones futuras;
 crear posiciones nuevas violaría el modelo existente.
+
+## Integridad concurrente, índices y migraciones
+
+**Decision**: Incorporar Flyway y una migración PostgreSQL con UNIQUE parcial para
+`players.external_id WHERE external_id IS NOT NULL`, índices sobre `players.league`,
+`players.team` y `player_positions.position`, y las tablas nuevas de asignación inicial
+y auditoría.
+
+**Rationale**: El `findByExternalId` previo al save no evita carreras. La constraint es
+la autoridad final de idempotencia y el service puede releer ante conflicto. Flyway
+permite añadir índices sin modificar `Player`, `League` ni `Position`, satisfaciendo la
+constitución y manteniendo cambios de esquema reproducibles.
+
+**Alternatives considered**: Anotaciones JPA fueron descartadas porque cambiarían las
+estructuras Java declaradas fuera de alcance; confiar sólo en transacciones o locks de
+JVM no protege el dato frente a concurrencia ni procesos separados.
+
+## Emisión inicial de tokens
+
+**Decision**: Crear `PlayerTokenAllocation`, separado de `Player`, con UNIQUE por
+jugador y CHECKs que fijen suministro/cantidad inicial en 100 y precio base en 1. La
+creación del jugador y la asignación completa al superusuario ocurren en una única
+transacción; un jugador existente nunca vuelve a emitir.
+
+**Rationale**: La constitución exige que todo jugador integrado nazca con esa emisión y
+tenencia. Separar la tabla respeta la prohibición de modificar la estructura de
+`Player` y permite una garantía idempotente a nivel de base.
+
+**Alternatives considered**: Diferir la emisión a una feature de trading dejaría
+jugadores constitucionalmente inválidos; guardar cantidad/propietario en `Player`
+violaría el alcance; emitir en una transacción posterior permitiría estados parciales.
+
+## Scheduler y limitación de solicitudes
+
+**Decision**: Ejecutar una sincronización en `ApplicationReadyEvent` sólo cuando no
+existe snapshot exitoso y luego mediante `@Scheduled` configurable, con intervalo
+mínimo de un minuto, lock de proceso y sin reintentos automáticos. El despliegue
+soportado tiene una única instancia activa.
+
+**Rationale**: La feature queda operable sin añadir un endpoint de mutación. Una carga
+fría hace cinco solicitudes; el intervalo mínimo y la ausencia de reintentos mantienen
+el máximo bajo 10 por minuto, mientras Redis elimina llamadas dentro del TTL.
+
+**Alternatives considered**: Un endpoint administrativo exige un modelo de autorización
+no solicitado; sincronizar desde `GET /players` añade latencia y efectos laterales; el
+escalado horizontal sin lock distribuido no puede garantizar el límite y queda
+explícitamente fuera del alcance.
+
+## Auditoría y observabilidad
+
+**Decision**: Persistir eventos `CatalogSyncAuditEvent` append-only (`STARTED`,
+`COMPLETED`, `PARTIAL_FAILURE`, `FAILED`) con correlation ID y conteos. Implementar un
+filtro `X-Correlation-ID` respaldado por MDC, logging JSON, Actuator health para
+aplicación/PostgreSQL/Redis y métricas Micrometer para latencia, duración y errores.
+
+**Rationale**: Cubre trazabilidad de requests y jobs, diagnóstico sin secretos,
+auditoría inmutable de cambios de estado y health/métricas exigidos por la constitución.
+Una protección en base rechaza UPDATE/DELETE sobre la tabla de auditoría.
+
+**Alternatives considered**: Logs sin persistencia no son auditoría inmutable; aceptar
+correlation ID sólo en HTTP deja jobs sin trazabilidad; checks ad hoc duplican las
+capacidades estándar de Actuator/Micrometer.
 
 ## Filtrado del catálogo
 
@@ -90,12 +154,13 @@ agrega una dependencia no necesaria.
 **Decision**: Mantener sólo `GET /players` como interfaz pública de esta feature. Usar
 el filtro de API key existente y documentar `apiKeyAuth`. Responder `400` ante enums no
 válidos, `401` ante clave ausente/inválida, `200` con lista (posiblemente vacía) para
-consultas válidas y `503` únicamente cuando una operación que necesita inicializar el
-catálogo no tiene datos locales ni fuente disponible.
+consultas válidas después de un snapshot exitoso y `503 catalog_unavailable` cuando
+nunca hubo snapshot exitoso y tampoco existen jugadores locales.
 
 **Rationale**: Las lecturas quedan desacopladas de la red y respetan el contrato pedido.
-La especificación no autoriza un endpoint administrativo de sincronización, así que el
-service ofrece la operación interna para un job o disparador posterior.
+La sincronización se dispara dentro de esta feature al arrancar si falta snapshot y por
+cron; la lectura nunca invoca la fuente. El último evento terminal permite distinguir
+un catálogo exitosamente vacío (`200 []`) de uno nunca inicializado (`503`).
 
 **Alternatives considered**: Sincronizar en cada GET introduce latencia, efectos
 laterales y dependencia externa; agregar `POST /players/sync` amplía la superficie y
@@ -103,14 +168,13 @@ requiere reglas de autorización no especificadas.
 
 ## Estrategia de pruebas
 
-**Decision**: `PlayerCatalogServiceTest` usa Mockito para adapter/repository;
-`PlayerControllerTest` usa MockMvc con configuración de seguridad controlada; y
-`FootballDataAdapterTest` enlaza `MockRestServiceServer` a `RestClient.Builder`.
+**Decision**: `PlayerCatalogServiceTest` usa Mockito; `PlayerControllerTest` usa MockMvc;
+`FootballDataAdapterTest` enlaza `MockRestServiceServer`; y tests de integración validan
+PostgreSQL/Flyway (constraints, índices, auditoría) y Redis (JSON, TTL y cache hit).
 
-**Rationale**: Cada suite verifica su límite sin Redis, PostgreSQL ni Internet. El test
-del adapter valida URI, método, header y deserialización; el del service cubre upsert,
-preservación de mercado, filtros y fallas; el controller cubre query params, DTOs,
-errores y API key.
+**Rationale**: Ninguna suite llama a Football-Data.org. Los tests unitarios aíslan cada
+capa, mientras las integraciones prueban las garantías que un cache manager en memoria
+o H2 no pueden demostrar: TTL/serialización Redis y constraints/migraciones PostgreSQL.
 
 **Alternatives considered**: Llamar al sandbox del proveedor sería lento y no
 determinista; WireMock funciona, pero es una dependencia extra para este cliente simple;

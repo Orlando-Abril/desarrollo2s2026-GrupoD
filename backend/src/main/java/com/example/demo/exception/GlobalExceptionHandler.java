@@ -6,6 +6,9 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import jakarta.validation.ConstraintViolationException;
 
 import java.util.stream.Collectors;
 
@@ -38,6 +41,21 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("invalid_credentials", ex.getMessage()));
     }
 
-    public record ErrorResponse(String error, String message) {
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, ConstraintViolationException.class})
+    public ResponseEntity<ErrorResponse> handleQueryValidation(Exception ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("validation_error", "Uno o más filtros son inválidos"));
+    }
+
+    @ExceptionHandler(CatalogUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleCatalogUnavailable(CatalogUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse("catalog_unavailable", ex.getMessage()));
+    }
+
+    @io.swagger.v3.oas.annotations.media.Schema(name = "ErrorResponse")
+    public record ErrorResponse(
+            @io.swagger.v3.oas.annotations.media.Schema(example = "validation_error") String error,
+            @io.swagger.v3.oas.annotations.media.Schema(example = "Uno o más filtros son inválidos") String message) {
     }
 }

@@ -8,12 +8,13 @@ Esta guía valida el diseño descrito en [plan.md](./plan.md), el modelo de
 - Java 17.
 - PostgreSQL disponible en `localhost:5432/desarrollo2_grupod`.
 - Redis 7 disponible en `localhost:6379`.
-- Token de Football-Data.org sólo para la prueba manual de sincronización.
+- Token de Football-Data.org sólo para iniciar el backend; los tests usan respuestas simuladas.
 - Variables `DB_PASSWORD`, `JWT_SECRET` y `FOOTBALL_DATA_TOKEN`; opcionalmente
   `FOOTBALL_DATA_CACHE_TTL` (por defecto `PT6H`).
 
-Los tests automatizados del adapter no necesitan token, Redis, PostgreSQL ni acceso a
-Internet.
+Los tests unitarios no necesitan Internet. Los tests de integración requieren
+PostgreSQL y Redis reales/de contenedor para validar migraciones, constraints, TTL y
+serialización; ninguno llama a Football-Data.org.
 
 ## 1. Ejecutar la suite automatizada
 
@@ -32,7 +33,11 @@ Resultado esperado: todos los tests pasan. En particular:
   `marketValue`;
 - una falla externa mantiene los jugadores previamente persistidos;
 - el controller combina `league`, `team` y `position`, devuelve `400` para enums
-  inválidos y exige `X-API-KEY`.
+  inválidos, `503` sin snapshot y exige `X-API-KEY`;
+- las migraciones crean índices/unicidad, la emisión inicial es exactamente de 100
+  tokens y la auditoría rechaza modificaciones;
+- Redis evita nuevas solicitudes dentro del TTL y conserva serialización JSON;
+- cada respuesta y job conserva un correlation ID.
 
 ## 2. Levantar dependencias y backend
 
@@ -43,11 +48,13 @@ $env:DB_PASSWORD = '<password-local>'
 $env:JWT_SECRET = '<secreto-de-al-menos-32-bytes>'
 $env:FOOTBALL_DATA_TOKEN = '<token-football-data>'
 $env:FOOTBALL_DATA_CACHE_TTL = 'PT6H'
+$env:FOOTBALL_DATA_SYNC_CRON = '0 0 */6 * * *'
 ./mvnw.cmd spring-boot:run
 ```
 
-Resultado esperado: la aplicación inicia, conecta a PostgreSQL y Redis y expone
-Swagger UI. El token externo no aparece en logs ni respuestas.
+Resultado esperado: Flyway aplica tablas/índices, la aplicación conecta a PostgreSQL y
+Redis, expone Swagger/Actuator e inicia una sincronización sólo si todavía no existe un
+snapshot exitoso. El token externo no aparece en logs, auditoría ni respuestas.
 
 ## 3. Obtener una API key
 
@@ -63,8 +70,7 @@ Conservar la clave devuelta, ya que se muestra una sola vez.
 
 ## 4. Consultar el catálogo
 
-Una vez ejecutada la operación interna de sincronización por el proceso de aplicación,
-consultar sin filtros:
+Esperar la inicialización automática o el siguiente cron y consultar sin filtros:
 
 ```powershell
 Invoke-RestMethod -Uri 'http://localhost:8080/players' -Headers @{ 'X-API-KEY' = $apiKey }
@@ -77,7 +83,8 @@ Invoke-RestMethod -Uri 'http://localhost:8080/players?league=PREMIER_LEAGUE&team
 ```
 
 Resultado esperado: `200`; cada elemento satisface todos los filtros. Una combinación
-sin coincidencias devuelve `[]`.
+sin coincidencias devuelve `[]`. La respuesta incluye `X-Correlation-ID`; si se envía
+ese header con un UUID válido, el servidor propaga el mismo valor.
 
 Sin credencial:
 
@@ -87,11 +94,19 @@ Invoke-WebRequest -Uri 'http://localhost:8080/players' -SkipHttpErrorCheck
 
 Resultado esperado: `401` sin datos del catálogo.
 
+En una base nueva, si la inicialización falla antes de crear jugadores:
+
+```powershell
+Invoke-WebRequest -Uri 'http://localhost:8080/players' -Headers @{ 'X-API-KEY' = $apiKey } -SkipHttpErrorCheck
+```
+
+Resultado esperado: `503` con `error=catalog_unavailable`. Después de un snapshot
+exitoso legítimamente vacío, la misma consulta devuelve `200 []`.
+
 ## 5. Verificar caché y resiliencia
 
-1. Ejecutar dos sincronizaciones dentro del TTL.
-2. Verificar con el test/spy del adapter o métricas de prueba que por liga sólo la
-   primera carga alcanza el servidor simulado; la segunda usa Redis.
+1. Ejecutar los tests de scheduler/caché que disparan dos sincronizaciones dentro del TTL.
+2. Verificar que la carga fría produce como máximo cinco requests y la segunda cero.
 3. Después de una sincronización exitosa, simular `503` o timeout en
    `MockRestServiceServer` y volver a sincronizar.
 4. Consultar `GET /players` con las mismas combinaciones de filtros.
@@ -100,9 +115,48 @@ Resultado esperado: los datos locales previos siguen respondiendo y no se borran
 la sincronización falla sin ningún dato local, la operación informa indisponibilidad de
 forma controlada.
 
-## 6. Inspeccionar documentación
+## 6. Verificar tokens, constraints y auditoría
+
+Después de importar un jugador nuevo, inspeccionar PostgreSQL con las consultas de
+validación provistas por los tests/migraciones.
+
+Resultado esperado:
+
+- una asignación por jugador, suministro `100`, cantidad del superusuario `100` y
+  precio base `1.00`;
+- repetir o solapar la importación no crea otro Player ni otra emisión;
+- existen índices para `external_id`, liga, equipo y posición;
+- cada ejecución posee `STARTED` y un evento terminal con el mismo correlation ID;
+- intentos de `UPDATE` o `DELETE` sobre auditoría son rechazados.
+
+## 7. Verificar salud, métricas y logs
+
+```powershell
+Invoke-RestMethod -Uri 'http://localhost:8080/actuator/health'
+```
+
+Resultado esperado: `UP` cuando aplicación, PostgreSQL y Redis están saludables. Los
+tests de observabilidad verifican métricas de latencia/error externo y duración/resultado
+de sincronización. Los logs son JSON y contienen correlation ID sin secretos.
+
+## 8. Inspeccionar documentación
 
 Abrir `http://localhost:8080/swagger-ui/index.html` y localizar **Players**.
 
-Resultado esperado: aparecen los tres filtros, los esquemas de respuesta y error, los
-códigos `200/400/401` y el esquema `apiKeyAuth` con header `X-API-KEY`.
+Resultado esperado: aparecen los tres filtros, headers de correlación, esquemas de
+respuesta/error, códigos `200/400/401/503`, health y `apiKeyAuth` con `X-API-KEY`.
+
+## 9. Validar gates de entrega
+
+Ejecutar `./mvnw.cmd verify`, publicar el branch y revisar el workflow y SonarCloud.
+
+Resultado esperado: GitHub Actions `SUCCESS`; SonarCloud `PASSED`, sin vulnerabilidades
+y con menos de 10 issues menores. La feature no se considera terminada antes de ambos.
+
+## Registro de validación de implementación
+
+- 2026-09-21: compilación Maven y suite local ejecutadas sobre Spring Boot 4.1.1.
+- Los tests de cliente usan exclusivamente `MockRestServiceServer`; no se realizó tráfico a la API real.
+- En este entorno Docker no estaba disponible: los seis casos Testcontainers de PostgreSQL/Redis quedaron `SKIPPED` de forma explícita mediante `disabledWithoutDocker` y deben ejecutarse en CI, donde el runner dispone de Docker.
+- Los escenarios manuales que requieren credenciales reales, PostgreSQL/Redis locales y un superusuario `ADMIN` preaprovisionado quedan pendientes para el ambiente desplegado.
+- La confirmación de GitHub Actions y SonarCloud sólo puede registrarse después de publicar el branch; no se declara éxito externo desde una ejecución local.

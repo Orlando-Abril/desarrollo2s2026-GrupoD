@@ -37,6 +37,9 @@ paths:
       responses:
         '200':
           description: Lista filtrada; puede estar vacía.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -45,6 +48,9 @@ paths:
                   $ref: '#/components/schemas/PlayerResponse'
         '400':
           description: Filtro inválido.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -54,6 +60,9 @@ paths:
                 message: league debe ser una liga soportada
         '401':
           description: API key ausente, inválida o revocada.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -61,7 +70,51 @@ paths:
               example:
                 error: unauthorized
                 message: API key inválida o ausente
+        '503':
+          description: El catálogo nunca completó una sincronización y no hay jugadores locales.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: catalog_unavailable
+                message: El catálogo todavía no está disponible
+  /actuator/health:
+    get:
+      tags: [Operations]
+      summary: Consultar salud agregada del servicio
+      description: Informa estado agregado de aplicación, PostgreSQL y Redis sin exponer detalles sensibles.
+      security: []
+      responses:
+        '200':
+          description: Servicio y dependencias saludables.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Una dependencia requerida no está saludable.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
 components:
+  headers:
+    CorrelationId:
+      description: Identificador propagado o generado para trazabilidad.
+      required: true
+      schema:
+        type: string
+        format: uuid
   securitySchemes:
     apiKeyAuth:
       type: apiKey
@@ -123,3 +176,12 @@ components:
           type: string
         message:
           type: string
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN, OUT_OF_SERVICE, UNKNOWN]
+      example:
+        status: UP

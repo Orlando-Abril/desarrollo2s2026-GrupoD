@@ -75,7 +75,16 @@ Configurar localmente la contrasena de PostgreSQL mediante la variable de entorn
 
 ```env
 DB_PASSWORD=tu_contrasena_de_postgresql
+JWT_SECRET=un_secreto_de_al_menos_32_bytes
+FOOTBALL_DATA_TOKEN=token_de_football_data
+MARKET_SUPERUSER_USERNAME=admin_preexistente
 ```
+
+La cuenta indicada por `MARKET_SUPERUSER_USERNAME` debe existir previamente y tener rol
+`ADMIN`; el importador nunca crea usuarios ni contraseñas por defecto. También se pueden
+configurar `REDIS_HOST`, `REDIS_PORT`, `FOOTBALL_DATA_CACHE_TTL` (por defecto `6h`),
+`FOOTBALL_DATA_CONNECT_TIMEOUT`, `FOOTBALL_DATA_READ_TIMEOUT`,
+`FOOTBALL_DATA_SYNC_CRON` y `FOOTBALL_DATA_ENABLED`.
 
 La aplicacion utiliza esta variable desde `backend/src/main/resources/application.properties`:
 
@@ -97,6 +106,23 @@ Para compilar y verificar el backend:
 cd backend
 ./mvnw verify
 ```
+
+Los tests HTTP usan `MockRestServiceServer` y nunca llaman a Football-Data.org. Los tests
+de PostgreSQL y Redis usan Testcontainers y se omiten automáticamente cuando Docker no
+está disponible. Flyway es la autoridad del esquema (`V1` baseline y `V2` catálogo),
+mientras Hibernate sólo lo valida.
+
+El catálogo se sincroniza al arrancar si no existe un snapshot exitoso y luego mediante
+el cron configurado. `GET /players` acepta `league`, `team` y `position`, exige
+`X-API-KEY` y sigue consultando exclusivamente PostgreSQL ante fallas externas. Redis
+cachea una respuesta por liga con TTL configurable.
+
+Operación y diagnóstico:
+
+* `GET /actuator/health` expone únicamente salud agregada de aplicación, PostgreSQL y Redis.
+* `/actuator/metrics` permanece protegido y contiene latencia/error de Football-Data y duración/error de sincronización.
+* Todas las respuestas incluyen `X-Correlation-ID`; los jobs generan el suyo y lo incluyen en logs estructurados y auditoría append-only.
+* Swagger UI está en `http://localhost:8080/swagger-ui/index.html` y documenta `apiKeyAuth`.
 
 Una vez iniciado, el backend queda disponible en:
 
