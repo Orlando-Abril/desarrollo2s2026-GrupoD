@@ -1,5 +1,6 @@
 package com.example.demo.config;
 
+import com.example.demo.adapter.footballdata.dto.FootballDataResponse;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -10,6 +11,7 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
 import java.util.Map;
@@ -29,7 +31,12 @@ public class CacheConfig {
                 .disableCachingNullValues()
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new GenericJacksonJsonRedisSerializer(objectMapper)));
-        RedisCacheConfiguration competitionConfig = defaults.entryTtl(properties.cacheTtl());
+        // Serializador tipado: sin información de tipo, Jackson deserializa como LinkedHashMap
+        // y el cache hit rompe con ClassCastException al castear a FootballDataResponse.
+        RedisCacheConfiguration competitionConfig = defaults
+                .entryTtl(properties.cacheTtl())
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new JacksonJsonRedisSerializer<>(objectMapper, FootballDataResponse.class)));
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaults)
                 .withInitialCacheConfigurations(Map.of(COMPETITION_TEAMS_CACHE, competitionConfig))

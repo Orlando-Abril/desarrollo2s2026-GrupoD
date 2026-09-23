@@ -51,7 +51,7 @@ public class PlayerCatalogScheduler {
         try {
             service.synchronizeCatalog();
         } catch (RuntimeException ex) {
-            log.error("catalog_sync_failed code=controlled_failure");
+            log.error("catalog_sync_failed code=controlled_failure cause={}", ex.toString());
         } finally {
             running.set(false);
         }

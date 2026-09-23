@@ -90,7 +90,7 @@ public class PlayerCatalogService {
             auditService.append(actor.getId(), correlationId, "FAILED", "Catalog synchronization aborted",
                     "CatalogSync", correlationId.toString(), "status=STARTED", "status=FAILED",
                     null, processed, "internal_persistence_error");
-            log.error("catalog_sync_failed correlationId={} code=internal_persistence_error", correlationId);
+            log.error("catalog_sync_failed correlationId={} code=internal_persistence_error", correlationId, ex);
             throw ex;
         } finally {
             sample.stop(synchronizationTimer);
