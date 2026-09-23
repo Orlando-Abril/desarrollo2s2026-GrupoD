@@ -49,12 +49,22 @@ $env:JWT_SECRET = '<secreto-de-al-menos-32-bytes>'
 $env:FOOTBALL_DATA_TOKEN = '<token-football-data>'
 $env:FOOTBALL_DATA_CACHE_TTL = 'PT6H'
 $env:FOOTBALL_DATA_SYNC_CRON = '0 0 */6 * * *'
+$env:FOOTBALL_DATA_BOOTSTRAP_RETRY_INTERVAL = 'PT5M'
+$env:MARKET_SUPERUSER_USERNAME = 'admin'
 ./mvnw.cmd spring-boot:run
 ```
 
 Resultado esperado: Flyway aplica tablas/índices, la aplicación conecta a PostgreSQL y
 Redis, expone Swagger/Actuator e inicia una sincronización sólo si todavía no existe un
 snapshot exitoso. El token externo no aparece en logs, auditoría ni respuestas.
+
+Si el superusuario todavía no existe o no es `ADMIN`, el log muestra
+`catalog_sync_attempt_failed code=superuser_unavailable` sin escribir jugadores ni
+auditoría. Registrarlo (`POST /auth/register`), ejecutar
+`UPDATE users SET role = 'ADMIN' WHERE username = 'admin';` y esperar el próximo
+reintento de arranque (a lo sumo `FOOTBALL_DATA_BOOTSTRAP_RETRY_INTERVAL`): la
+sincronización corre sola, sin reiniciar. Tras el primer snapshot exitoso
+(`COMPLETED` o `PARTIAL_FAILURE`) los reintentos se detienen y sólo aplica el cron.
 
 ## 3. Obtener una API key
 
@@ -127,6 +137,10 @@ Resultado esperado:
 - repetir o solapar la importación no crea otro Player ni otra emisión;
 - existen índices para `external_id`, liga, equipo y posición;
 - cada ejecución posee `STARTED` y un evento terminal con el mismo correlation ID;
+- una ejecución abortada por error interno conserva su evento `FAILED`;
+- un jugador que no puede persistirse deja un `PLAYER_FAILED` (con su externalId) y ningún
+  `PLAYER_CREATED`/`TOKENS_ALLOCATED` huérfano; los demás jugadores quedan guardados y la
+  ejecución termina `PARTIAL_FAILURE`, o `FAILED` si no se guardó ninguno;
 - intentos de `UPDATE` o `DELETE` sobre auditoría son rechazados.
 
 ## 7. Verificar salud, métricas y logs
@@ -160,3 +174,4 @@ y con menos de 10 issues menores. La feature no se considera terminada antes de 
 - En este entorno Docker no estaba disponible: los seis casos Testcontainers de PostgreSQL/Redis quedaron `SKIPPED` de forma explícita mediante `disabledWithoutDocker` y deben ejecutarse en CI, donde el runner dispone de Docker.
 - Los escenarios manuales que requieren credenciales reales, PostgreSQL/Redis locales y un superusuario `ADMIN` preaprovisionado quedan pendientes para el ambiente desplegado.
 - La confirmación de GitHub Actions y SonarCloud sólo puede registrarse después de publicar el branch; no se declara éxito externo desde una ejecución local.
+- 2026-09-23 (Phase 8: Convergence): `CatalogSyncResilienceIntegrationTest` (contexto Spring real sobre H2) cubre `FAILED` durable en `catalog_sync_audit_events`, jugador inválido entre válidos → `PARTIAL_FAILURE`, y arranque sin superusuario con recuperación en el siguiente reintento sin reiniciar. V3 se validó manualmente contra PostgreSQL 17 local con un esquema legacy (`players.position` NOT NULL) en una base descartable; el caso Testcontainers equivalente corre en CI.

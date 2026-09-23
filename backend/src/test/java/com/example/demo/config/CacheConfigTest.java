@@ -25,7 +25,7 @@ class CacheConfigTest {
     void setUp() {
         FootballDataProperties properties = new FootballDataProperties(URI.create("https://example.test"),
                 "token", Duration.ofSeconds(3), Duration.ofSeconds(10), Duration.ofHours(6),
-                "0 0 */6 * * *", true);
+                "0 0 */6 * * *", Duration.ofMinutes(5), true);
         RedisCacheManager manager = (RedisCacheManager) new CacheConfig().redisCacheManager(
                 mock(RedisConnectionFactory.class), JsonMapper.builder().build(), properties);
         manager.initializeCaches();

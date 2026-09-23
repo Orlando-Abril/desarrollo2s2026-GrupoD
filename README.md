@@ -84,7 +84,19 @@ La cuenta indicada por `MARKET_SUPERUSER_USERNAME` debe existir previamente y te
 `ADMIN`; el importador nunca crea usuarios ni contraseñas por defecto. También se pueden
 configurar `REDIS_HOST`, `REDIS_PORT`, `FOOTBALL_DATA_CACHE_TTL` (por defecto `6h`),
 `FOOTBALL_DATA_CONNECT_TIMEOUT`, `FOOTBALL_DATA_READ_TIMEOUT`,
-`FOOTBALL_DATA_SYNC_CRON` y `FOOTBALL_DATA_ENABLED`.
+`FOOTBALL_DATA_SYNC_CRON`, `FOOTBALL_DATA_BOOTSTRAP_RETRY_INTERVAL` (por defecto `PT5M`,
+mínimo un minuto) y `FOOTBALL_DATA_ENABLED`.
+
+**Primer arranque.** Para registrar el superusuario por `POST /auth/register` el backend
+tiene que estar corriendo, así que el orden es: levantar el backend (la primera
+sincronización falla con un WARN `superuser_unavailable`), registrar el usuario, pasarlo a
+`ADMIN` con `UPDATE users SET role = 'ADMIN' WHERE username = '<usuario>';` y esperar: mientras
+no exista una sincronización exitosa se reintenta cada `FOOTBALL_DATA_BOOTSTRAP_RETRY_INTERVAL`,
+sin reiniciar. Después del primer éxito sólo aplica `FOOTBALL_DATA_SYNC_CRON`.
+
+**Fallas parciales.** Cada jugador se guarda en su propia transacción: si uno no puede
+persistirse se descarta sólo ese, se audita `PLAYER_FAILED` en `catalog_sync_audit_events`
+y la sincronización sigue (`PARTIAL_FAILURE`). Si no se guardó ningún jugador, termina `FAILED`.
 
 La aplicacion utiliza esta variable desde `backend/src/main/resources/application.properties`:
 

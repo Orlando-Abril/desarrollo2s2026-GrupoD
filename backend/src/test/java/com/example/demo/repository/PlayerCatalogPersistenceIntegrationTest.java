@@ -24,7 +24,7 @@ class PlayerCatalogPersistenceIntegrationTest {
         flyway = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .cleanDisabled(false).load();
         flyway.clean();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
     }
 
     @Test
@@ -71,11 +71,37 @@ class PlayerCatalogPersistenceIntegrationTest {
         }
         var result = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .baselineOnMigrate(true).baselineVersion("1").load().migrate();
-        assertThat(result.migrationsExecuted).isOne();
+        assertThat(result.migrationsExecuted).isEqualTo(2);
         try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
              var statement = connection.createStatement();
              var rs = statement.executeQuery("select count(*) from player_token_allocations")) {
             assertThat(rs.next()).isTrue();
+        }
+    }
+
+    @Test
+    void baselinedSchemaWithLegacyPositionColumnGetsItDroppedByV3() throws Exception {
+        flyway.clean();
+        try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             var statement = connection.createStatement()) {
+            statement.execute("create table users(id bigserial primary key, username varchar(255) not null unique, email varchar(255) not null unique, password_hash varchar(255) not null, role varchar(32) not null, balance numeric, created_at timestamp not null)");
+            statement.execute("create table players(id bigserial primary key, external_id varchar(255), full_name varchar(255) not null, team varchar(255) not null, league varchar(32) not null, nationality varchar(255), age integer, height_cm integer, market_value numeric not null, position varchar(255) not null constraint players_position_check check (position in ('GOALKEEPER','DEFENDER','MIDFIELDER','FORWARD')))");
+            statement.execute("create table player_positions(player_id bigint not null references players(id), position varchar(32) not null)");
+        }
+        var result = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .baselineOnMigrate(true).baselineVersion("1").load().migrate();
+        assertThat(result.migrationsExecuted).isEqualTo(2);
+        try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             var statement = connection.createStatement()) {
+            try (var rs = statement.executeQuery("select count(*) from information_schema.columns "
+                    + "where table_name = 'players' and column_name = 'position'")) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getInt(1)).isZero();
+            }
+            statement.executeUpdate("insert into players(external_id,full_name,team,league,market_value) "
+                    + "values ('legacy','One','Team','PREMIER_LEAGUE',1.00)");
+            statement.executeUpdate("insert into player_positions(player_id,position) "
+                    + "select id, 'FORWARD' from players where external_id = 'legacy'");
         }
     }
 

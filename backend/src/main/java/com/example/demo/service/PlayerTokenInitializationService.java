@@ -41,7 +41,7 @@ public class PlayerTokenInitializationService {
                 .player(player)
                 .owner(owner)
                 .build());
-        auditService.append(owner.getId(), correlationId, "TOKENS_ALLOCATED",
+        auditService.appendInCurrentTransaction(owner.getId(), correlationId, "TOKENS_ALLOCATED",
                 "Initial immutable allocation of 100 tokens at 1.00 credit",
                 "PlayerTokenAllocation", String.valueOf(allocation.getId()), null,
                 "playerId=" + player.getId() + ",totalSupply=100,ownerQuantity=100,basePrice=1.00",

@@ -117,10 +117,12 @@ backend/
     │       ├── application.properties
     │       └── db/migration/
     │           ├── V1__baseline_existing_schema.sql
-    │           └── V2__football_data_catalog.sql
+    │           ├── V2__football_data_catalog.sql
+    │           └── V3__drop_legacy_players_position.sql
     └── test/
         └── java/com/example/demo/
             ├── adapter/footballdata/FootballDataAdapterTest.java
+            ├── config/CacheConfigTest.java
             ├── controller/PlayerControllerTest.java
             └── service/PlayerCatalogServiceTest.java
 ```
@@ -151,16 +153,26 @@ El frontend no requiere cambios.
    un conjunto vacío; sólo se descartan personas sin id, nombre o equipo.
 6. Una constraint UNIQUE parcial sobre `players.external_id` protege importaciones
    concurrentes. El service resuelve una colisión releyendo la fila existente.
-7. Para cada jugador nuevo, una única transacción crea el jugador con
-   `marketValue = 1.00`, una emisión total de 100 tokens y una asignación de los 100 al
-   superusuario. Una reimportación conserva `marketValue` y no vuelve a emitir tokens.
+7. Cada jugador se procesa en su propia transacción (FR-023), abierta con
+   `TransactionTemplate` o un bean `@Transactional` separado (no una llamada interna al
+   mismo bean, que el proxy de Spring no intercepta). Para un jugador nuevo esa
+   transacción crea el jugador con `marketValue = 1.00`, una emisión total de 100 tokens
+   y una asignación de los 100 al superusuario. Una reimportación conserva `marketValue`
+   y no vuelve a emitir tokens. `synchronizeCatalog()` ya no envuelve toda la ejecución
+   en una única transacción.
 8. Cada creación/actualización de Player, emisión inicial y transición de ejecución
    agrega un evento inmutable. Todos incluyen el ID del superusuario como actor del
    sistema, correlation ID, timestamp, acción/detalle, tipo/id de entidad y snapshots
-   anterior/posterior sanitizados; los eventos terminales agregan ligas y conteos.
-9. Una liga fallida no altera sus datos locales. Si todas fallan y nunca hubo snapshot
-   exitoso, el estado del catálogo queda `UNAVAILABLE`; si hay snapshot previo, las
-   lecturas continúan desde PostgreSQL.
+   anterior/posterior sanitizados; los eventos terminales agregan ligas y conteos
+   (procesados, ligas fallidas y jugadores fallidos).
+9. Si un jugador falla al persistir, su transacción se revierte, se anexa
+   `PLAYER_FAILED` (externalId y failureCode sanitizado) y el recorrido continúa. Una
+   liga fallida no altera sus datos locales. Estado terminal: `COMPLETED` sin fallas;
+   `FAILED` si hubo alguna falla y ningún jugador se persistió en la ejecución (incluye
+   todas las ligas fallidas); `PARTIAL_FAILURE` en otro caso. Sólo `COMPLETED` y
+   `PARTIAL_FAILURE` cuentan como snapshot exitoso; sin snapshot exitoso y sin jugadores
+   locales el catálogo queda `UNAVAILABLE`, y con snapshot previo las lecturas continúan
+   desde PostgreSQL.
 
 ### Disparo de sincronización y rate limit
 
@@ -168,8 +180,15 @@ El frontend no requiere cambios.
   existe snapshot exitoso.
 - `@Scheduled` ejecuta actualizaciones posteriores con cron configurable y validado; el
   intervalo efectivo mínimo es un minuto.
-- Un lock de proceso impide superposición entre el arranque y el cron en la única
-  instancia soportada. No hay reintentos HTTP automáticos.
+- Mientras no exista snapshot exitoso, un reintento de arranque con fixed delay
+  (`football-data.bootstrap-retry-interval`, default `PT5M`, mínimo un minuto) vuelve a
+  ejecutar la sincronización ante cualquier falla, incluida la ausencia del superusuario
+  `ADMIN`. Cada intento fallido loguea WARN con el código de causa sanitizado; si falta el
+  superusuario, indica que `MARKET_SUPERUSER_USERNAME` debe referenciar un usuario
+  `ADMIN` existente y no se audita porque no hay actor válido. Tras el primer snapshot
+  exitoso el reintento no hace nada y sólo aplica el cron.
+- Un lock de proceso impide superposición entre el arranque, el reintento de arranque y
+  el cron en la única instancia soportada. No hay reintentos HTTP automáticos.
 - Cada ejecución fría realiza una solicitud por código de liga (máximo 5) y las
   ejecuciones dentro del TTL reutilizan Redis. Un despliegue horizontal deberá agregar
   un lock distribuido antes de considerarse soportado.
@@ -208,8 +227,14 @@ por lo tanto no queda bloqueada por Football-Data.org.
   `action`, `detail`, `entity_type`, `entity_id`, `before_state` y `after_state`, además
   de liga/conteos opcionales. Es append-only: el repositorio sólo ofrece inserción y la
   migración rechaza `UPDATE`/`DELETE` para garantizar inmutabilidad en base de datos.
-- La creación de jugador y sus 100 tokens iniciales es atómica. Los eventos de auditoría
-  se anexan en transacciones independientes para conservar también intentos fallidos.
+- La creación de jugador y sus 100 tokens iniciales es atómica. `PLAYER_CREATED`,
+  `PLAYER_UPDATED` y `TOKENS_ALLOCATED` se anexan dentro de la transacción del jugador,
+  así un jugador revertido no deja auditoría huérfana. `STARTED`, los eventos terminales
+  y `PLAYER_FAILED` se anexan en transacciones independientes (`REQUIRES_NEW`) para
+  conservar también los intentos fallidos.
+- `V3__drop_legacy_players_position.sql` elimina, si existe, la columna legacy
+  `players.position` NOT NULL que dejan las bases creadas por `ddl-auto` antes del
+  baseline; en bases creadas desde V1 es un no-op.
 
 ### Observabilidad y auditoría
 
@@ -227,12 +252,15 @@ por lo tanto no queda bloqueada por Football-Data.org.
 - `football-data.token=${FOOTBALL_DATA_TOKEN}`
 - `football-data.connect-timeout` y `football-data.read-timeout`
 - `football-data.cache-ttl=${FOOTBALL_DATA_CACHE_TTL:PT6H}`
-- `football-data.sync.cron` y `football-data.sync.enabled`
-- `market.superuser.username=${MARKET_SUPERUSER_USERNAME}`
+- `football-data.sync-cron` y `football-data.enabled`
+- `football-data.bootstrap-retry-interval=${FOOTBALL_DATA_BOOTSTRAP_RETRY_INTERVAL:PT5M}`
+- `market.superuser-username=${MARKET_SUPERUSER_USERNAME:}`
 - propiedades estándar `spring.data.redis.*`
 - `spring.jpa.hibernate.ddl-auto=validate`, `spring.flyway.baseline-on-migrate=true` y
   `spring.flyway.baseline-version=1`
-- `@EnableCaching` y `RedisCacheManager` con serialización JSON y TTL por caché
+- `@EnableCaching` y `RedisCacheManager` con serialización JSON y TTL por caché; la caché
+  de equipos usa un serializador tipado a `FootballDataResponse` para que un cache hit
+  no devuelva un mapa genérico
 - propiedades de Actuator/Micrometer y logging estructurado
 
 ### Gates de entrega

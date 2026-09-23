@@ -17,8 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -37,6 +38,7 @@ public class PlayerCatalogService {
     private final PlayerTokenInitializationService tokenService;
     private final CatalogSyncAuditService auditService;
     private final FootballDataProperties properties;
+    private final TransactionOperations transactionOperations;
     private final Timer synchronizationTimer;
     private final Counter synchronizationErrors;
     private final Clock clock = Clock.systemUTC();
@@ -45,6 +47,7 @@ public class PlayerCatalogService {
                                 PlayerTokenInitializationService tokenService,
                                 CatalogSyncAuditService auditService,
                                 FootballDataProperties properties,
+                                TransactionOperations transactionOperations,
                                 @Qualifier("catalogSynchronizationDuration") Timer synchronizationTimer,
                                 MeterRegistry registry) {
         this.adapter = adapter;
@@ -52,44 +55,47 @@ public class PlayerCatalogService {
         this.tokenService = tokenService;
         this.auditService = auditService;
         this.properties = properties;
+        this.transactionOperations = transactionOperations;
         this.synchronizationTimer = synchronizationTimer;
         this.synchronizationErrors = registry.counter("catalog.synchronization.errors");
     }
 
-    @Transactional
+    /**
+     * Sin transacción envolvente: cada jugador se persiste en la suya (FR-023), así una falla
+     * puntual descarta sólo ese jugador y el resto de la ejecución sigue.
+     */
     public SyncResult synchronizeCatalog() {
         User actor = tokenService.requireSuperuser();
         UUID correlationId = correlationId();
         Timer.Sample sample = Timer.start();
         auditService.append(actor.getId(), correlationId, "STARTED", "Catalog synchronization started",
                 "CatalogSync", correlationId.toString(), null, "status=STARTED", null, 0, null);
-        int processed = 0;
-        int failedLeagues = 0;
+        RunCounts counts = new RunCounts();
         try {
             for (Map.Entry<String, League> competition : FootballDataMappings.competitions().entrySet()) {
                 try {
-                    processed += synchronizeCompetition(competition.getKey(), competition.getValue(), actor, correlationId);
+                    synchronizeCompetition(competition.getKey(), competition.getValue(), actor, correlationId, counts);
                 } catch (FootballDataException ex) {
-                    failedLeagues++;
+                    counts.failedLeagues++;
                     synchronizationErrors.increment();
                     log.warn("catalog_sync_league_failed correlationId={} league={} code={}",
                             correlationId, competition.getValue(), ex.getCode());
                 }
             }
-            String terminal = failedLeagues == 0 ? "COMPLETED"
-                    : failedLeagues == FootballDataMappings.competitions().size() ? "FAILED" : "PARTIAL_FAILURE";
+            String terminal = terminalStatus(counts);
             auditService.append(actor.getId(), correlationId, terminal,
                     "Catalog synchronization finished", "CatalogSync", correlationId.toString(),
-                    "status=STARTED", "status=" + terminal + ",processed=" + processed,
-                    null, processed, failedLeagues == 0 ? null : "external_source_error");
-            log.info("catalog_sync_finished correlationId={} result={} processed={} failedLeagues={}",
-                    correlationId, terminal, processed, failedLeagues);
-            return new SyncResult(terminal, processed, failedLeagues, correlationId);
+                    "status=STARTED", "status=" + terminal + ",processed=" + counts.processed
+                            + ",failedLeagues=" + counts.failedLeagues + ",failedPlayers=" + counts.failedPlayers,
+                    null, counts.processed, terminalFailureCode(counts));
+            log.info("catalog_sync_finished correlationId={} result={} processed={} failedLeagues={} failedPlayers={}",
+                    correlationId, terminal, counts.processed, counts.failedLeagues, counts.failedPlayers);
+            return new SyncResult(terminal, counts.processed, counts.failedLeagues, counts.failedPlayers, correlationId);
         } catch (RuntimeException ex) {
             synchronizationErrors.increment();
             auditService.append(actor.getId(), correlationId, "FAILED", "Catalog synchronization aborted",
                     "CatalogSync", correlationId.toString(), "status=STARTED", "status=FAILED",
-                    null, processed, "internal_persistence_error");
+                    null, counts.processed, "internal_persistence_error");
             log.error("catalog_sync_failed correlationId={} code=internal_persistence_error", correlationId, ex);
             throw ex;
         } finally {
@@ -98,18 +104,54 @@ public class PlayerCatalogService {
         }
     }
 
-    private int synchronizeCompetition(String code, League league, User actor, UUID correlationId) {
+    private void synchronizeCompetition(String code, League league, User actor, UUID correlationId,
+                                        RunCounts counts) {
         FootballDataResponse response = adapter.fetchCompetitionTeams(code);
-        int processed = 0;
         for (FootballDataResponse.Team team : response.teams()) {
             if (team.name() == null || team.name().isBlank()) continue;
             for (FootballDataResponse.SquadMember member : team.squad()) {
                 if (member.id() == null || member.name() == null || member.name().isBlank()) continue;
-                upsert(member, team.name(), league, actor, correlationId);
-                processed++;
+                if (persistPlayer(member, team.name(), league, actor, correlationId)) {
+                    counts.processed++;
+                } else {
+                    counts.failedPlayers++;
+                }
             }
         }
-        return processed;
+    }
+
+    private boolean persistPlayer(FootballDataResponse.SquadMember member, String team, League league,
+                                  User actor, UUID correlationId) {
+        try {
+            transactionOperations.executeWithoutResult(status -> upsert(member, team, league, actor, correlationId));
+            return true;
+        } catch (RuntimeException ex) {
+            String code = ex instanceof DataIntegrityViolationException
+                    ? "data_integrity_violation" : "internal_persistence_error";
+            synchronizationErrors.increment();
+            auditService.append(actor.getId(), correlationId, "PLAYER_FAILED",
+                    "Player could not be persisted and was skipped", "Player", member.id().toString(),
+                    null, null, league, 0, code);
+            log.warn("catalog_sync_player_failed correlationId={} league={} externalId={} code={}",
+                    correlationId, league, member.id(), code);
+            return false;
+        }
+    }
+
+    static String terminalStatus(RunCounts counts) {
+        if (counts.failedLeagues == 0 && counts.failedPlayers == 0) return "COMPLETED";
+        return counts.processed == 0 ? "FAILED" : "PARTIAL_FAILURE";
+    }
+
+    private static String terminalFailureCode(RunCounts counts) {
+        if (counts.failedLeagues > 0) return "external_source_error";
+        return counts.failedPlayers > 0 ? "player_persistence_error" : null;
+    }
+
+    static final class RunCounts {
+        int processed;
+        int failedLeagues;
+        int failedPlayers;
     }
 
     private void upsert(FootballDataResponse.SquadMember member, String team, League league,
@@ -131,7 +173,7 @@ public class PlayerCatalogService {
         player.setPositions(positions);
         Player saved = playerRepository.saveAndFlush(player);
         if (created) tokenService.initialize(saved, actor, correlationId);
-        auditService.append(actor.getId(), correlationId, created ? "PLAYER_CREATED" : "PLAYER_UPDATED",
+        auditService.appendInCurrentTransaction(actor.getId(), correlationId, created ? "PLAYER_CREATED" : "PLAYER_UPDATED",
                 created ? "Player imported from Football-Data" : "Player catalog data refreshed",
                 "Player", String.valueOf(saved.getId()), before, snapshot(saved), league, 1, null);
     }
@@ -164,6 +206,7 @@ public class PlayerCatalogService {
         return id;
     }
 
-    public record SyncResult(String status, int processed, int failedLeagues, UUID correlationId) {
+    public record SyncResult(String status, int processed, int failedLeagues, int failedPlayers,
+                             UUID correlationId) {
     }
 }

@@ -1,6 +1,7 @@
 package com.example.demo.scheduler;
 
 import com.example.demo.config.FootballDataProperties;
+import com.example.demo.exception.SuperuserUnavailableException;
 import com.example.demo.service.CatalogSyncAuditService;
 import com.example.demo.service.PlayerCatalogService;
 import org.slf4j.Logger;
@@ -31,6 +32,7 @@ public class PlayerCatalogScheduler {
         this.auditService = auditService;
         this.properties = properties;
         validateMinimumInterval(properties.syncCron());
+        validateBootstrapRetryInterval(properties.bootstrapRetryInterval());
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -43,17 +45,40 @@ public class PlayerCatalogScheduler {
         if (properties.enabled()) runOnce();
     }
 
+    /**
+     * Reintento de arranque (FR-016): hasta el primer snapshot exitoso reintenta ante cualquier
+     * falla, p. ej. un superusuario creado después de levantar la aplicación.
+     */
+    @Scheduled(fixedDelayString = "${football-data.bootstrap-retry-interval}",
+            initialDelayString = "${football-data.bootstrap-retry-interval}")
+    public void retryUntilFirstSuccessfulSnapshot() {
+        if (properties.enabled() && !auditService.hasSuccessfulSnapshot()) runOnce();
+    }
+
     void runOnce() {
         if (!running.compareAndSet(false, true)) {
             log.info("catalog_sync_skipped reason=already_running");
             return;
         }
         try {
-            service.synchronizeCatalog();
+            PlayerCatalogService.SyncResult result = service.synchronizeCatalog();
+            if (result != null && "FAILED".equals(result.status())) {
+                log.warn("catalog_sync_attempt_failed result=FAILED correlationId={} failedLeagues={} failedPlayers={}",
+                        result.correlationId(), result.failedLeagues(), result.failedPlayers());
+            }
+        } catch (SuperuserUnavailableException ex) {
+            log.warn("catalog_sync_attempt_failed code=superuser_unavailable action=\"MARKET_SUPERUSER_USERNAME "
+                    + "must reference an existing ADMIN user; synchronization will be retried\"");
         } catch (RuntimeException ex) {
-            log.error("catalog_sync_failed code=controlled_failure cause={}", ex.toString());
+            log.warn("catalog_sync_attempt_failed code=controlled_failure cause={}", ex.getClass().getSimpleName());
         } finally {
             running.set(false);
+        }
+    }
+
+    private void validateBootstrapRetryInterval(Duration interval) {
+        if (interval == null || interval.compareTo(FootballDataProperties.MIN_SYNC_INTERVAL) < 0) {
+            throw new IllegalArgumentException("football-data.bootstrap-retry-interval must be at least one minute");
         }
     }
 

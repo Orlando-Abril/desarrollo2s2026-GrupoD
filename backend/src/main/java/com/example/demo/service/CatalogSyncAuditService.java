@@ -22,10 +22,34 @@ public class CatalogSyncAuditService {
         this.repository = repository;
     }
 
+    /**
+     * Eventos que deben sobrevivir al rollback del trabajo que auditan: STARTED, terminales
+     * y PLAYER_FAILED.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void append(Long actorUserId, UUID correlationId, String action, String detail,
                        String entityType, String entityId, String beforeState, String afterState,
                        League league, Integer processedCount, String failureCode) {
+        save(actorUserId, correlationId, action, detail, entityType, entityId, beforeState, afterState,
+                league, processedCount, failureCode);
+    }
+
+    /**
+     * Eventos de cambio de un jugador (PLAYER_CREATED/UPDATED, TOKENS_ALLOCATED): viajan en la
+     * transacción del jugador para que un jugador revertido no deje auditoría huérfana.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void appendInCurrentTransaction(Long actorUserId, UUID correlationId, String action, String detail,
+                                           String entityType, String entityId, String beforeState,
+                                           String afterState, League league, Integer processedCount,
+                                           String failureCode) {
+        save(actorUserId, correlationId, action, detail, entityType, entityId, beforeState, afterState,
+                league, processedCount, failureCode);
+    }
+
+    private void save(Long actorUserId, UUID correlationId, String action, String detail,
+                      String entityType, String entityId, String beforeState, String afterState,
+                      League league, Integer processedCount, String failureCode) {
         repository.save(CatalogSyncAuditEvent.builder()
                 .actorUserId(actorUserId)
                 .correlationId(correlationId)
