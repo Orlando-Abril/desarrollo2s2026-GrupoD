@@ -1,0 +1,187 @@
+openapi: 3.0.3
+info:
+  title: Football Player Catalog API
+  version: 1.0.0
+  description: Contrato del listado local sincronizado desde Football-Data.org.
+paths:
+  /players:
+    get:
+      tags: [Players]
+      summary: Listar jugadores del catálogo
+      description: >-
+        Devuelve datos persistidos localmente. Los filtros presentes se combinan con
+        AND y la consulta no depende de la disponibilidad de Football-Data.org.
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: league
+          in: query
+          required: false
+          description: Liga exacta del dominio.
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: team
+          in: query
+          required: false
+          description: Nombre completo del equipo, comparado sin distinguir mayúsculas.
+          schema:
+            type: string
+            minLength: 1
+          example: Arsenal FC
+        - name: position
+          in: query
+          required: false
+          description: Posición que debe integrar el conjunto de posiciones del jugador.
+          schema:
+            $ref: '#/components/schemas/Position'
+      responses:
+        '200':
+          description: Lista filtrada; puede estar vacía.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayerResponse'
+        '400':
+          description: Filtro inválido.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: league debe ser una liga soportada
+        '401':
+          description: API key ausente, inválida o revocada.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                message: API key inválida o ausente
+        '503':
+          description: El catálogo nunca completó una sincronización y no hay jugadores locales.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: catalog_unavailable
+                message: El catálogo todavía no está disponible
+  /actuator/health:
+    get:
+      tags: [Operations]
+      summary: Consultar salud agregada del servicio
+      description: Informa estado agregado de aplicación, PostgreSQL y Redis sin exponer detalles sensibles.
+      security: []
+      responses:
+        '200':
+          description: Servicio y dependencias saludables.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Una dependencia requerida no está saludable.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+components:
+  headers:
+    CorrelationId:
+      description: Identificador propagado o generado para trazabilidad.
+      required: true
+      schema:
+        type: string
+        format: uuid
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  schemas:
+    League:
+      type: string
+      enum: [PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNDESLIGA, LIGUE_1]
+    Position:
+      type: string
+      enum: [GOALKEEPER, DEFENDER, MIDFIELDER, FORWARD]
+    PlayerResponse:
+      type: object
+      required: [id, externalId, fullName, team, league, positions, marketValue]
+      properties:
+        id:
+          type: integer
+          format: int64
+        externalId:
+          type: string
+        fullName:
+          type: string
+        team:
+          type: string
+        league:
+          $ref: '#/components/schemas/League'
+        positions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Position'
+        nationality:
+          type: string
+          nullable: true
+        age:
+          type: integer
+          minimum: 0
+          nullable: true
+        marketValue:
+          type: number
+          format: double
+          minimum: 0
+      example:
+        id: 42
+        externalId: '3180'
+        fullName: Bukayo Saka
+        team: Arsenal FC
+        league: PREMIER_LEAGUE
+        positions: [FORWARD]
+        nationality: England
+        age: 25
+        marketValue: 1.00
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN, OUT_OF_SERVICE, UNKNOWN]
+      example:
+        status: UP

@@ -75,7 +75,12 @@ Configurar localmente la contrasena de PostgreSQL mediante la variable de entorn
 
 ```env
 DB_PASSWORD=tu_contrasena_de_postgresql
+JWT_SECRET=un_secreto_de_al_menos_32_bytes
+FOOTBALL_DATA_TOKEN=token_de_football_data
 ```
+
+También se pueden configurar `REDIS_HOST`, `REDIS_PORT`, `FOOTBALL_DATA_CACHE_TTL` (por
+defecto `6h`), `FOOTBALL_DATA_CONNECT_TIMEOUT` y `FOOTBALL_DATA_READ_TIMEOUT`.
 
 La aplicacion utiliza esta variable desde `backend/src/main/resources/application.properties`:
 
@@ -97,6 +102,26 @@ Para compilar y verificar el backend:
 cd backend
 ./mvnw verify
 ```
+
+Los tests HTTP usan `MockRestServiceServer` y nunca llaman a Football-Data.org. El test
+de Redis usa Testcontainers y se omite automáticamente cuando Docker no está disponible.
+
+Catálogo de jugadores:
+
+* La carga desde Football-Data.org se dispara a pedido con `POST /players/sync` (con
+  `X-API-KEY`). Trae las 5 ligas, crea o actualiza jugadores por `externalId` y devuelve un
+  resumen (`COMPLETED`, `PARTIAL_FAILURE` o `FAILED`). No hay carga automática.
+* `GET /players` acepta `league`, `team` y `position`, exige `X-API-KEY` y consulta
+  exclusivamente PostgreSQL, así que sigue funcionando ante fallas externas. Devuelve `[]`
+  hasta la primera carga.
+* Redis cachea una respuesta por liga con TTL configurable.
+
+Operación y diagnóstico:
+
+* `GET /actuator/health` expone únicamente salud agregada de aplicación, PostgreSQL y Redis.
+* `/actuator/metrics` permanece protegido y expone las métricas estándar (por ejemplo `http.server.requests`).
+* Todas las respuestas incluyen `X-Correlation-ID`, que se incluye en los logs estructurados.
+* Swagger UI está en `http://localhost:8080/swagger-ui/index.html` y documenta `apiKeyAuth`.
 
 Una vez iniciado, el backend queda disponible en:
 

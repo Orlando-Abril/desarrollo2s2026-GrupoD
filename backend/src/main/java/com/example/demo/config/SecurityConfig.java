@@ -26,7 +26,8 @@ public class SecurityConfig {
             "/auth/register",
             "/auth/login",
             "/swagger-ui/**",
-            "/v3/api-docs/**"
+            "/v3/api-docs/**",
+            "/actuator/health"
     };
 
     @Value("${security.cors.allowed-origin}")
@@ -63,7 +64,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(allowedOrigin));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "X-API-KEY", "Content-Type"));
+        configuration.setAllowedHeaders(List.of("Authorization", "X-API-KEY", "X-Correlation-ID", "Content-Type"));
+        configuration.setExposedHeaders(List.of("X-Correlation-ID"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

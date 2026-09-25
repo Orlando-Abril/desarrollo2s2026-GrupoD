@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local secrets and generated reports ###
+.env
+.env.*
+!.env.example
+*.log
+backend/target/
