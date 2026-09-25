@@ -16,27 +16,30 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PlayerCatalogQueryServiceTest {
     @Mock PlayerRepository repository;
-    @Mock CatalogSyncAuditService auditService;
 
     @Test
     void mapsLocalResultsWithoutCallingAnAdapter() {
         Player player = Player.builder().id(1L).externalId("10").fullName("Player")
                 .team("Arsenal FC").league(League.PREMIER_LEAGUE).positions(Set.of(Position.FORWARD))
                 .marketValue(new BigDecimal("1.00")).build();
-        when(repository.count()).thenReturn(1L);
         when(repository.findAll(any(Specification.class))).thenReturn(List.of(player));
-        var result = new PlayerCatalogQueryService(repository, auditService)
+        var result = new PlayerCatalogQueryService(repository)
                 .findPlayers(League.PREMIER_LEAGUE, "arsenal fc", Position.FORWARD);
         assertThat(result).singleElement().satisfies(dto -> {
             assertThat(dto.externalId()).isEqualTo("10");
             assertThat(dto.positions()).containsExactly(Position.FORWARD);
         });
-        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void emptyCatalogReturnsEmptyList() {
+        when(repository.findAll(any(Specification.class))).thenReturn(List.of());
+        var result = new PlayerCatalogQueryService(repository).findPlayers(null, null, null);
+        assertThat(result).isEmpty();
     }
 }

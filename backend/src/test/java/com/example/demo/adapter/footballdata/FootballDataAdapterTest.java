@@ -2,7 +2,6 @@ package com.example.demo.adapter.footballdata;
 
 import com.example.demo.adapter.footballdata.dto.FootballDataResponse;
 import com.example.demo.exception.FootballDataException;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -30,8 +29,7 @@ class FootballDataAdapterTest {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://football.test/v4")
                 .defaultHeader("X-Auth-Token", "test-token");
         server = MockRestServiceServer.bindTo(builder).build();
-        SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        adapter = new FootballDataAdapter(builder.build(), registry.timer("football.data.request"), registry);
+        adapter = new FootballDataAdapter(builder.build());
     }
 
     @Test

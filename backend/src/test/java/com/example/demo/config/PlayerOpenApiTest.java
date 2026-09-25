@@ -19,8 +19,11 @@ class PlayerOpenApiTest {
     void exposesPlayerContractAndApiKeySecurity() throws Exception {
         mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/players'].get.parameters").isArray())
-                .andExpect(jsonPath("$.paths['/players'].get.responses['503']").exists())
+                .andExpect(jsonPath("$.paths['/players'].get.responses['503']").doesNotExist())
                 .andExpect(jsonPath("$.components.securitySchemes.apiKeyAuth.name").value("X-API-KEY"))
-                .andExpect(jsonPath("$.components.schemas.PlayerResponse").exists());
+                .andExpect(jsonPath("$.components.schemas.PlayerResponse").exists())
+                .andExpect(jsonPath("$.paths['/players/sync'].post").exists())
+                .andExpect(jsonPath("$.paths['/players/sync'].post.security[0].apiKeyAuth").exists())
+                .andExpect(jsonPath("$.components.schemas.PlayerSyncResponse").exists());
     }
 }

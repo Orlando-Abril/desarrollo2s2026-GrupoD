@@ -1,7 +1,6 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.player.PlayerResponse;
-import com.example.demo.exception.CatalogUnavailableException;
 import com.example.demo.model.League;
 import com.example.demo.model.Player;
 import com.example.demo.model.Position;
@@ -15,18 +14,13 @@ import java.util.List;
 @Service
 public class PlayerCatalogQueryService {
     private final PlayerRepository playerRepository;
-    private final CatalogSyncAuditService auditService;
 
-    public PlayerCatalogQueryService(PlayerRepository playerRepository, CatalogSyncAuditService auditService) {
+    public PlayerCatalogQueryService(PlayerRepository playerRepository) {
         this.playerRepository = playerRepository;
-        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
     public List<PlayerResponse> findPlayers(League league, String team, Position position) {
-        if (playerRepository.count() == 0 && !auditService.hasSuccessfulSnapshot()) {
-            throw new CatalogUnavailableException();
-        }
         return playerRepository.findAll(PlayerSpecifications.withFilters(league, team, position))
                 .stream().map(this::toResponse).toList();
     }

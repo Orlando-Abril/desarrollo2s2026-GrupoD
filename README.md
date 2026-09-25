@@ -77,26 +77,10 @@ Configurar localmente la contrasena de PostgreSQL mediante la variable de entorn
 DB_PASSWORD=tu_contrasena_de_postgresql
 JWT_SECRET=un_secreto_de_al_menos_32_bytes
 FOOTBALL_DATA_TOKEN=token_de_football_data
-MARKET_SUPERUSER_USERNAME=admin_preexistente
 ```
 
-La cuenta indicada por `MARKET_SUPERUSER_USERNAME` debe existir previamente y tener rol
-`ADMIN`; el importador nunca crea usuarios ni contraseñas por defecto. También se pueden
-configurar `REDIS_HOST`, `REDIS_PORT`, `FOOTBALL_DATA_CACHE_TTL` (por defecto `6h`),
-`FOOTBALL_DATA_CONNECT_TIMEOUT`, `FOOTBALL_DATA_READ_TIMEOUT`,
-`FOOTBALL_DATA_SYNC_CRON`, `FOOTBALL_DATA_BOOTSTRAP_RETRY_INTERVAL` (por defecto `PT5M`,
-mínimo un minuto) y `FOOTBALL_DATA_ENABLED`.
-
-**Primer arranque.** Para registrar el superusuario por `POST /auth/register` el backend
-tiene que estar corriendo, así que el orden es: levantar el backend (la primera
-sincronización falla con un WARN `superuser_unavailable`), registrar el usuario, pasarlo a
-`ADMIN` con `UPDATE users SET role = 'ADMIN' WHERE username = '<usuario>';` y esperar: mientras
-no exista una sincronización exitosa se reintenta cada `FOOTBALL_DATA_BOOTSTRAP_RETRY_INTERVAL`,
-sin reiniciar. Después del primer éxito sólo aplica `FOOTBALL_DATA_SYNC_CRON`.
-
-**Fallas parciales.** Cada jugador se guarda en su propia transacción: si uno no puede
-persistirse se descarta sólo ese, se audita `PLAYER_FAILED` en `catalog_sync_audit_events`
-y la sincronización sigue (`PARTIAL_FAILURE`). Si no se guardó ningún jugador, termina `FAILED`.
+También se pueden configurar `REDIS_HOST`, `REDIS_PORT`, `FOOTBALL_DATA_CACHE_TTL` (por
+defecto `6h`), `FOOTBALL_DATA_CONNECT_TIMEOUT` y `FOOTBALL_DATA_READ_TIMEOUT`.
 
 La aplicacion utiliza esta variable desde `backend/src/main/resources/application.properties`:
 
@@ -119,21 +103,24 @@ cd backend
 ./mvnw verify
 ```
 
-Los tests HTTP usan `MockRestServiceServer` y nunca llaman a Football-Data.org. Los tests
-de PostgreSQL y Redis usan Testcontainers y se omiten automáticamente cuando Docker no
-está disponible. Flyway es la autoridad del esquema (`V1` baseline y `V2` catálogo),
-mientras Hibernate sólo lo valida.
+Los tests HTTP usan `MockRestServiceServer` y nunca llaman a Football-Data.org. El test
+de Redis usa Testcontainers y se omite automáticamente cuando Docker no está disponible.
 
-El catálogo se sincroniza al arrancar si no existe un snapshot exitoso y luego mediante
-el cron configurado. `GET /players` acepta `league`, `team` y `position`, exige
-`X-API-KEY` y sigue consultando exclusivamente PostgreSQL ante fallas externas. Redis
-cachea una respuesta por liga con TTL configurable.
+Catálogo de jugadores:
+
+* La carga desde Football-Data.org se dispara a pedido con `POST /players/sync` (con
+  `X-API-KEY`). Trae las 5 ligas, crea o actualiza jugadores por `externalId` y devuelve un
+  resumen (`COMPLETED`, `PARTIAL_FAILURE` o `FAILED`). No hay carga automática.
+* `GET /players` acepta `league`, `team` y `position`, exige `X-API-KEY` y consulta
+  exclusivamente PostgreSQL, así que sigue funcionando ante fallas externas. Devuelve `[]`
+  hasta la primera carga.
+* Redis cachea una respuesta por liga con TTL configurable.
 
 Operación y diagnóstico:
 
 * `GET /actuator/health` expone únicamente salud agregada de aplicación, PostgreSQL y Redis.
-* `/actuator/metrics` permanece protegido y contiene latencia/error de Football-Data y duración/error de sincronización.
-* Todas las respuestas incluyen `X-Correlation-ID`; los jobs generan el suyo y lo incluyen en logs estructurados y auditoría append-only.
+* `/actuator/metrics` permanece protegido y expone las métricas estándar (por ejemplo `http.server.requests`).
+* Todas las respuestas incluyen `X-Correlation-ID`, que se incluye en los logs estructurados.
 * Swagger UI está en `http://localhost:8080/swagger-ui/index.html` y documenta `apiKeyAuth`.
 
 Una vez iniciado, el backend queda disponible en:
