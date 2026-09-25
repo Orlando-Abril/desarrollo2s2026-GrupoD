@@ -158,7 +158,7 @@
 - [X] T054 [P] Crear prueba de regresión que inspeccione logs/errores/auditoría y garantice que `FOOTBALL_DATA_TOKEN` y payloads completos nunca se exponen en `backend/src/test/java/com/example/demo/security/FootballDataSecretLeakTest.java`
 - [X] T055 Verificar y ajustar servicios PostgreSQL/Redis, build, tests, JaCoCo y análisis Sonar en `.github/workflows/ci.yml`
 - [X] T056 Ejecutar `./mvnw.cmd test` y `./mvnw.cmd verify`, corregir regresiones y documentar cualquier ajuste de validación en `specs/003-football-data-players/quickstart.md`
-- [ ] T057 Ejecutar escenarios manuales de filtros, API key, `503`, scheduler, tokens, auditoría, caché, health, métricas y Swagger en `specs/003-football-data-players/quickstart.md`
+- [X] T057 Ejecutar escenarios manuales de filtros, API key, `503`, scheduler, tokens, auditoría, caché, health, métricas y Swagger en `specs/003-football-data-players/quickstart.md`
 - [X] T058 Comparar la implementación final con paths, headers, schemas y respuestas de `specs/003-football-data-players/contracts/players-api.yaml`
 - [ ] T059 Confirmar GitHub Actions `SUCCESS` y SonarCloud `PASSED`, sin vulnerabilidades y con menos de 10 issues menores, registrando el resultado en `specs/003-football-data-players/quickstart.md`
 
