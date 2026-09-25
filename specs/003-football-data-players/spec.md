@@ -1,5 +1,7 @@
 # Feature Specification: Football-Data Player Catalog
 
+> **Alcance reducido** por `specs/004-simplificar-catalogo-jugadores` (2026-09-24): se retiraron Flyway, scheduler, emisión de tokens, superusuario, auditoría del catálogo y métricas custom.
+
 **Feature Branch**: `003-football-data-players`
 
 **Created**: 2026-09-21

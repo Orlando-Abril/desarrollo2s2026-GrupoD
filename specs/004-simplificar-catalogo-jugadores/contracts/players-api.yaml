@@ -1,0 +1,157 @@
+openapi: 3.0.3
+info:
+  title: Football Player Catalog API (alcance Entrega 1)
+  version: 1.1.0
+  description: >-
+    Contrato del catálogo de jugadores simplificado. Reemplaza al de
+    specs/003-football-data-players: se retira la respuesta 503 de GET /players
+    y se agrega POST /players/sync como único disparo explícito de la carga.
+paths:
+  /players:
+    get:
+      tags: [Players]
+      summary: Listar jugadores del catálogo
+      description: >-
+        Devuelve jugadores guardados localmente. Los filtros presentes se combinan
+        con AND. Nunca consulta Football-Data.org, así que funciona aunque la
+        fuente externa esté caída. Con el catálogo vacío devuelve [].
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: league
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/League'
+        - name: team
+          in: query
+          required: false
+          description: Nombre completo del equipo, sin distinguir mayúsculas. No puede estar en blanco.
+          schema:
+            type: string
+            minLength: 1
+          example: Arsenal FC
+        - name: position
+          in: query
+          required: false
+          description: Posición incluida en el conjunto de posiciones del jugador.
+          schema:
+            $ref: '#/components/schemas/Position'
+      responses:
+        '200':
+          description: Lista filtrada; puede estar vacía.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayerResponse'
+        '400':
+          description: Filtro inválido (liga o posición inexistente, equipo en blanco).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: validation_error
+                message: Uno o más filtros son inválidos
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /players/sync:
+    post:
+      tags: [Players]
+      summary: Cargar o actualizar el catálogo desde Football-Data.org
+      description: >-
+        Ejecuta una carga, de forma síncrona, de las 5 ligas. Crea los jugadores
+        nuevos y actualiza los existentes por externalId, sin borrar ninguno. Usa
+        la caché Redis por liga (TTL configurable). Las fallas por liga o por
+        jugador no interrumpen la carga y se informan en el resumen. Dos llamadas
+        simultáneas se ejecutan una detrás de la otra. No requiere superusuario.
+      security:
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Carga ejecutada. El resultado de negocio viaja en status.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerSyncResponse'
+              examples:
+                completed:
+                  value: { status: COMPLETED, processed: 2649, failedLeagues: 0, failedPlayers: 0 }
+                partial:
+                  value: { status: PARTIAL_FAILURE, processed: 2110, failedLeagues: 1, failedPlayers: 0 }
+                failed:
+                  value: { status: FAILED, processed: 0, failedLeagues: 5, failedPlayers: 0 }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  headers:
+    CorrelationId:
+      description: UUID propagado desde la request o generado por el servidor.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: API key ausente, inválida o inactiva.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: unauthorized
+            message: Falta el header X-API-KEY
+  schemas:
+    League:
+      type: string
+      enum: [PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNDESLIGA, LIGUE_1]
+    Position:
+      type: string
+      enum: [GOALKEEPER, DEFENDER, MIDFIELDER, FORWARD]
+    PlayerResponse:
+      type: object
+      required: [id, externalId, fullName, team, league, positions, marketValue]
+      properties:
+        id: { type: integer, format: int64, example: 42 }
+        externalId: { type: string, example: '3180' }
+        fullName: { type: string, example: Bukayo Saka }
+        team: { type: string, example: Arsenal FC }
+        league: { $ref: '#/components/schemas/League' }
+        positions:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Position' }
+        nationality: { type: string, nullable: true, example: England }
+        age: { type: integer, nullable: true, minimum: 0, example: 25 }
+        marketValue: { type: number, minimum: 0, example: 1.00 }
+    PlayerSyncResponse:
+      type: object
+      required: [status, processed, failedLeagues, failedPlayers]
+      properties:
+        status:
+          type: string
+          enum: [COMPLETED, PARTIAL_FAILURE, FAILED]
+        processed: { type: integer, minimum: 0, description: Jugadores creados o actualizados. }
+        failedLeagues: { type: integer, minimum: 0, maximum: 5 }
+        failedPlayers: { type: integer, minimum: 0 }
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string }
+        message: { type: string }
