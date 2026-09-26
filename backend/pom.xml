@@ -88,6 +88,14 @@
 			<version>3.1.1</version>
 		</dependency>
 
+		<!-- WhoScored: Chromium headless como transporte del feed (Cloudflare bloquea al cliente HTTP de Java).
+		     Chromium se instala aparte con el CLI de Playwright; ver specs/005-whoscored-player-stats/quickstart.md -->
+		<dependency>
+			<groupId>com.microsoft.playwright</groupId>
+			<artifactId>playwright</artifactId>
+			<version>1.63.0</version>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>
