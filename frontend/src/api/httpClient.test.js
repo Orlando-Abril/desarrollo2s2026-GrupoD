@@ -61,10 +61,11 @@ describe('httpClient', () => {
     })))
 
     const result = request('/slow')
+    const rejection = expect(result).rejects.toBeInstanceOf(NetworkError)
     await vi.advanceTimersByTimeAsync(9999)
     expect(fetch.mock.results[0].value).toBeInstanceOf(Promise)
     await vi.advanceTimersByTimeAsync(1)
-    await expect(result).rejects.toBeInstanceOf(NetworkError)
+    await rejection
     expect(clearSpy).toHaveBeenCalled()
   })
 
