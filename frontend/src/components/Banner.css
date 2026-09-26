@@ -1,0 +1,9 @@
+.banner {
+  border: var(--borde);
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+.banner--error { background: var(--rojo); color: #fff; }
+.banner--info { background: var(--amarillo); color: var(--tinta); }
