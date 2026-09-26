@@ -1,0 +1,43 @@
+.figurita {
+  min-width: 0;
+  border: var(--borde);
+  padding: 8px;
+  background: #fff;
+  box-shadow: var(--sombra-sm);
+}
+.figurita__photo {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1 / 1.05;
+  border: var(--borde);
+  background-color: var(--figurita-liga);
+  background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.13) 0 9px, transparent 9px 18px);
+}
+.figurita__photo::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.55) 45%, rgba(255,240,150,.4) 50%, transparent 62%);
+  content: '';
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translateX(-80%);
+  transition: transform .35s ease, opacity .2s ease;
+}
+.figurita__number { position: absolute; z-index: 2; top: 6px; left: 8px; color: #fff; font-family: var(--font-display); font-size: 30px; line-height: .9; -webkit-text-stroke: 1.5px var(--tinta); }
+.figurita__number small { display: block; font-size: 14px; }
+.figurita__position { position: absolute; z-index: 2; top: 8px; right: 7px; border: var(--borde); padding: 3px 5px; background: var(--amarillo); color: var(--tinta); font-family: var(--font-mono); font-size: 10px; font-weight: 700; transform: rotate(6deg); }
+.figurita__silhouette { position: absolute; bottom: -2px; left: 14%; width: 72%; color: var(--tinta); }
+.figurita__name { overflow: hidden; margin: 8px 0 2px; font-family: var(--font-display); font-size: 20px; font-weight: 400; line-height: 1; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.figurita__detail, .figurita__value { display: flex; align-items: center; justify-content: space-between; gap: var(--esp-2); min-width: 0; font-family: var(--font-mono); }
+.figurita__detail { color: var(--tinta-2); font-size: 10px; }
+.figurita__detail span { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
+.figurita__value { margin-top: 7px; border-top: 2px dashed var(--tinta); padding-top: 6px; }
+.figurita__value strong { font-family: var(--font-display); font-size: 19px; font-weight: 400; white-space: nowrap; }
+.figurita__value span { font-size: 10px; text-align: right; }
+.figurita-grid .figurita { transition: transform .2s ease, box-shadow .2s ease; }
+.figurita-grid .figurita:hover { box-shadow: 6px 6px 0 var(--tinta); transform: translate(-2px, -2px) rotate(-1deg); }
+.figurita-grid .figurita:hover .figurita__photo::after { opacity: 1; transform: translateX(70%); }
+@media (prefers-reduced-motion: reduce) {
+  .figurita-grid .figurita:hover { box-shadow: var(--sombra-sm); transform: none; }
+  .figurita-grid .figurita:hover .figurita__photo::after { opacity: 0; transform: none; }
+}

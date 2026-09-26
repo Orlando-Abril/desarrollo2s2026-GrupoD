@@ -1,0 +1,7 @@
+.auth-page { display: grid; grid-template-columns: minmax(0, 1fr) 440px; align-items: center; gap: 48px; min-height: calc(100vh - 64px); }
+.auth-decoration { min-width: 0; }
+.auth-form { display: grid; gap: 14px; }
+@media (max-width: 900px) {
+  .auth-page { display: flex; justify-content: center; min-height: calc(100vh - 56px); padding-top: 24px; }
+  .auth-decoration { display: none; }
+}

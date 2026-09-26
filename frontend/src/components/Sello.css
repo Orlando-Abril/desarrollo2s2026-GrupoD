@@ -1,0 +1,3 @@
+.sello { display: inline-block; border: 3px double currentColor; padding: 6px 10px; background: #fff; font-family: var(--font-mono); font-size: 12px; font-weight: 700; text-transform: uppercase; transform: rotate(-3deg); }
+.sello--error { color: var(--rojo); }
+.sello--neutral { color: var(--tinta-2); }
