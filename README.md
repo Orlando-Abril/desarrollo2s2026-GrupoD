@@ -103,6 +103,17 @@ cd backend
 ./mvnw verify
 ```
 
+Autenticación JWT en Swagger:
+
+1. Ejecutar `POST /auth/login` con usuario y contraseña.
+2. Copiar el campo `token` de la respuesta.
+3. Pulsar **Authorize** en Swagger y pegar el token en `bearerAuth`.
+4. Ejecutar los endpoints protegidos, por ejemplo `GET /players`.
+
+El usuario de la aplicación web no necesita ver ni manejar una API key: el frontend usa el
+JWT del login. `apiKeyAuth` sigue disponible como credencial alternativa para Swagger,
+scripts e integraciones programáticas.
+
 Catálogo de jugadores:
 
 * La carga desde Football-Data.org se dispara a pedido con `POST /players/sync` (con

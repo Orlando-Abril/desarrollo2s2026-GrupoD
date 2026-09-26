@@ -33,6 +33,7 @@ import java.util.List;
 @Validated
 @Tag(name = "Players", description = "Catálogo local sincronizado desde Football-Data.org")
 @SecurityRequirement(name = "apiKeyAuth")
+@SecurityRequirement(name = "bearerAuth")
 public class PlayerController {
     private final PlayerCatalogQueryService queryService;
     private final PlayerCatalogService catalogService;

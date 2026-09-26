@@ -1,18 +1,16 @@
 package com.example.demo.security;
 
 import com.example.demo.config.SecurityConfig;
-import com.example.demo.model.ApiKey;
-import com.example.demo.repository.ApiKeyRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
@@ -21,24 +19,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Optional;
 
-/**
- * Autoriza requests de servicio validando el header {@code X-API-KEY} contra el hash
- * persistido en {@code api_keys}. Contrato completo en
- * specs/001-seguridad-infraestructura/contracts/security-infrastructure.md §2.
- */
 @Component
-public class ApiKeyAuthFilter extends OncePerRequestFilter {
+public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private static final String API_KEY_HEADER = "X-API-KEY";
+    private static final String BEARER_PREFIX = "Bearer ";
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
-    private final ApiKeyRepository apiKeyRepository;
+    private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public ApiKeyAuthFilter(ApiKeyRepository apiKeyRepository) {
-        this.apiKeyRepository = apiKeyRepository;
+    public JwtAuthFilter(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -54,43 +46,33 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
-                                     @NonNull HttpServletResponse response,
-                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain filterChain) throws ServletException, IOException {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String rawKey = request.getHeader(API_KEY_HEADER);
-
-        if (rawKey == null || rawKey.isBlank()) {
-            respondUnauthorized(response, "Falta el header X-API-KEY");
+        String token = authorization.substring(BEARER_PREFIX.length());
+        if (!jwtUtil.isTokenValid(token)) {
+            respondUnauthorized(response);
             return;
         }
 
-        Optional<ApiKey> apiKey = apiKeyRepository.findByKeyHash(ApiKeyHasher.sha256Hex(rawKey));
-
-        if (apiKey.isEmpty() || !apiKey.get().isActive()) {
-            respondUnauthorized(response, "API key inválida o inactiva");
-            return;
-        }
-
-        String principal = apiKey.get().getOwner() != null
-                ? apiKey.get().getOwner().getUsername()
-                : apiKey.get().getKeyPrefix();
-
+        String username = jwtUtil.extractUsername(token);
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
-
+                new UsernamePasswordAuthenticationToken(username, null, List.of()));
         filterChain.doFilter(request, response);
     }
 
-    private void respondUnauthorized(HttpServletResponse response, String message) throws IOException {
+    private void respondUnauthorized(HttpServletResponse response) throws IOException {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write(objectMapper.writeValueAsString(new ErrorBody("unauthorized", message)));
+        response.getWriter().write(objectMapper.writeValueAsString(
+                new ErrorBody("unauthorized", "Token inválido o vencido")));
     }
 
     private record ErrorBody(String error, String message) {

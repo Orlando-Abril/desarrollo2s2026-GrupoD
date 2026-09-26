@@ -2,19 +2,28 @@ package com.example.demo.security;
 
 import com.example.demo.model.ApiKey;
 import com.example.demo.repository.ApiKeyRepository;
+import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,6 +70,26 @@ class ApiKeyAuthFilterTest {
 
         mockMvc.perform(get(PROTECTED_PATH).header(API_KEY_HEADER, rawKey))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void conSecurityContextYaAutenticadoDeberiaContinuarSinConsultarApiKey() throws Exception {
+        ApiKeyRepository repository = mock(ApiKeyRepository.class);
+        ApiKeyAuthFilter filter = new ApiKeyAuthFilter(repository);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", PROTECTED_PATH);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("guada", null, List.of()));
+
+        try {
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verifyNoInteractions(repository);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     private void persistirApiKey(String rawKey, String prefix, boolean active) throws NoSuchAlgorithmException {
