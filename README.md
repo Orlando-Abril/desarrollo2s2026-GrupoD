@@ -103,9 +103,6 @@ cd backend
 ./mvnw verify
 ```
 
-Los tests HTTP usan `MockRestServiceServer` y nunca llaman a Football-Data.org. El test
-de Redis usa Testcontainers y se omite automáticamente cuando Docker no está disponible.
-
 Catálogo de jugadores:
 
 * La carga desde Football-Data.org se dispara a pedido con `POST /players/sync` (con
@@ -116,12 +113,36 @@ Catálogo de jugadores:
   hasta la primera carga.
 * Redis cachea una respuesta por liga con TTL configurable.
 
-Operación y diagnóstico:
+Estadísticas de rendimiento (WhoScored):
 
-* `GET /actuator/health` expone únicamente salud agregada de aplicación, PostgreSQL y Redis.
-* `/actuator/metrics` permanece protegido y expone las métricas estándar (por ejemplo `http.server.requests`).
-* Todas las respuestas incluyen `X-Correlation-ID`, que se incluye en los logs estructurados.
-* Swagger UI está en `http://localhost:8080/swagger-ui/index.html` y documenta `apiKeyAuth`.
+* Un proceso semanal obtiene de WhoScored minutos, goles, asistencias, tiros, pases clave,
+  tackles, tarjetas y rating de los jugadores del catálogo, y los guarda en la tabla
+  `player_stats`.
+* **Viene deshabilitado.** Para activarlo se define `WHOSCORED_SYNC_ENABLED=true`. Corre los
+  lunes a las 04:00 UTC (`WHOSCORED_SYNC_CRON`, formato cron de Spring) y nunca al arrancar.
+  El catálogo tiene que estar cargado antes (`POST /players/sync`).
+* WhoScored bloquea a los clientes HTTP comunes, así que los datos se descargan con un
+  **Chromium sin ventana (Playwright)**. Hay que instalarlo una vez; la app no lo descarga
+  sola. Desde `backend/`:
+
+  ```bash
+  # Windows (PowerShell)
+  .\mvnw.cmd exec:java -e "-Dexec.mainClass=com.microsoft.playwright.CLI" "-Dexec.args=install chromium"
+  # Linux (incluye dependencias del sistema)
+  ./mvnw exec:java -e -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps chromium"
+  ```
+
+  Ocupa unos 700 MB. Sin Chromium, la app arranca igual y cada liga falla con
+  `code=browser_error` en el log, sin borrar datos.
+* Los resultados se cachean por jugador en Redis (`WHOSCORED_CACHE_TTL`, por defecto `24h`).
+  Si una liga no se puede obtener completa, no se guarda nada de esa liga y se conservan los
+  datos anteriores. Nunca se guarda un conjunto parcial de métricas.
+* Los jugadores se emparejan por nombre y equipo normalizados. Los equipos cuyo nombre en
+  WhoScored no se parece al de Football-Data se declaran en
+  `backend/src/main/java/com/example/demo/service/TeamAliases.java`.
+* Cada ejecución deja en el log `whoscored_stats_update_finished processed= updated=
+  fromCache= unmatched= failed=`. Los motivos de cada jugador sin datos quedan en
+  `whoscored_stats_unmatched`, y las ligas fallidas en `whoscored_stats_league_failed`.
 
 Una vez iniciado, el backend queda disponible en:
 
