@@ -3,6 +3,7 @@ package com.example.demo.adapter.whoscored.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -28,6 +29,6 @@ public record WhoScoredPlayerStats(
 
     public boolean hasAnyMetric() {
         return rating != null || Stream.of(minutesPlayed, goals, assists, shots, keyPasses, tackles,
-                yellowCards, redCards).anyMatch(metric -> metric != null);
+                yellowCards, redCards).anyMatch(Objects::nonNull);
     }
 }

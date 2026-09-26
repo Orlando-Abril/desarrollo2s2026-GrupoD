@@ -14,7 +14,7 @@ import java.util.UUID;
 
 /**
  * Disparador periódico de la actualización de estadísticas de WhoScored. Sólo existe con
- * {@code whoscored.sync.enabled=true}; no tiene lógica propia: delega todo en {@link PlayerStatsService}.
+ * {@code whoscored.sync.enabled=true}; no tiene lógica propia: delega la actualización completa en {@link PlayerStatsService}.
  */
 @Component
 @ConditionalOnProperty(name = "whoscored.sync.enabled", havingValue = "true")

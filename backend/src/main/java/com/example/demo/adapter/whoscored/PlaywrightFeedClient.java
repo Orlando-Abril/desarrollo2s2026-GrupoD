@@ -45,7 +45,10 @@ public class PlaywrightFeedClient implements WhoScoredFeedClient {
             }""";
 
     private final WhoScoredProperties properties;
+    // Recursos abiertos durante una ejecución; se cierran explícitamente en close() (en orden inverso).
     private Playwright playwright;
+    private Browser browser;
+    private BrowserContext context;
     private Page page;
 
     public PlaywrightFeedClient(WhoScoredProperties properties) {
@@ -80,15 +83,27 @@ public class PlaywrightFeedClient implements WhoScoredFeedClient {
 
     @Override
     public synchronized void close() {
-        if (playwright != null) {
-            try {
-                playwright.close();
-            } catch (PlaywrightException ex) {
-                log.warn("whoscored_browser_close_failed");
-            }
-        }
-        playwright = null;
         page = null;
+        if (context != null) {
+            closeQuietly(context::close);
+            context = null;
+        }
+        if (browser != null) {
+            closeQuietly(browser::close);
+            browser = null;
+        }
+        if (playwright != null) {
+            closeQuietly(playwright::close);
+            playwright = null;
+        }
+    }
+
+    private static void closeQuietly(Runnable closeAction) {
+        try {
+            closeAction.run();
+        } catch (PlaywrightException ex) {
+            log.warn("whoscored_browser_close_failed");
+        }
     }
 
     private Page openIfNeeded() {
@@ -99,10 +114,10 @@ public class PlaywrightFeedClient implements WhoScoredFeedClient {
             // La app no descarga navegadores: Chromium se instala aparte con el CLI de Playwright.
             playwright = Playwright.create(new Playwright.CreateOptions()
                     .setEnv(Map.of("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")));
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
+            browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
                     .setHeadless(true)
                     .setArgs(List.of("--disable-blink-features=AutomationControlled")));
-            BrowserContext context = browser.newContext(new Browser.NewContextOptions()
+            context = browser.newContext(new Browser.NewContextOptions()
                     .setUserAgent(properties.userAgent())
                     .setLocale("en-US"));
             Page opened = context.newPage();

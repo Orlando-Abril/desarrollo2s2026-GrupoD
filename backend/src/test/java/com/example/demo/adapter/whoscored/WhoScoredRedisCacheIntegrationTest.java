@@ -16,6 +16,7 @@ import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -41,9 +42,9 @@ class WhoScoredRedisCacheIntegrationTest {
     }
 
     @Test
-    void storesTypedPlayerStatsAndExpiresThem() throws Exception {
+    void storesTypedPlayerStatsWithTheConfiguredTtl() {
         var serializer = new JacksonJsonRedisSerializer<>(JsonMapper.builder().build(), WhoScoredPlayerStats.class);
-        var config = RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMillis(250))
+        var config = RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMinutes(5))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
         var manager = RedisCacheManager.builder(connectionFactory).cacheDefaults(config).build();
         manager.afterPropertiesSet();
@@ -54,7 +55,11 @@ class WhoScoredRedisCacheIntegrationTest {
         cache.put(42L, stats);
 
         assertThat(cache.get(42L, WhoScoredPlayerStats.class)).isEqualTo(stats);
-        Thread.sleep(350);
-        assertThat(cache.get(42L)).isNull();
+        // TTL que Redis le asignó a la entrada (sin esperar a que venza): > 0 y ≤ 5 minutos.
+        try (var connection = connectionFactory.getConnection()) {
+            Long ttlMillis = connection.keyCommands()
+                    .pTtl("whoscored-player-stats::42".getBytes(StandardCharsets.UTF_8));
+            assertThat(ttlMillis).isPositive().isLessThanOrEqualTo(Duration.ofMinutes(5).toMillis());
+        }
     }
 }

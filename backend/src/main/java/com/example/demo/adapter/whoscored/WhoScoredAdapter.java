@@ -25,7 +25,8 @@ import java.util.List;
 public class WhoScoredAdapter {
     private static final Logger log = LoggerFactory.getLogger(WhoScoredAdapter.class);
 
-    static final String FEED_PATH = "/statisticsfeed/1/getplayerstatistics";
+    /** Ruta del feed ({@code /statisticsfeed/1/getplayerstatistics}): parte del contrato con WhoScored, no configurable. */
+    private static final String[] FEED_PATH_SEGMENTS = {"statisticsfeed", "1", "getplayerstatistics"};
 
     /** Marcadores de challenge anti-bot: un cuerpo así nunca se interpreta como JSON. */
     private static final List<String> BLOCK_MARKERS = List.of(
@@ -99,7 +100,8 @@ public class WhoScoredAdapter {
     }
 
     private static String pathAndQuery(int tournamentId, FeedQuery query) {
-        return UriComponentsBuilder.fromPath(FEED_PATH)
+        return UriComponentsBuilder.newInstance()
+                .pathSegment(FEED_PATH_SEGMENTS)
                 .queryParam("category", query.category())
                 .queryParam("subcategory", query.subcategory())
                 .queryParam("statsAccumulationType", query.accumulationType())

@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  * Enriquece los jugadores del catálogo con métricas de WhoScored.
  * <p>
  * Por liga: primero se resuelven desde la caché (por jugador) los jugadores con un resultado vigente; sólo si
- * queda alguno pendiente se descarga la liga (4 consultas). Unidad de falla de obtención: la liga (todo o nada):
+ * queda alguno pendiente se descarga la liga (4 consultas). Unidad de falla de obtención: la liga completa o nada:
  * si no se pudo obtener completa, sus pendientes quedan {@code failed} y conservan sus métricas previas.
  * El matching es por equipo y jugador con igualdad exacta de nombres normalizados (sin similitud ni alias), y
  * cada jugador se persiste en su propia transacción.
@@ -140,44 +140,55 @@ public class PlayerStatsService {
     private String matchTeam(String localTeam, Map<String, List<WhoScoredPlayerStats>> rowsByTeam,
                              List<Player> players, Run run) {
         String local = NameNormalizer.team(localTeam);
-        // Equivalencia fija (TeamAliases): tiene prioridad; si ese equipo no está en la liga, siguen las demás reglas.
-        String alias = TeamAliases.whoScoredNameFor(local).orElse(null);
-        if (alias != null) {
-            List<String> aliased = teamsWhere(rowsByTeam, name -> name.equals(alias));
-            if (aliased.size() == 1) {
-                return included(localTeam, aliased.get(0), rowsByTeam, "alias");
-            }
+        String aliased = matchByAlias(localTeam, local, rowsByTeam);
+        if (aliased != null) {
+            return aliased;
         }
         List<String> exact = teamsWhere(rowsByTeam, name -> !local.isEmpty() && name.equals(local));
         if (exact.size() == 1) {
             return exact.get(0);
         }
-        if (exact.isEmpty() && !local.isEmpty()) {
-            List<String> prefix = teamsWhere(rowsByTeam,
-                    name -> name.length() >= MIN_INCLUDED_TEAM_NAME && local.startsWith(name));
+        boolean ambiguous = exact.size() > 1;
+        if (!ambiguous && !local.isEmpty()) {
+            List<String> prefix = teamsWhere(rowsByTeam, name -> isIncludable(name) && local.startsWith(name));
             if (prefix.size() == 1) {
                 return included(localTeam, prefix.get(0), rowsByTeam, "prefix");
             }
             Set<String> localWords = Set.copyOf(List.of(local.split(" ")));
             List<String> contains = teamsWhere(rowsByTeam,
-                    name -> name.length() >= MIN_INCLUDED_TEAM_NAME && localWords.containsAll(List.of(name.split(" "))));
+                    name -> isIncludable(name) && localWords.containsAll(List.of(name.split(" "))));
             if (contains.size() == 1) {
                 return included(localTeam, contains.get(0), rowsByTeam, "contains");
             }
-            if (prefix.isEmpty() && contains.isEmpty()) {
-                players.forEach(player -> unmatched(player, "team_not_found", run));
-                return null;
-            }
+            ambiguous = prefix.size() > 1 || contains.size() > 1;
         }
-        players.forEach(player -> unmatched(player, "team_ambiguous", run));
+        String reason = ambiguous ? "team_ambiguous" : "team_not_found";
+        players.forEach(player -> unmatched(player, reason, run));
         return null;
+    }
+
+    /** Equivalencia fija (TeamAliases): tiene prioridad; si ese equipo no está en la liga, siguen las demás reglas. */
+    private static String matchByAlias(String localTeam, String local,
+                                       Map<String, List<WhoScoredPlayerStats>> rowsByTeam) {
+        String alias = TeamAliases.whoScoredNameFor(local).orElse(null);
+        if (alias == null) {
+            return null;
+        }
+        List<String> aliased = teamsWhere(rowsByTeam, name -> name.equals(alias));
+        return aliased.size() == 1 ? included(localTeam, aliased.get(0), rowsByTeam, "alias") : null;
+    }
+
+    private static boolean isIncludable(String sourceTeamName) {
+        return sourceTeamName.length() >= MIN_INCLUDED_TEAM_NAME;
     }
 
     /** Asociación no exacta (equivalencia o inclusión): se registra para poder auditarla. */
     private static String included(String localTeam, String teamId, Map<String, List<WhoScoredPlayerStats>> rowsByTeam,
                                    String rule) {
-        log.info("whoscored_stats_team_matched team={} whoscoredTeam={} rule={}", localTeam,
-                String.join("/", teamNames(rowsByTeam.get(teamId))), rule);
+        if (log.isInfoEnabled()) {
+            log.info("whoscored_stats_team_matched team={} whoscoredTeam={} rule={}", localTeam,
+                    String.join("/", teamNames(rowsByTeam.get(teamId))), rule);
+        }
         return teamId;
     }
 
