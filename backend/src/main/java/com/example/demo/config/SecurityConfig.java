@@ -1,6 +1,7 @@
 package com.example.demo.config;
 
 import com.example.demo.security.ApiKeyAuthFilter;
+import com.example.demo.security.JwtAuthFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,7 +39,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyAuthFilter apiKeyAuthFilter) {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyAuthFilter apiKeyAuthFilter,
+                                                   JwtAuthFilter jwtAuthFilter) {
         try {
             http
                     // API stateless (JWT en Authorization + API Key en header): no hay cookies de sesión,
@@ -51,7 +53,8 @@ public class SecurityConfig {
                             .anyRequest().authenticated()
                     )
                     .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-                    .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                    .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                    .addFilterBefore(jwtAuthFilter, ApiKeyAuthFilter.class);
 
             return http.build();
         } catch (Exception e) {
