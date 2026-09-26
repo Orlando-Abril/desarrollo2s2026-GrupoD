@@ -7,5 +7,5 @@ export default function Toast({ children, onDismiss }) {
     return () => clearTimeout(timer)
   }, [onDismiss])
 
-  return <div className="toast" role="status">{children}</div>
+  return <output className="toast">{children}</output>
 }

@@ -48,6 +48,30 @@ function parseBody(text) {
   }
 }
 
+function buildHeaders(body, extraHeaders) {
+  const headers = { ...extraHeaders }
+  const token = clientConfig.getToken()
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
+function validateResponse(response, payload, { publicRequest, expectJson }) {
+  if (!response.ok) {
+    if (response.status === 401 && !publicRequest) clientConfig.onUnauthorized()
+    const validError = payload && typeof payload.error === 'string' && typeof payload.message === 'string'
+    throw new ApiError(
+      response.status,
+      validError ? payload.error : 'unexpected_error',
+      validError ? payload.message : UNEXPECTED_MESSAGE,
+    )
+  }
+
+  if (expectJson && payload === null) {
+    throw new ApiError(response.status, 'unexpected_error', UNEXPECTED_MESSAGE)
+  }
+}
+
 export async function request(path, options = {}) {
   const {
     method = 'GET',
@@ -58,34 +82,16 @@ export async function request(path, options = {}) {
   } = options
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 10000)
-  const headers = { ...extraHeaders }
-  const token = clientConfig.getToken()
-
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
-  if (token) headers.Authorization = `Bearer ${token}`
 
   try {
     const response = await fetch(buildUrl(path), {
       method,
-      headers,
+      headers: buildHeaders(body, extraHeaders),
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     })
     const payload = parseBody(await response.text())
-
-    if (!response.ok) {
-      if (response.status === 401 && !publicRequest) clientConfig.onUnauthorized()
-      const validError = payload && typeof payload.error === 'string' && typeof payload.message === 'string'
-      throw new ApiError(
-        response.status,
-        validError ? payload.error : 'unexpected_error',
-        validError ? payload.message : UNEXPECTED_MESSAGE,
-      )
-    }
-
-    if (expectJson && payload === null) {
-      throw new ApiError(response.status, 'unexpected_error', UNEXPECTED_MESSAGE)
-    }
+    validateResponse(response, payload, { publicRequest, expectJson })
     return payload
   } catch (error) {
     if (error instanceof ApiError) throw error

@@ -18,6 +18,10 @@ function messageFor(error) {
   return 'Algo salió mal. Intentá de nuevo en unos minutos.'
 }
 
+function addFieldError(errors, field, message) {
+  errors[field] = message
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { login } = useSession()
@@ -40,11 +44,11 @@ export default function RegisterPage() {
 
   const validate = () => {
     const next = {}
-    if (!form.username.trim()) next.username = 'Obligatorio.'
-    if (!form.email) next.email = 'Obligatorio.'
-    else if (emailRef.current?.validity.typeMismatch) next.email = 'Ingresá un email válido.'
-    if (!form.password) next.password = 'Obligatorio.'
-    else if (form.password.length < 8) next.password = 'Mínimo 8 caracteres.'
+    if (!form.username.trim()) addFieldError(next, 'username', 'Obligatorio.')
+    if (!form.email) addFieldError(next, 'email', 'Obligatorio.')
+    else if (emailRef.current?.validity.typeMismatch) addFieldError(next, 'email', 'Ingresá un email válido.')
+    if (!form.password) addFieldError(next, 'password', 'Obligatorio.')
+    else if (form.password.length < 8) addFieldError(next, 'password', 'Mínimo 8 caracteres.')
     setErrors(next)
     const first = ['username', 'email', 'password'].find((field) => next[field])
     refs[first]?.current?.focus()
