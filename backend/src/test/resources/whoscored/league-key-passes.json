@@ -1,0 +1,82 @@
+{
+ "playerTableStats": [
+  {
+   "playerId": 315227,
+   "name": "Erling Haaland",
+   "teamId": 167,
+   "teamName": "Manchester City",
+   "tournamentId": 2,
+   "seasonName": "2026/2027",
+   "apps": 5,
+   "keyPassesTotal": 1.0
+  },
+  {
+   "playerId": 123761,
+   "name": "Bruno Fernandes",
+   "teamId": 32,
+   "teamName": "Manchester United",
+   "tournamentId": 2,
+   "seasonName": "2026/2027",
+   "apps": 5,
+   "keyPassesTotal": 13.0
+  },
+  {
+   "playerId": 395692,
+   "name": "Cole Palmer",
+   "teamId": 15,
+   "teamName": "Chelsea",
+   "tournamentId": 2,
+   "seasonName": "2026/2027",
+   "apps": 5,
+   "keyPassesTotal": 11.0
+  },
+  {
+   "playerId": 369430,
+   "name": "Enzo Fernández",
+   "teamId": 167,
+   "teamName": "Manchester City",
+   "tournamentId": 2,
+   "seasonName": "2026/2027",
+   "apps": 3,
+   "keyPassesTotal": 3.0
+  },
+  {
+   "playerId": 247454,
+   "name": "Martin Ødegaard",
+   "teamId": 13,
+   "teamName": "Arsenal",
+   "tournamentId": 2,
+   "seasonName": "2026/2027",
+   "apps": 5,
+   "keyPassesTotal": 12.0
+  },
+  {
+   "playerId": 332325,
+   "name": "Declan Rice",
+   "teamId": 13,
+   "teamName": "Arsenal",
+   "tournamentId": 2,
+   "seasonName": "2026/2027",
+   "apps": 5,
+   "keyPassesTotal": 7.0
+  },
+  {
+   "playerId": 369430,
+   "name": "Enzo Fernández",
+   "teamId": 15,
+   "teamName": "Chelsea",
+   "tournamentId": 2,
+   "seasonName": "2026/2027",
+   "apps": 1,
+   "keyPassesTotal": 1.0
+  }
+ ],
+ "paging": {
+  "currentPage": 1,
+  "totalPages": 0,
+  "resultsPerPage": 0,
+  "totalResults": 0,
+  "firstRecordIndex": 0,
+  "lastRecordIndex": 0
+ }
+}

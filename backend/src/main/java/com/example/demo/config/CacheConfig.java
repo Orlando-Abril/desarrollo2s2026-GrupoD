@@ -1,6 +1,7 @@
 package com.example.demo.config;
 
 import com.example.demo.adapter.footballdata.dto.FootballDataResponse;
+import com.example.demo.adapter.whoscored.dto.WhoScoredPlayerStats;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -21,12 +22,14 @@ import java.util.Map;
 public class CacheConfig {
 
     public static final String COMPETITION_TEAMS_CACHE = "football-data-competition-teams";
+    public static final String WHOSCORED_PLAYER_STATS_CACHE = "whoscored-player-stats";
 
     @Bean
     @ConditionalOnProperty(name = "spring.cache.type", havingValue = "redis", matchIfMissing = true)
     CacheManager redisCacheManager(RedisConnectionFactory connectionFactory,
                                    ObjectMapper objectMapper,
-                                   FootballDataProperties properties) {
+                                   FootballDataProperties properties,
+                                   WhoScoredProperties whoScoredProperties) {
         RedisCacheConfiguration defaults = RedisCacheConfiguration.defaultCacheConfig()
                 .disableCachingNullValues()
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
@@ -37,9 +40,15 @@ public class CacheConfig {
                 .entryTtl(properties.cacheTtl())
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new JacksonJsonRedisSerializer<>(objectMapper, FootballDataResponse.class)));
+        RedisCacheConfiguration playerStatsConfig = defaults
+                .entryTtl(whoScoredProperties.cacheTtl())
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new JacksonJsonRedisSerializer<>(objectMapper, WhoScoredPlayerStats.class)));
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaults)
-                .withInitialCacheConfigurations(Map.of(COMPETITION_TEAMS_CACHE, competitionConfig))
+                .withInitialCacheConfigurations(Map.of(
+                        COMPETITION_TEAMS_CACHE, competitionConfig,
+                        WHOSCORED_PLAYER_STATS_CACHE, playerStatsConfig))
                 .build();
     }
 }

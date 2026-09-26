@@ -1,0 +1,15 @@
+{
+ "playerTableStats": [
+  {"playerId": 900001, "name": "Kobbie Mainoo", "teamId": 32, "teamName": "Man Utd", "tournamentId": 2,
+   "minsPlayed": 357, "assistTotal": 1, "yellowCard": 1.5, "redCard": 0.0, "rating": "abc"},
+  {"playerId": 900002, "name": "Luke Shaw", "teamId": 32, "teamName": "Man Utd", "tournamentId": 2,
+   "minsPlayed": -10, "goal": 0, "assistTotal": 0, "yellowCard": 0.0, "redCard": 0.0, "rating": 11.5},
+  {"playerId": 900003, "name": "Luke Shaw", "teamId": 32, "teamName": "Man Utd", "tournamentId": 2,
+   "minsPlayed": 90, "goal": 0, "assistTotal": 0, "yellowCard": 0.0, "redCard": 0.0, "rating": 6.5},
+  {"name": "Sin Identificador", "teamId": 32, "teamName": "Man Utd", "tournamentId": 2,
+   "minsPlayed": 10, "goal": 0, "assistTotal": 0, "yellowCard": 0.0, "redCard": 0.0, "rating": 6.0},
+  {"playerId": 900004, "name": "Tom Heaton", "teamId": 32, "teamName": "Man Utd", "tournamentId": 2,
+   "minsPlayed": null, "goal": null, "assistTotal": null, "yellowCard": null, "redCard": null, "rating": null}
+ ],
+ "paging": {"currentPage": 1, "totalPages": 0}
+}
