@@ -1,0 +1,27 @@
+.album-table-panel {
+  max-width: 100%;
+  overflow-x: auto;
+  border: var(--borde-grueso);
+  background: var(--blanco);
+  box-shadow: var(--sombra-md);
+}
+.album-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+.album-table th {
+  border-bottom: var(--borde);
+  padding: 10px 12px;
+  background: var(--papel-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: left;
+  text-transform: uppercase;
+}
+.album-table td { border-bottom: 1px solid rgba(27,26,23,.18); padding: 10px 12px; }
+.album-table tbody tr:hover { background: rgba(244,194,27,.13); }
+.album-table__number { font-family: var(--font-mono); text-align: right; }
+.album-table th:first-child,
+.album-table th:nth-last-child(-n+2) { text-align: right; }
+.album-table__player { display: inline-flex; align-items: center; gap: var(--esp-2); }
+.album-table__player i { display: inline-block; width: 22px; height: 26px; border: var(--borde); background: var(--league-color); }
+.album-table__positions { display: flex; gap: var(--esp-1); }
+.album-table__positions span { border: 1.5px solid var(--tinta); padding: 2px 4px; background: var(--amarillo); font-family: var(--font-mono); font-size: 10px; font-weight: 700; }

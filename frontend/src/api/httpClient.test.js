@@ -69,6 +69,40 @@ describe('httpClient', () => {
     expect(clearSpy).toHaveBeenCalled()
   })
 
+  it('forwards an already aborted external signal to fetch', async () => {
+    const externalController = new AbortController()
+    externalController.abort()
+    vi.stubGlobal('fetch', vi.fn((_, { signal }) => {
+      expect(signal.aborted).toBe(true)
+      return Promise.reject(new DOMException('Aborted', 'AbortError'))
+    }))
+
+    await expect(request('/players', { signal: externalController.signal })).rejects.toBeInstanceOf(NetworkError)
+  })
+
+  it('aborts fetch when the external signal is aborted', async () => {
+    const externalController = new AbortController()
+    vi.stubGlobal('fetch', vi.fn((_, { signal }) => new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+    })))
+
+    const result = request('/players', { signal: externalController.signal })
+    externalController.abort()
+
+    await expect(result).rejects.toBeInstanceOf(NetworkError)
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(true)
+  })
+
+  it('removes the external abort listener after the request finishes', async () => {
+    const externalController = new AbortController()
+    const removeSpy = vi.spyOn(externalController.signal, 'removeEventListener')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(200, [])))
+
+    await request('/players', { signal: externalController.signal })
+
+    expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function))
+  })
+
   it('uses the current token and normalizes the URL', async () => {
     let token = 'first'
     configureHttpClient({ getToken: () => token, onUnauthorized: () => {} })
@@ -88,6 +122,16 @@ describe('httpClient', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(401, { error: 'invalid_token', message: 'expired' })))
 
     await expect(request('/players')).rejects.toBeInstanceOf(ApiError)
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the protected 401 callback when an external signal is present', async () => {
+    const onUnauthorized = vi.fn()
+    const externalController = new AbortController()
+    configureHttpClient({ getToken: () => 'token', onUnauthorized })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(401, { error: 'invalid_token', message: 'expired' })))
+
+    await expect(request('/players', { signal: externalController.signal })).rejects.toBeInstanceOf(ApiError)
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
 

@@ -79,8 +79,15 @@ export async function request(path, options = {}) {
     publicRequest = false,
     expectJson = true,
     headers: extraHeaders = {},
+    signal,
   } = options
   const controller = new AbortController()
+  const abortFromCaller = () => controller.abort()
+  if (signal?.aborted) {
+    controller.abort()
+  } else {
+    signal?.addEventListener('abort', abortFromCaller, { once: true })
+  }
   const timeout = setTimeout(() => controller.abort(), 10000)
 
   try {
@@ -98,5 +105,6 @@ export async function request(path, options = {}) {
     throw new NetworkError()
   } finally {
     clearTimeout(timeout)
+    signal?.removeEventListener('abort', abortFromCaller)
   }
 }
