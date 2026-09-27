@@ -8,29 +8,39 @@ export function SessionProvider({ children }) {
   const [session, setSession] = useState(null)
   const sessionRef = useRef(session)
   const navigate = useNavigate()
+  const navigateRef = useRef(navigate)
 
   useEffect(() => {
-    sessionRef.current = session
-  }, [session])
+    navigateRef.current = navigate
+  }, [navigate])
 
-  const login = useCallback((nextSession) => setSession({
+  // El ref se actualiza junto con el estado y no en un efecto: los efectos de la página destino
+  // corren antes que los de este provider, y su primer request necesita el token ya disponible.
+  const updateSession = useCallback((nextSession) => {
+    sessionRef.current = nextSession
+    setSession(nextSession)
+  }, [])
+
+  const login = useCallback((nextSession) => updateSession({
     token: nextSession.token,
     tokenType: nextSession.tokenType,
     username: nextSession.username,
-  }), [])
+  }), [updateSession])
 
-  const logout = useCallback(() => setSession(null), [])
+  const logout = useCallback(() => updateSession(null), [updateSession])
 
+  // Se registra una sola vez: navigate cambia con cada navegación y re-registrar dejaría al cliente
+  // sin token justo cuando la página nueva hace su primer request.
   useEffect(() => configureHttpClient({
     getToken: () => sessionRef.current?.token ?? null,
     onUnauthorized: () => {
-      setSession(null)
-      navigate('/ingresar', {
+      updateSession(null)
+      navigateRef.current('/ingresar', {
         replace: true,
         state: { info: 'Tu sesión venció. Volvé a ingresar.' },
       })
     },
-  }), [navigate])
+  }), [updateSession])
 
   const value = useMemo(() => ({
     token: session?.token ?? null,
