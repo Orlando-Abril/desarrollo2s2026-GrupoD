@@ -18,6 +18,23 @@
   color: var(--tinta);
   box-shadow: var(--sombra-sm);
 }
+.button--text {
+  width: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--tinta);
+  box-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-transform: none;
+}
+.button.button--text:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
 .button:active:not(:disabled) {
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0 var(--tinta);

@@ -1,0 +1,39 @@
+.album-filters {
+  display: grid;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  border: var(--borde);
+  padding: 12px;
+  background: var(--blanco);
+}
+.album-filters__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--esp-3);
+}
+.album-filters__fields .field:last-child { grid-column: 1 / -1; }
+.album-filters__fields input,
+.album-filters__fields select { width: 100%; font-size: 14px; }
+.album-filters__actions { display: flex; align-items: center; justify-content: space-between; gap: var(--esp-3); }
+.view-toggle { display: flex; }
+.view-toggle button {
+  min-height: 36px;
+  border: var(--borde);
+  padding: var(--esp-2) var(--esp-3);
+  background: var(--blanco);
+  color: var(--tinta);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.view-toggle button + button { border-left: 0; }
+.view-toggle button[aria-pressed="true"] { background: var(--tinta); color: var(--papel); }
+
+@media (min-width: 901px) {
+  .album-filters { grid-template-columns: 1fr auto; align-items: end; }
+  .album-filters__fields { display: flex; flex-wrap: wrap; }
+  .album-filters__fields .field { flex: 1 1 150px; }
+  .album-filters__fields .field:last-child { flex-basis: 220px; }
+  .album-filters__actions { flex-direction: column; align-items: flex-end; }
+}
