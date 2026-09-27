@@ -1,16 +1,23 @@
-# React + Vite
+# LaFigu frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Base web de LaFigu construida con React 19 y Vite.
 
-Currently, two official plugins are available:
+## Configuración local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Copiá `.env.example` como `.env`.
+2. Ajustá `VITE_API_BASE_URL` si el backend no está disponible en `http://localhost:8080`.
+3. Instalá las dependencias con `npm ci`.
+4. Iniciá la aplicación con `npm run dev`.
 
-## React Compiler
+Vite debe conservar el puerto `5173`: el backend acepta CORS desde `http://localhost:5173`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Verificaciones
 
-## Expanding the Oxlint configuration
+- `npm test`: ejecuta los tests una vez.
+- `npm test -- --coverage`: ejecuta los tests y genera `coverage/lcov.info` para SonarCloud.
+- `npm run lint`: analiza el código con Oxlint.
+- `npm run build`: genera el build de producción.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Sesión
+
+El token, su tipo y el nombre de usuario se guardan únicamente en memoria mediante el contexto de React. La aplicación no los escribe en `localStorage`, `sessionStorage`, cookies ni IndexedDB. Por diseño, recargar la página cierra la sesión y redirige a Ingresar.

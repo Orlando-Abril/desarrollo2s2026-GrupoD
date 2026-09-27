@@ -1,0 +1,11 @@
+:root{
+  --papel:#f3ecdc; --papel-2:#e8dec6; --blanco:#fffdf7; --tinta:#1b1a17; --tinta-2:#4a4740;
+  --rojo:#e2412f; --verde:#12805c; --azul:#1f4fd1; --amarillo:#f4c21b; --violeta:#6b3fa0;
+  --liga-premier:var(--violeta); --liga-laliga:var(--rojo); --liga-seriea:var(--azul);
+  --liga-bundesliga:var(--tinta-2); --liga-ligue1:var(--verde);
+  --borde:2px solid var(--tinta); --borde-grueso:3px solid var(--tinta);
+  --sombra-sm:4px 4px 0 var(--tinta); --sombra-md:5px 5px 0 var(--tinta); --sombra-lg:6px 6px 0 var(--tinta);
+  --font-display:'Anton',Impact,sans-serif; --font-texto:'Archivo',system-ui,sans-serif; --font-mono:'Space Mono',ui-monospace,monospace;
+  --esp-1:4px; --esp-2:8px; --esp-3:12px; --esp-4:16px; --esp-5:24px; --esp-6:32px;
+  --ancho-max:1200px;
+}

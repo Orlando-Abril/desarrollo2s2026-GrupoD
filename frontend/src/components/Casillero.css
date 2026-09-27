@@ -1,0 +1,6 @@
+.casillero { display: grid; place-items: center; width: min(260px, 100%); aspect-ratio: 1 / 1.55; border: 2px dashed var(--tinta); background: var(--papel-2); text-align: center; }
+.casillero strong { align-self: end; font-family: var(--font-display); font-size: 44px; font-weight: 400; opacity: .3; }
+.casillero span { align-self: start; max-width: 190px; font-family: var(--font-mono); font-size: 11px; }
+.casillero--cargando { animation: casillero-pulse 1.2s infinite; }
+@keyframes casillero-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .casillero--cargando { animation: none; } }

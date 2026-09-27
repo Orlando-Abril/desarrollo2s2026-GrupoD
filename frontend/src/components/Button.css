@@ -1,0 +1,25 @@
+.button {
+  border: 0;
+  padding: 12px 18px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.button--primary {
+  width: 100%;
+  background: var(--tinta);
+  color: var(--papel);
+  box-shadow: 4px 4px 0 var(--rojo);
+}
+.button--secondary {
+  width: auto;
+  background: var(--amarillo);
+  color: var(--tinta);
+  box-shadow: var(--sombra-sm);
+}
+.button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--tinta);
+}
+.button:disabled { opacity: .6; cursor: progress; }

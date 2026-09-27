@@ -1,0 +1,37 @@
+.carnet {
+  width: min(440px, 100%);
+  background: var(--blanco);
+  border: var(--borde-grueso);
+  box-shadow: var(--sombra-lg);
+}
+.carnet__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  border-bottom: var(--borde-grueso);
+  padding: 14px 16px;
+  color: #fff;
+}
+.carnet--login .carnet__header { background: var(--azul); }
+.carnet--register .carnet__header { background: var(--rojo); }
+.carnet__header h1 {
+  max-width: 310px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.carnet__header span {
+  border: 2px solid #fff;
+  padding: var(--esp-1) var(--esp-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.carnet__body { padding: 18px; }
+.carnet__footer { border-top: 2px dashed var(--tinta); padding: 12px 18px; font-size: 14px; }
+.carnet__footer a { font-weight: 800; }
