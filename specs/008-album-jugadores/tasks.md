@@ -265,3 +265,10 @@ Con varias personas después de Foundation:
 - Los tests nuevos son exactamente `playersApi.test.js`, `albumUtils.test.js` y `AlbumPage.test.jsx`; `httpClient.test.js` ya existe y se amplía.
 - No modificar `App.jsx`, `SessionContext.jsx`, `tokens.css`, `domain/catalogo.js` ni backend salvo que una contradicción comprobable obligue a detenerse y consultar.
 - No marcar T032 ni T033 completas sin evidencia de backend real y CI `SUCCESS`.
+
+---
+
+## Phase 9: Convergence
+
+- [ ] T034 Agregar en `frontend/src/pages/AlbumPage.test.jsx` una prueba que inicie sesión y navegue a `/album` como el flujo real (login → navigate, no `AutoLogin` simultáneo) y verifique que la primera y las siguientes consultas `GET /players` envían `Authorization: Bearer <jwt>` y nunca `X-API-KEY` per FR-003 (partial)
+- [ ] T035 Documentar en `specs/008-album-jugadores/research.md` la excepción a "No modificar `SessionContext.jsx`": el primer request tras el login salía sin Bearer (ref sincronizado en efecto y cliente HTTP re-registrado al cambiar `navigate`), la corrección en `frontend/src/session/SessionContext.jsx` y la prueba nueva `frontend/src/session/SessionContext.test.jsx` per plan: Project Structure (unrequested)

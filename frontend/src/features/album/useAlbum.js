@@ -11,6 +11,13 @@ import {
 
 const DEFAULT_FILTERS = { league: '', position: '', team: '', search: '' }
 
+// Liga y posición también limpian el equipo, así que consultan si cambian o si había un equipo elegido.
+function startsRequest(filters, name, value) {
+  if (name === 'league' || name === 'position') return value !== filters[name] || Boolean(filters.team)
+  if (name === 'team') return value !== filters.team
+  return false
+}
+
 export default function useAlbum() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [responsePlayers, setResponsePlayers] = useState([])
@@ -60,12 +67,8 @@ export default function useAlbum() {
   const hasActiveFilters = Boolean(league || position || team || normalizeText(filters.search))
 
   const changeFilter = useCallback((name, value) => {
-    const startsRequest = name === 'league'
-      ? value !== filters.league || Boolean(filters.team)
-      : name === 'position'
-        ? value !== filters.position || Boolean(filters.team)
-        : name === 'team' && value !== filters.team
-    if (startsRequest) {
+    const remoteFilters = { league: filters.league, position: filters.position, team: filters.team }
+    if (startsRequest(remoteFilters, name, value)) {
       setStatus('loading')
       setError(null)
     }
