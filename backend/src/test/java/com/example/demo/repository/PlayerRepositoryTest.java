@@ -28,8 +28,6 @@ class PlayerRepositoryTest {
     private PlayerRepository playerRepository;
 
     private Player messi;
-    private Player deBruyne;
-    private Player alisson;
 
     @BeforeEach
     void setUp() {
@@ -45,7 +43,7 @@ class PlayerRepositoryTest {
                 .marketValue(new BigDecimal("35000000"))
                 .build());
 
-        deBruyne = playerRepository.save(Player.builder()
+        playerRepository.save(Player.builder()
                 .externalId("ext-debruyne")
                 .fullName("Kevin De Bruyne")
                 .team("Manchester City")
@@ -57,7 +55,7 @@ class PlayerRepositoryTest {
                 .marketValue(new BigDecimal("40000000"))
                 .build());
 
-        alisson = playerRepository.save(Player.builder()
+        playerRepository.save(Player.builder()
                 .externalId("ext-alisson")
                 .fullName("Alisson Becker")
                 .team("Liverpool")

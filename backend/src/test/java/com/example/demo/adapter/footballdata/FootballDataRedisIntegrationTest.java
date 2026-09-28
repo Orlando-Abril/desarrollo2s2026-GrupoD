@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @Testcontainers(disabledWithoutDocker = true)
 class FootballDataRedisIntegrationTest {
@@ -38,7 +39,7 @@ class FootballDataRedisIntegrationTest {
     }
 
     @Test
-    void storesJsonAndExpiresCompetitionValue() throws Exception {
+    void storesJsonAndExpiresCompetitionValue() {
         var serializer = new GenericJacksonJsonRedisSerializer(new ObjectMapper());
         var config = RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMillis(250))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
@@ -47,7 +48,6 @@ class FootballDataRedisIntegrationTest {
         var cache = manager.getCache("football-data-competition-teams");
         cache.put("PL", List.of("Arsenal FC"));
         assertThat(cache.get("PL", List.class)).containsExactly("Arsenal FC");
-        Thread.sleep(350);
-        assertThat(cache.get("PL")).isNull();
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(cache.get("PL")).isNull());
     }
 }
