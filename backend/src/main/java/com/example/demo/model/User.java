@@ -9,6 +9,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * Usuario de la plataforma. Se autentica con username/password para obtener un JWT
@@ -53,7 +54,7 @@ public class User {
     @PrePersist
     void onCreate() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = LocalDateTime.now(ZoneId.systemDefault());
         }
     }
 }

@@ -8,6 +8,7 @@ class DemoApplicationTests {
 
 	@Test
 	void contextLoads() {
+		// Verifica que el contexto de Spring levanta; no requiere aserciones.
 	}
 
 }
