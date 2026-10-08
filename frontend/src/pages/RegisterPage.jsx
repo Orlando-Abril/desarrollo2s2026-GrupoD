@@ -65,12 +65,12 @@ export default function RegisterPage() {
       try {
         const result = await loginRequest({ username: form.username, password: form.password })
         flushSync(() => login({ ...result, username: form.username }))
-        navigate('/album', {
+        void navigate('/album', {
           replace: true,
           state: { toast: `¡Bienvenida/o, ${form.username}! Tu álbum ya está abierto.` },
         })
       } catch {
-        navigate('/ingresar', {
+        void navigate('/ingresar', {
           replace: true,
           state: {
             username: form.username,

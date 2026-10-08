@@ -35,7 +35,7 @@ export function SessionProvider({ children }) {
     getToken: () => sessionRef.current?.token ?? null,
     onUnauthorized: () => {
       updateSession(null)
-      navigateRef.current('/ingresar', {
+      void navigateRef.current('/ingresar', {
         replace: true,
         state: { info: 'Tu sesión venció. Volvé a ingresar.' },
       })

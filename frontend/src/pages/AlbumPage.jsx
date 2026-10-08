@@ -19,7 +19,7 @@ export default function AlbumPage() {
   const album = useAlbum()
   const dismissToast = useCallback(() => {
     setToast(null)
-    navigate(location.pathname, { replace: true, state: null })
+    void navigate(location.pathname, { replace: true, state: null })
   }, [location.pathname, navigate])
 
   const changePage = useCallback((nextPage) => {
