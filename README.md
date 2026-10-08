@@ -177,3 +177,56 @@ Para generar el build:
 cd frontend
 npm run build
 ```
+
+## Tests end-to-end con PostgreSQL y Redis reales
+
+Los tests `e2e` son destructivos: antes de cada método ejecutan `TRUNCATE ... RESTART
+IDENTITY CASCADE` sobre todas las tablas del esquema PostgreSQL configurado y `FLUSHDB`
+sobre Redis. Use exclusivamente servicios dedicados a pruebas, sin datos que necesite
+conservar, y no ejecute estos tests en paralelo contra la misma infraestructura.
+
+Los valores predeterminados, iguales a los del CI, son:
+
+| Variable | Valor predeterminado |
+|---|---|
+| `E2E_DB_URL` | `jdbc:postgresql://localhost:5432/desarrollo2_grupod` |
+| `E2E_DB_USER` | `postgres` |
+| `E2E_DB_PASSWORD` | `postgres` |
+| `REDIS_HOST` | `localhost` |
+| `REDIS_PORT` | `6379` |
+
+Si PostgreSQL o Redis no tienen un socket disponible, los e2e se omiten localmente con un
+motivo que identifica el servicio. Con `CI=true` nunca se omiten: la falta de infraestructura
+o unas credenciales inválidas hacen fallar la ejecución. El sondeo local comprueba sockets,
+no credenciales ni la existencia de la base.
+
+Ejecute los comandos desde `backend/`.
+
+Windows PowerShell:
+
+```powershell
+# Sólo unitarios/no-e2e
+.\mvnw.cmd test '-DexcludedGroups=e2e'
+
+# Sólo e2e
+.\mvnw.cmd test '-Dgroups=e2e'
+
+# Todo, incluida la verificación y cobertura conjunta
+.\mvnw.cmd verify
+```
+
+Linux/macOS:
+
+```bash
+# Sólo unitarios/no-e2e
+./mvnw test -DexcludedGroups=e2e
+
+# Sólo e2e
+./mvnw test -Dgroups=e2e
+
+# Todo, incluida la verificación y cobertura conjunta
+./mvnw verify
+```
+
+La configuración opcional de variables y la matriz completa de resultados esperados están
+en [el quickstart del perfil e2e](specs/010-perfil-e2e/quickstart.md).
