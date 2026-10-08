@@ -27,7 +27,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (location.state) navigate(location.pathname, { replace: true, state: null })
+    if (location.state) void navigate(location.pathname, { replace: true, state: null })
   }, [location.pathname, location.state, navigate])
 
   const update = (event) => {
@@ -43,7 +43,7 @@ export default function LoginPage() {
     try {
       const result = await loginRequest(form)
       login({ ...result, username: form.username })
-      navigate('/album', { replace: true })
+      void navigate('/album', { replace: true })
     } catch (requestError) {
       setError(messageFor(requestError))
     } finally {

@@ -39,7 +39,7 @@ export default function Header({ items }) {
 
   const handleLogout = () => {
     logout()
-    navigate('/ingresar', { replace: true })
+    void navigate('/ingresar', { replace: true })
   }
 
   return (
