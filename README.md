@@ -180,7 +180,7 @@ npm run build
 
 ## Tests end-to-end con PostgreSQL y Redis reales
 
-Los tests `e2e` son destructivos: antes de cada método ejecutan `TRUNCATE ... RESTART
+Los tests `e2e` son destructivos: después de cada método ejecutan `TRUNCATE ... RESTART
 IDENTITY CASCADE` sobre todas las tablas del esquema PostgreSQL configurado y `FLUSHDB`
 sobre Redis. Use exclusivamente servicios dedicados a pruebas, sin datos que necesite
 conservar, y no ejecute estos tests en paralelo contra la misma infraestructura.

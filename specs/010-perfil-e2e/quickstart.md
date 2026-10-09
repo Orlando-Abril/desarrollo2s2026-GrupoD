@@ -2,7 +2,7 @@
 
 ## Safety first
 
-Los e2e ejecutan `TRUNCATE ... RESTART IDENTITY CASCADE` sobre todas las tablas del esquema configurado y `FLUSHDB` sobre Redis antes de cada método. Use exclusivamente una base PostgreSQL y una base lógica Redis dedicadas a pruebas. No apunte estas variables a datos de desarrollo que necesite conservar.
+Los e2e ejecutan `TRUNCATE ... RESTART IDENTITY CASCADE` sobre todas las tablas del esquema configurado y `FLUSHDB` sobre Redis después de cada método. Use exclusivamente una base PostgreSQL y una base lógica Redis dedicadas a pruebas. No apunte estas variables a datos de desarrollo que necesite conservar.
 
 Los comandos se ejecutan desde `backend/`.
 

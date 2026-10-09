@@ -16,16 +16,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @E2ETest
 class E2EProfileTest {
 
-    private final Environment environment;
-    private final DataSource dataSource;
-    private final CacheManager cacheManager;
+    @Autowired
+    private Environment environment;
 
     @Autowired
-    E2EProfileTest(Environment environment, DataSource dataSource, CacheManager cacheManager) {
-        this.environment = environment;
-        this.dataSource = dataSource;
-        this.cacheManager = cacheManager;
-    }
+    private DataSource dataSource;
+
+    @Autowired
+    private CacheManager cacheManager;
 
     @Test
     void usesTheRealE2EInfrastructureConfiguration() throws SQLException {

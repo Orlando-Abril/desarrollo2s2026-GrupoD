@@ -2,6 +2,7 @@ package com.example.demo.support;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -32,5 +33,6 @@ class E2ETestTest {
         assertThat(tag.value()).isEqualTo("e2e");
         assertThat(Arrays.asList(extendWith.value()))
                 .containsExactly(ExternalServicesAvailableCondition.class, E2EDatabaseCleaner.class);
+        assertThat(AfterEachCallback.class).isAssignableFrom(E2EDatabaseCleaner.class);
     }
 }

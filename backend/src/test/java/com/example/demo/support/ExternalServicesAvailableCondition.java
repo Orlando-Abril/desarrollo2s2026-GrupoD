@@ -3,6 +3,10 @@ package com.example.demo.support;
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.PropertyResolver;
+import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.io.support.ResourcePropertySource;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -10,40 +14,37 @@ import java.net.Socket;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 
 public class ExternalServicesAvailableCondition implements ExecutionCondition {
 
-    static final String DEFAULT_DB_URL = "jdbc:postgresql://localhost:5432/desarrollo2_grupod";
-    static final String DEFAULT_REDIS_HOST = "localhost";
-    static final int DEFAULT_REDIS_PORT = 6379;
     static final int CONNECT_TIMEOUT_MS = 500;
 
-    private final Supplier<Map<String, String>> environmentSupplier;
+    private final Supplier<PropertyResolver> propertiesSupplier;
     private final SocketProbe socketProbe;
 
     public ExternalServicesAvailableCondition() {
-        this(System::getenv, ExternalServicesAvailableCondition::canConnect);
+        this(ExternalServicesAvailableCondition::e2eProperties,
+                ExternalServicesAvailableCondition::canConnect);
     }
 
-    ExternalServicesAvailableCondition(Supplier<Map<String, String>> environmentSupplier,
+    ExternalServicesAvailableCondition(Supplier<PropertyResolver> propertiesSupplier,
                                        SocketProbe socketProbe) {
-        this.environmentSupplier = environmentSupplier;
+        this.propertiesSupplier = propertiesSupplier;
         this.socketProbe = socketProbe;
     }
 
     @Override
     public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext context) {
-        Map<String, String> environment = environmentSupplier.get();
-        if ("true".equalsIgnoreCase(environment.getOrDefault("CI", "").trim())) {
+        PropertyResolver properties = propertiesSupplier.get();
+        if ("true".equalsIgnoreCase(properties.getProperty("CI", "").trim())) {
             return ConditionEvaluationResult.enabled(
                     "CI=true: PostgreSQL and Redis are mandatory for end-to-end tests");
         }
 
         List<String> unavailable = new ArrayList<>();
-        inspectPostgres(environment, unavailable);
-        inspectRedis(environment, unavailable);
+        inspectPostgres(properties, unavailable);
+        inspectRedis(properties, unavailable);
 
         if (unavailable.isEmpty()) {
             return ConditionEvaluationResult.enabled("PostgreSQL and Redis sockets are available");
@@ -51,9 +52,9 @@ public class ExternalServicesAvailableCondition implements ExecutionCondition {
         return ConditionEvaluationResult.disabled("E2E skipped: " + String.join("; ", unavailable));
     }
 
-    private void inspectPostgres(Map<String, String> environment, List<String> unavailable) {
+    private void inspectPostgres(PropertyResolver properties, List<String> unavailable) {
         try {
-            Endpoint endpoint = postgresEndpoint(environment);
+            Endpoint endpoint = postgresEndpoint(properties);
             if (!socketProbe.isAvailable(endpoint.host(), endpoint.port(), CONNECT_TIMEOUT_MS)) {
                 unavailable.add("PostgreSQL " + endpoint.displayName() + " is unavailable");
             }
@@ -62,9 +63,9 @@ public class ExternalServicesAvailableCondition implements ExecutionCondition {
         }
     }
 
-    private void inspectRedis(Map<String, String> environment, List<String> unavailable) {
+    private void inspectRedis(PropertyResolver properties, List<String> unavailable) {
         try {
-            Endpoint endpoint = redisEndpoint(environment);
+            Endpoint endpoint = redisEndpoint(properties);
             if (!socketProbe.isAvailable(endpoint.host(), endpoint.port(), CONNECT_TIMEOUT_MS)) {
                 unavailable.add("Redis " + endpoint.displayName() + " is unavailable");
             }
@@ -73,8 +74,8 @@ public class ExternalServicesAvailableCondition implements ExecutionCondition {
         }
     }
 
-    static Endpoint postgresEndpoint(Map<String, String> environment) {
-        String jdbcUrl = environment.getOrDefault("E2E_DB_URL", DEFAULT_DB_URL);
+    static Endpoint postgresEndpoint(PropertyResolver properties) {
+        String jdbcUrl = properties.getProperty("spring.datasource.url");
         if (jdbcUrl == null || !jdbcUrl.startsWith("jdbc:")) {
             throw new IllegalArgumentException("Invalid JDBC URL");
         }
@@ -92,19 +93,30 @@ public class ExternalServicesAvailableCondition implements ExecutionCondition {
         return new Endpoint(uri.getHost(), port);
     }
 
-    static Endpoint redisEndpoint(Map<String, String> environment) {
-        String host = environment.getOrDefault("REDIS_HOST", DEFAULT_REDIS_HOST);
+    static Endpoint redisEndpoint(PropertyResolver properties) {
+        String host = properties.getProperty("spring.data.redis.host");
         if (host == null || host.isBlank()) {
             throw new IllegalArgumentException("Invalid Redis host");
         }
-        String rawPort = environment.get("REDIS_PORT");
+        String rawPort = properties.getProperty("spring.data.redis.port");
         int port;
         try {
-            port = rawPort == null ? DEFAULT_REDIS_PORT : Integer.parseInt(rawPort);
+            port = Integer.parseInt(rawPort);
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("Invalid Redis port", exception);
         }
         return new Endpoint(host, validPort(port));
+    }
+
+    static PropertyResolver e2eProperties() {
+        ConfigurableEnvironment environment = new StandardEnvironment();
+        try {
+            environment.getPropertySources().addLast(
+                    new ResourcePropertySource("classpath:application-e2e.properties"));
+        } catch (IOException exception) {
+            throw new IllegalStateException("Cannot load E2E test configuration", exception);
+        }
+        return environment;
     }
 
     private static int validPort(int port) {
