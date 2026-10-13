@@ -1,6 +1,7 @@
 package com.example.demo.support;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.redis.connection.RedisConnection;
@@ -11,7 +12,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.List;
 
-public class E2EDatabaseCleaner implements AfterEachCallback {
+public class E2EDatabaseCleaner implements BeforeEachCallback, AfterEachCallback {
 
     private static final String TABLES_QUERY = """
             SELECT table_schema, table_name
@@ -22,7 +23,16 @@ public class E2EDatabaseCleaner implements AfterEachCallback {
             """;
 
     @Override
+    public void beforeEach(ExtensionContext context) {
+        clean(context);
+    }
+
+    @Override
     public void afterEach(ExtensionContext context) {
+        clean(context);
+    }
+
+    private void clean(ExtensionContext context) {
         ApplicationContext applicationContext = SpringExtension.getApplicationContext(context);
         cleanPostgres(applicationContext.getBean(JdbcTemplate.class));
         cleanRedis(applicationContext.getBean(RedisConnectionFactory.class));

@@ -68,11 +68,11 @@ Fuente: [Testcontainers — Creating a container](https://java.testcontainers.or
 
 Fuente: [JUnit 5 User Guide — Conditional Test Execution](https://junit.org/junit5/docs/current/user-guide/).
 
-## 6. Limpieza PostgreSQL antes de cada método
+## 6. Limpieza PostgreSQL antes y después de cada método
 
-**Decision**: Implementar `E2EDatabaseCleaner` como una extensión JUnit `BeforeEachCallback`, registrada automáticamente por `@E2ETest`.
+**Decision**: Implementar `E2EDatabaseCleaner` como una extensión JUnit `BeforeEachCallback` y `AfterEachCallback`, registrada automáticamente por `@E2ETest`.
 
-**Rationale**: La extensión obtiene `JdbcTemplate` y `RedisConnectionFactory` mediante `SpringExtension.getApplicationContext`, garantiza limpieza antes de cada método de toda clase `@E2ETest`, evita depender de herencia o configuración manual y mantiene la limpieza confirmada antes de requests procesados en otros hilos. La implementación consulta dinámicamente todas las tablas base del esquema actual, cita sus identificadores y ejecuta un solo `TRUNCATE TABLE ... RESTART IDENTITY CASCADE` fuera de una transacción de test.
+**Rationale**: La extensión obtiene `JdbcTemplate` y `RedisConnectionFactory` mediante `SpringExtension.getApplicationContext`, garantiza limpieza antes de cada método de toda clase `@E2ETest` (aunque queden datos de una ejecución interrumpida), deja la infraestructura vacía al terminar cada método, evita depender de herencia o configuración manual y mantiene la limpieza confirmada antes de requests procesados en otros hilos. La implementación consulta dinámicamente todas las tablas base del esquema actual, cita sus identificadores y ejecuta un solo `TRUNCATE TABLE ... RESTART IDENTITY CASCADE` fuera de una transacción de test.
 
 **Alternatives considered**:
 

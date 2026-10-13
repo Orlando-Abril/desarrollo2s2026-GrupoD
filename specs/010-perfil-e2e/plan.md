@@ -6,7 +6,7 @@
 
 ## Summary
 
-Agregar un perfil de test `e2e` que levante la aplicación completa en un puerto aleatorio contra PostgreSQL y Redis reales, seleccionable mediante el tag JUnit `e2e`. La solución incorpora exclusivamente archivos nuevos de configuración y soporte de test, más documentación: un perfil que reemplaza explícitamente el datasource H2 heredado, una meta-anotación e2e, una condición previa que omite localmente cuando los sockets no están disponibles pero nunca omite con `CI=true`, un limpiador de PostgreSQL/Redis antes de cada método y un smoke test HTTP con `RestClient`. Surefire seguirá ejecutando los grupos sin cambios en `pom.xml`; `./mvnw verify` seguirá siendo la ejecución canónica de CI y de cobertura combinada.
+Agregar un perfil de test `e2e` que levante la aplicación completa en un puerto aleatorio contra PostgreSQL y Redis reales, seleccionable mediante el tag JUnit `e2e`. La solución incorpora exclusivamente archivos nuevos de configuración y soporte de test, más documentación: un perfil que reemplaza explícitamente el datasource H2 heredado, una meta-anotación e2e, una condición previa que omite localmente cuando los sockets no están disponibles pero nunca omite con `CI=true`, un limpiador de PostgreSQL/Redis antes y después de cada método y un smoke test HTTP con `RestClient`. Surefire seguirá ejecutando los grupos sin cambios en `pom.xml`; `./mvnw verify` seguirá siendo la ejecución canónica de CI y de cobertura combinada.
 
 ## Technical Context
 
@@ -14,7 +14,7 @@ Agregar un perfil de test `e2e` que levante la aplicación completa en un puerto
 
 **Primary Dependencies**: Spring Boot 4.1.1, Spring Web MVC (`RestClient`), Spring Data JPA/JDBC, Spring Data Redis, Spring Security, Spring Boot Actuator, JUnit Jupiter 5, Maven Surefire y JaCoCo 0.8.12; todas ya presentes de forma directa o transitiva
 
-**Storage**: PostgreSQL 16 real con esquema `create-drop`; Redis 7 real, base lógica configurada por la aplicación y vaciada antes de cada test
+**Storage**: PostgreSQL 16 real con esquema `create-drop`; Redis 7 real, base lógica configurada por la aplicación y vaciada antes y después de cada test
 
 **Testing**: JUnit Jupiter, `@SpringBootTest(webEnvironment = RANDOM_PORT)`, Spring Test, AssertJ, `JdbcTemplate`, `RedisConnectionFactory`, `RestClient`, tags de Surefire y Maven Wrapper
 
@@ -87,7 +87,7 @@ backend/
 README.md                                              # ampliar guía de pruebas
 ```
 
-**Structure Decision**: Mantener el backend existente y agregar sólo soporte en `src/test`. `E2EDatabaseCleaner` implementará `BeforeEachCallback` y `@E2ETest` lo registrará como extensión JUnit junto con `ExternalServicesAvailableCondition`, de modo que la limpieza se aplique automáticamente a toda clase marcada sin clase base ni incorporación manual adicional.
+**Structure Decision**: Mantener el backend existente y agregar sólo soporte en `src/test`. `E2EDatabaseCleaner` implementará `BeforeEachCallback` y `AfterEachCallback`, y `@E2ETest` lo registrará como extensión JUnit junto con `ExternalServicesAvailableCondition`, de modo que la limpieza se aplique automáticamente a toda clase marcada sin clase base ni incorporación manual adicional.
 
 ## Design Decisions
 
@@ -110,10 +110,10 @@ El driver PostgreSQL debe declararse explícitamente: cambiar sólo la URL no de
 
 1. Surefire descubre `SmokeE2ETest` por su nombre normal `*Test`.
 2. `ExternalServicesAvailableCondition` se evalúa antes de crear el contexto Spring.
-3. Localmente, resuelve `E2E_DB_URL`, `REDIS_HOST` y `REDIS_PORT`, sondea ambos sockets con 500 ms y acumula todos los servicios ausentes en el motivo de omisión.
+3. Localmente, carga `application-e2e.properties` y resuelve `spring.datasource.url`, `spring.data.redis.host` y `spring.data.redis.port` (con sus placeholders `E2E_DB_URL`, `REDIS_HOST` y `REDIS_PORT`), sondea ambos sockets con 500 ms y acumula todos los servicios ausentes en el motivo de omisión.
 4. Con `CI=true` sin distinción de mayúsculas, la condición habilita el test sin sondear; cualquier indisponibilidad debe fallar durante el arranque o uso real.
 5. Spring levanta la aplicación con perfil `e2e` en puerto aleatorio y crea el esquema.
-6. El `BeforeEachCallback` registrado por `@E2ETest` obtiene el contexto Spring y limpia todas las tablas del esquema y la base lógica Redis con operaciones síncronas antes de cada método.
+6. Los callbacks `BeforeEachCallback` y `AfterEachCallback` registrados por `@E2ETest` obtienen el contexto Spring y limpian todas las tablas del esquema y la base lógica Redis con operaciones síncronas antes y después de cada método.
 7. El smoke construye un `RestClient` apuntando al valor de `@LocalServerPort` y ejecuta los cuatro requests del contrato.
 8. Al cerrar el contexto, `create-drop` elimina el esquema.
 
@@ -123,7 +123,7 @@ La condición sólo garantiza conectividad TCP. No valida credenciales, existenc
 
 ### Limpieza y seguridad de datos
 
-`E2EDatabaseCleaner` será una extensión JUnit `BeforeEachCallback` registrada desde `@E2ETest`. Obtendrá `JdbcTemplate` y `RedisConnectionFactory` desde el contexto administrado por `SpringExtension`, consultará dinámicamente las tablas base del esquema actual, citará identificadores y emitirá un único `TRUNCATE ... RESTART IDENTITY CASCADE`; si no hay tablas, no ejecutará SQL. No será transaccional, porque los requests HTTP operan en otros hilos y necesitan observar la limpieza confirmada. Para Redis obtendrá y cerrará una conexión, y ejecutará `FLUSHDB SYNC`, nunca `FLUSHALL`.
+`E2EDatabaseCleaner` será una extensión JUnit `BeforeEachCallback` y `AfterEachCallback` registrada desde `@E2ETest`. Obtendrá `JdbcTemplate` y `RedisConnectionFactory` desde el contexto administrado por `SpringExtension`, consultará dinámicamente las tablas base del esquema actual, citará identificadores y emitirá un único `TRUNCATE ... RESTART IDENTITY CASCADE`; si no hay tablas, no ejecutará SQL. No será transaccional, porque los requests HTTP operan en otros hilos y necesitan observar la limpieza confirmada. Para Redis obtendrá y cerrará una conexión, y ejecutará `FLUSHDB SYNC`, nunca `FLUSHALL`.
 
 Estas operaciones son destructivas. La guía exigirá una base/esquema PostgreSQL y una base lógica Redis dedicados a e2e. La suite no debe correr en paralelo contra recursos compartidos.
 
@@ -131,7 +131,7 @@ Estas operaciones son destructivas. La guía exigirá una base/esquema PostgreSQ
 
 1. Crear `application-e2e.properties` con los overrides exactos y una prueba de configuración que demuestre datasource PostgreSQL, driver no-H2, caché Redis y destinos externos inválidos.
 2. Crear `ExternalServicesAvailableCondition` con resolución testeable de entorno, parsing seguro del JDBC URL, validación de puertos, timeout corto, motivos agregados y excepción `CI=true`.
-3. Crear `E2EDatabaseCleaner` como `BeforeEachCallback` que obtiene `JdbcTemplate` y `RedisConnectionFactory` desde `SpringExtension` y limpia antes de cada método.
+3. Crear `E2EDatabaseCleaner` como `BeforeEachCallback` y `AfterEachCallback` que obtiene `JdbcTemplate` y `RedisConnectionFactory` desde `SpringExtension` y limpia antes y después de cada método.
 4. Crear la meta-anotación `E2ETest` con `RANDOM_PORT`, perfil `e2e`, tag `e2e`, la condición y el registro de la extensión de limpieza.
 5. Crear `SmokeE2ETest`, construir `RestClient` después de la limpieza y validar exactamente el contrato HTTP.
 6. Ampliar `README.md` con variables, advertencia destructiva y comandos Windows/Linux para no-e2e, e2e y todo.

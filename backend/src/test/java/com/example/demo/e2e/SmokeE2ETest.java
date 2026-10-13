@@ -5,6 +5,7 @@ import com.example.demo.dto.auth.LoginResponse;
 import com.example.demo.dto.auth.RegisterRequest;
 import com.example.demo.dto.auth.RegisterResponse;
 import com.example.demo.support.E2ETest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
@@ -24,10 +25,14 @@ class SmokeE2ETest {
     private static final String USERNAME = "e2e-smoke-user";
     private static final String PASSWORD = "e2e-smoke-password";
 
-    private final RestClient client;
+    @LocalServerPort
+    private int port;
 
-    SmokeE2ETest(@LocalServerPort int port) {
-        this.client = RestClient.create("http://localhost:" + port);
+    private RestClient client;
+
+    @BeforeEach
+    void createClient() {
+        client = RestClient.create("http://localhost:" + port);
     }
 
     @Test

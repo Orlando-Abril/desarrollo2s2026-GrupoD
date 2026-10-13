@@ -9,7 +9,7 @@ Toda clase e2e declara una única anotación que equivale conjuntamente a:
 - tag JUnit `e2e`;
 - extensión `ExternalServicesAvailableCondition`.
 
-La anotación se aplica a tipos, se conserva en runtime y registra automáticamente `ExternalServicesAvailableCondition` y `E2EDatabaseCleaner`. Toda clase marcada con `@E2ETest` recibe la comprobación de disponibilidad y la limpieza previa a cada método sin herencia ni configuración adicional.
+La anotación se aplica a tipos, se conserva en runtime y registra automáticamente `ExternalServicesAvailableCondition` y `E2EDatabaseCleaner`. Toda clase marcada con `@E2ETest` recibe la comprobación de disponibilidad y la limpieza antes y después de cada método sin herencia ni configuración adicional.
 
 ## Environment contract
 
@@ -38,7 +38,7 @@ Malformed JDBC URL, invalid host or port outside 1..65535 counts as unavailable 
 
 ## Clean-state contract
 
-`E2EDatabaseCleaner` implementa `BeforeEachCallback` y obtiene las dependencias de limpieza desde el contexto administrado por `SpringExtension`.
+`E2EDatabaseCleaner` implementa `BeforeEachCallback` y `AfterEachCallback` y obtiene las dependencias de limpieza desde el contexto administrado por `SpringExtension`.
 
 Before every test method:
 

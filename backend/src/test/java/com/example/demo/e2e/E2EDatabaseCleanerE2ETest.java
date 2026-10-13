@@ -13,14 +13,11 @@ class E2EDatabaseCleanerE2ETest {
 
     private static final String REDIS_KEY = "e2e:cleaner:probe";
 
-    private final JdbcTemplate jdbcTemplate;
-    private final StringRedisTemplate redisTemplate;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    E2EDatabaseCleanerE2ETest(JdbcTemplate jdbcTemplate, StringRedisTemplate redisTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.redisTemplate = redisTemplate;
-    }
+    private StringRedisTemplate redisTemplate;
 
     @Test
     void firstMethodStartsCleanAndCanReuseFixedIdentifiers() {
