@@ -27,6 +27,7 @@ public record WhoScoredFeedResponse(List<Row> playerTableStats) {
             JsonNode rating,
             JsonNode shotsTotal,
             JsonNode keyPassesTotal,
-            JsonNode tackleWonTotal) {
+            JsonNode tackleWonTotal,
+            JsonNode dribbleWonTotal) {
     }
 }

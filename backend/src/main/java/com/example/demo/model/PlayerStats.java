@@ -46,6 +46,9 @@ public class PlayerStats {
 
     private Integer tackles;
 
+    /** Gambetas exitosas (WhoScored {@code dribbleWonTotal}); {@code null} si la fuente no las informa (spec 013, FR-033). */
+    private Integer dribbles;
+
     @Column(name = "yellow_cards")
     private Integer yellowCards;
 

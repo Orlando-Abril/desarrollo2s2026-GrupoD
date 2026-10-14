@@ -17,8 +17,9 @@ import java.util.List;
 /**
  * Integración con el feed JSON interno de WhoScored ({@code /statisticsfeed/1/getplayerstatistics}).
  * El endpoint no es oficial ni estable (Cloudflare bloquea al cliente HTTP de Java; por eso el transporte por
- * defecto es un navegador, ver {@link WhoScoredFeedClient}). Una liga se obtiene con 4 consultas y se devuelve
- * sólo si las 4 respuestas son válidas: nunca un conjunto parcial.
+ * defecto es un navegador, ver {@link WhoScoredFeedClient}). Una liga se obtiene con 4 consultas obligatorias y
+ * se devuelve sólo si las 4 respuestas son válidas: nunca un conjunto parcial. Una quinta consulta, la de
+ * gambetas, es opcional: si falla, las gambetas quedan en {@code null} y la liga se devuelve igual (spec 013, FR-035).
  * Ver specs/005-whoscored-player-stats/contracts/whoscored-source.md.
  */
 @Component
@@ -39,6 +40,9 @@ public class WhoScoredAdapter {
             new FeedQuery("key-passes", "length", 2),
             new FeedQuery("tackles", "success", 2));
 
+    /** Gambetas exitosas ({@code dribbleWonTotal}); opcional, fuera de {@link #LEAGUE_QUERIES}. */
+    private static final FeedQuery DRIBBLES_QUERY = new FeedQuery("dribbles", "success", 2);
+
     private final WhoScoredFeedClient feedClient;
     private final WhoScoredProperties properties;
     private final WhoScoredStatsMapper mapper;
@@ -53,14 +57,28 @@ public class WhoScoredAdapter {
         this.mapper = mapper;
     }
 
-    /** Todas las filas {@code (jugador, equipo)} de la liga, o {@link WhoScoredException} si falta alguna respuesta. */
+    /**
+     * Todas las filas {@code (jugador, equipo)} de la liga, o {@link WhoScoredException} si falta alguna de las
+     * 4 respuestas obligatorias. La falla de la consulta de gambetas no hace fallar la liga.
+     */
     public List<WhoScoredPlayerStats> fetchLeaguePlayers(League league) {
         int tournamentId = properties.tournaments().get(league);
         WhoScoredFeedResponse summary = fetch(league, tournamentId, LEAGUE_QUERIES.get(0));
         WhoScoredFeedResponse shots = fetch(league, tournamentId, LEAGUE_QUERIES.get(1));
         WhoScoredFeedResponse keyPasses = fetch(league, tournamentId, LEAGUE_QUERIES.get(2));
         WhoScoredFeedResponse tackles = fetch(league, tournamentId, LEAGUE_QUERIES.get(3));
-        return mapper.merge(summary, shots, keyPasses, tackles, clock.instant());
+        WhoScoredFeedResponse dribbles = fetchOptional(league, tournamentId, DRIBBLES_QUERY);
+        return mapper.merge(summary, shots, keyPasses, tackles, dribbles, clock.instant());
+    }
+
+    /** Como {@link #fetch}, pero ante cualquier falla devuelve una respuesta vacía en lugar de propagarla. */
+    private WhoScoredFeedResponse fetchOptional(League league, int tournamentId, FeedQuery query) {
+        try {
+            return fetch(league, tournamentId, query);
+        } catch (WhoScoredException ex) {
+            log.warn("whoscored_dribbles_unavailable league={} reason={}", league, ex.getMessage());
+            return new WhoScoredFeedResponse(List.of());
+        }
     }
 
     /** Libera el transporte al terminar una ejecución (cierra el navegador); la próxima lo vuelve a abrir. */

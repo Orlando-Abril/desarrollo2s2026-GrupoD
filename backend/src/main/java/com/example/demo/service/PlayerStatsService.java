@@ -245,6 +245,7 @@ public class PlayerStatsService {
         stats.setShots(row.shots());
         stats.setKeyPasses(row.keyPasses());
         stats.setTackles(row.tackles());
+        stats.setDribbles(row.dribbles());
         stats.setYellowCards(row.yellowCards());
         stats.setRedCards(row.redCards());
         stats.setRating(row.rating());

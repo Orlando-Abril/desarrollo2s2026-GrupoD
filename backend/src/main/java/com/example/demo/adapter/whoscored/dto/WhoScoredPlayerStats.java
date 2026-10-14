@@ -7,7 +7,8 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
- * Una fila {@code (playerId, teamId)} de una liga, combinada de las 4 respuestas del feed.
+ * Una fila {@code (playerId, teamId)} de una liga, combinada de las respuestas del feed (4 obligatorias y la
+ * de gambetas, opcional).
  * {@code teamNames} son los nombres del equipo vistos en esas respuestas (p. ej. "Man Utd" y
  * "Manchester United"). Es también el valor guardado en la caché {@code whoscored-player-stats}.
  */
@@ -22,6 +23,7 @@ public record WhoScoredPlayerStats(
         Integer shots,
         Integer keyPasses,
         Integer tackles,
+        Integer dribbles,
         Integer yellowCards,
         Integer redCards,
         BigDecimal rating,
@@ -29,6 +31,6 @@ public record WhoScoredPlayerStats(
 
     public boolean hasAnyMetric() {
         return rating != null || Stream.of(minutesPlayed, goals, assists, shots, keyPasses, tackles,
-                yellowCards, redCards).anyMatch(Objects::nonNull);
+                dribbles, yellowCards, redCards).anyMatch(Objects::nonNull);
     }
 }
