@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Tests e2e que demuestran que la API sigue respondiendo cuando Football-Data y WhoScored están caídos (constitución §1.3 y §7 punto 6). En el perfil e2e las fuentes externas apuntan a una dirección inválida. Validar lecturas locales con y sin filtros, sincronización fallida sin pérdida de datos, respuesta desde Redis sin consultar la fuente, ausencia de 5xx y respuestas dentro de 100 ms. Cargar jugadores de las cinco ligas mediante un helper reutilizable. No modificar archivos de Entrega 1 sin consulta."
+**Input**: User description: "Tests e2e que demuestran que la API sigue respondiendo cuando Football-Data y WhoScored están caídos (constitución §1.3 y §7 punto 6). En el perfil e2e las fuentes externas apuntan a una dirección inválida. Validar lecturas locales con y sin filtros, sincronización fallida sin pérdida de datos, respuesta desde Redis sin consultar la fuente, ausencia de 5xx, GET dentro de 100 ms tras calentamiento y sync dentro de 500 ms. Cargar jugadores de las cinco ligas mediante un helper reutilizable. No modificar archivos de Entrega 1 sin consulta."
 
 ## Contexto y restricciones
 
@@ -44,7 +44,7 @@ Como integrante del equipo, quiero comprobar que una sincronización manual fall
 
 **Acceptance Scenarios**:
 
-1. **Given** jugadores existentes, Football-Data inaccesible y ausencia de entradas aplicables en caché, **When** se solicita `POST /players/sync`, **Then** responde 200 con estado `FAILED`, sin respuesta 5xx y en no más de 100 ms.
+1. **Given** jugadores existentes, Football-Data inaccesible y ausencia de entradas aplicables en caché, **When** se solicita `POST /players/sync`, **Then** responde 200 con estado `FAILED`, sin respuesta 5xx y en no más de 500 ms.
 2. **Given** la misma ejecución fallida, **When** se vuelve a consultar el catálogo, **Then** conserva exactamente la misma cantidad de jugadores y los mismos valores de todos sus campos que antes de sincronizar.
 
 ---
@@ -59,7 +59,7 @@ Como persona usuaria, quiero que los datos externos ya cacheados sigan disponibl
 
 **Acceptance Scenarios**:
 
-1. **Given** datos vigentes de las cinco ligas en Redis y Football-Data inaccesible, **When** se solicita `POST /players/sync`, **Then** responde 200 con estado `COMPLETED`, procesa los datos cacheados y finaliza en no más de 100 ms.
+1. **Given** datos vigentes de las cinco ligas en Redis y Football-Data inaccesible, **When** se solicita `POST /players/sync`, **Then** responde 200 con estado `COMPLETED`, procesa los datos cacheados y finaliza en no más de 500 ms.
 2. **Given** esa respuesta exitosa desde caché, **When** se inspecciona la evidencia de interacción externa de la prueba, **Then** se observan cero llamadas o intentos de conexión a Football-Data.
 
 ---

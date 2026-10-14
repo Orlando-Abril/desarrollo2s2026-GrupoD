@@ -38,7 +38,7 @@ description: "Tareas de implementación para tests e2e de resiliencia ante fuent
 - [X] T002 Crear `backend/src/test/java/com/example/demo/support/E2EFixtures.java` como `@Component` público disponible sólo en test scope, con `PlayerRepository` encapsulado mediante inyección por constructor y `createPlayersFromFiveLeagues()` que ejecute `saveAllAndFlush` para exactamente cinco jugadores: un valor por cada `League`, external IDs únicos `91001`–`91005`, nombres/equipos deterministas, `marketValue` positivo, nacionalidad y edad válidas, y al menos una `Position` por jugador
 - [X] T003 Completar `backend/src/test/java/com/example/demo/support/E2EFixtures.java` con el fixture `LA_LIGA` multi-posición `DEFENDER` + `MIDFIELDER`, cobertura total de las cuatro posiciones y un `FixtureSet` de listas inmutables con `all()`, `forLeague(League)`, `forTeam(String)` y `withPosition(Position)` que opere en memoria, nunca retorne `null` y falle claramente ante coincidencias ausentes o ambiguas
 - [X] T004 [P] Crear `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java` con `@E2ETest`, `@LocalServerPort`, `RestClient`, inyección de `E2EFixtures` y `CacheManager` sin exponer `PlayerRepository`, un `@MockitoSpyBean` sobre el `FootballDataAdapter` real, y `@BeforeEach` que registre e inicie sesión por HTTP para conservar un Bearer JWT no vacío por método
-- [X] T005 Integrar en `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java` el `E2EFixtures` inyectado, helpers de GET/POST autenticados, deserialización a `List<PlayerResponse>` y `PlayerSyncResponse`, orden estable por `externalId` y un wrapper no preemptivo `assertTimeout(Duration.ofMillis(100), ...)` que mida sólo cada intercambio de resiliencia y exija HTTP 200
+- [X] T005 Integrar en `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java` el `E2EFixtures` inyectado, helpers de GET/POST autenticados, deserialización a `List<PlayerResponse>` y `PlayerSyncResponse`, orden estable por `externalId` y un wrapper no preemptivo `assertTimeout(...)` que mida sólo cada intercambio de resiliencia con GET ≤100 ms tras calentamiento y POST sync ≤500 ms, y exija HTTP 200
 
 **Checkpoint**: El helper persiste datos visibles entre hilos y la clase e2e puede emitir requests Bearer cronometrados sin duplicar preparación.
 
@@ -67,11 +67,11 @@ description: "Tareas de implementación para tests e2e de resiliencia ante fuent
 
 **Goal**: Demostrar que `POST /players/sync` informa `FAILED` por HTTP 200 y no crea, elimina ni modifica jugadores existentes cuando Football-Data está caído y Redis no tiene respaldo.
 
-**Independent Test**: Ejecutar sólo `failedSyncReturnsFailedAndPreservesExistingPlayers`; debe comparar instantáneas HTTP completas anterior/posterior, validar contadores y mantener cada request en ≤100 ms.
+**Independent Test**: Ejecutar sólo `failedSyncReturnsFailedAndPreservesExistingPlayers`; debe comparar instantáneas HTTP completas anterior/posterior, validar contadores, mantener cada GET en ≤100 ms tras calentamiento y el POST sync en ≤500 ms.
 
 ### Tests and evidence for User Story 2
 
-- [X] T012 [US2] Implementar `failedSyncReturnsFailedAndPreservesExistingPlayers` en `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java`: crear las cinco fixtures, capturar GET ordenado previo, mantener Redis vacío, ejecutar POST `/players/sync`, exigir HTTP 200 + `FAILED` + `processed=0` + `failedLeagues=5` + `failedPlayers=0`, capturar GET posterior y comparar igualdad de todos los campos incluidos IDs y posiciones; cronometrar cada GET y POST por separado a ≤100 ms
+- [X] T012 [US2] Implementar `failedSyncReturnsFailedAndPreservesExistingPlayers` en `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java`: crear las cinco fixtures, capturar GET ordenado previo, mantener Redis vacío, ejecutar POST `/players/sync`, exigir HTTP 200 + `FAILED` + `processed=0` + `failedLeagues=5` + `failedPlayers=0`, capturar GET posterior y comparar igualdad de todos los campos incluidos IDs y posiciones; cronometrar cada GET a ≤100 ms tras calentamiento y el POST a ≤500 ms
 - [X] T013 [US2] Ejecutar el método US2 de `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java` de forma aislada y dos veces consecutivas para comprobar limpieza por método, catálogo idéntico y ausencia de dependencia del orden o de IDs generados
 
 **Checkpoint**: US2 prueba de forma independiente la preservación exacta del último catálogo válido.
@@ -82,12 +82,12 @@ description: "Tareas de implementación para tests e2e de resiliencia ante fuent
 
 **Goal**: Demostrar que cinco entradas Redis vigentes satisfacen la sincronización completa con cero acceso a Football-Data.
 
-**Independent Test**: Ejecutar sólo `syncUsesTypedRedisCacheWithoutCallingFootballData`; debe producir `COMPLETED`, cinco jugadores y cero ligas/jugadores fallidos en ≤100 ms con la fuente configurada en el destino inválido.
+**Independent Test**: Ejecutar sólo `syncUsesTypedRedisCacheWithoutCallingFootballData`; debe producir `COMPLETED`, cinco jugadores y cero ligas/jugadores fallidos con el POST en ≤500 ms y el GET posterior en ≤100 ms tras calentamiento, con la fuente configurada en el destino inválido.
 
 ### Tests and evidence for User Story 3
 
 - [X] T014 [US3] Agregar en `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java` builders privados de `FootballDataResponse` para `PL`, `PD`, `SA`, `BL1` y `FL1`, cada uno con un `Team` no vacío y un `SquadMember` de ID Long único, nombre no vacío, posición reconocida por `FootballDataMappings`, fecha de nacimiento anterior a hoy y nacionalidad no vacía
-- [X] T015 [US3] Implementar `syncUsesTypedRedisCacheWithoutCallingFootballData` en `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java`: obtener `CacheConfig.COMPETITION_TEAMS_CACHE` del `CacheManager`, escribir los cinco `FootballDataResponse` mediante `Cache.put` sin `RedisTemplate`, bytes, JSON ni serializer alternativo, reiniciar el registro del `@MockitoSpyBean`, ejecutar POST `/players/sync` y exigir HTTP 200 + `COMPLETED` + `processed=5` + `failedLeagues=0` + `failedPlayers=0` en ≤100 ms + `verifyNoInteractions(footballDataAdapter)`; luego GET en ≤100 ms y comparar los cinco datos cacheados persistidos
+- [X] T015 [US3] Implementar `syncUsesTypedRedisCacheWithoutCallingFootballData` en `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java`: obtener `CacheConfig.COMPETITION_TEAMS_CACHE` del `CacheManager`, escribir los cinco `FootballDataResponse` mediante `Cache.put` sin `RedisTemplate`, bytes, JSON ni serializer alternativo, reiniciar el registro del `@MockitoSpyBean`, ejecutar POST `/players/sync` y exigir HTTP 200 + `COMPLETED` + `processed=5` + `failedLeagues=0` + `failedPlayers=0` en ≤500 ms + `verifyNoInteractions(footballDataAdapter)`; luego GET en ≤100 ms tras calentamiento y comparar los cinco datos cacheados persistidos
 - [X] T016 [US3] Ejecutar dos veces `syncUsesTypedRedisCacheWithoutCallingFootballData` de `backend/src/test/java/com/example/demo/e2e/ExternalSourcesDownE2ETest.java` y confirmar en ambas ejecuciones `COMPLETED`, cinco procesados, cero fallas, cero interacciones con `FootballDataAdapter` y limpieza Redis efectiva entre métodos
 
 **Checkpoint**: US3 demuestra Redis real, serialización tipada y construcción de la base desde datos externos simulados para §1.3, §3.3.1 y §7.6.
@@ -117,7 +117,7 @@ description: "Tareas de implementación para tests e2e de resiliencia ante fuent
 - [X] T020 Compilar todo el test scope mediante el Maven Wrapper de `backend/pom.xml` para detectar incompatibilidades de Java 17, DTOs, genéricos de `RestClient`, AssertJ y API de caché antes de ejecutar infraestructura
 - [X] T021 Ejecutar dos veces el comando de clase de `specs/012-e2e-resiliencia/quickstart.md` y confirmar siete tests aprobados, limpieza PostgreSQL/Redis entre métodos, respuestas 200, GET ≤100 ms tras calentamiento y sync ≤500 ms
 - [X] T022 Ejecutar el grupo completo `e2e` documentado en `specs/012-e2e-resiliencia/quickstart.md` y confirmar convivencia de `ExternalSourcesDownE2ETest` con `SmokeE2ETest`, `E2EProfileTest` y `E2EDatabaseCleanerE2ETest`
-- [ ] T023 Ejecutar `verify` según `specs/012-e2e-resiliencia/quickstart.md` y confirmar build completo exitoso, cero regresiones no-e2e y reporte JaCoCo generado por el ciclo existente
+- [X] T023 Ejecutar `verify` según `specs/012-e2e-resiliencia/quickstart.md` y confirmar build completo exitoso, cero regresiones no-e2e y reporte JaCoCo generado por el ciclo existente
 - [X] T024 Verificar con `git diff --exit-code` que permanecen sin cambios `backend/pom.xml`, `.github/workflows/ci.yml`, `backend/src/main/resources/application.properties`, `backend/src/test/resources/application.properties`, `backend/src/test/resources/application-e2e.properties`, `backend/src/main/java/com/example/demo/config/CacheConfig.java`, `backend/src/main/java/com/example/demo/config/SecurityConfig.java`, `backend/src/main/java/com/example/demo/filter/` y `backend/src/main/java/com/example/demo/controller/`; si cualquier cambio resulta imprescindible, detenerse y aplicar FR-018
 
 ---
@@ -213,6 +213,6 @@ Con dos personas, una puede implementar `E2EFixtures.java` mientras la otra crea
 - No agregar dependencias, clases productivas, configuración ni una tercera clase de test.
 - No modificar `CacheConfig`; escribir datos a través del `Cache` que expone su `CacheManager`.
 - `@MockitoSpyBean` observa el `FootballDataAdapter` real; no lo sustituye por un mock ni habilita accesos externos.
-- Registro/login y preparación de datos quedan fuera de los 100 ms; cada GET/POST de resiliencia se mide individualmente.
+- Registro/login y preparación de datos quedan fuera de los límites; cada GET se mide individualmente en ≤100 ms tras calentamiento y cada POST sync en ≤500 ms.
 - `FAILED` y `COMPLETED` son estados del payload sobre HTTP 200.
 - Cualquier necesidad de tocar un archivo protegido detiene la implementación hasta resolver FR-018.

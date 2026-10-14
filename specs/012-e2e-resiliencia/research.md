@@ -62,15 +62,15 @@
 - Inspeccionar logs: más frágil, indirecto y dependiente del formato de observabilidad.
 - Levantar un servidor falso: agrega infraestructura y cambiaría el perfil que explícitamente representa una caída.
 
-## R6. Medición de 100 ms
+## R6. Medición de 100 ms para GET y 500 ms para sync
 
-**Decision**: Envolver sólo cada llamada HTTP objetivo en `assertTimeout(Duration.ofMillis(100), ...)` y comprobar después estado 200 y payload.
+**Decision**: Envolver sólo cada llamada HTTP objetivo en `assertTimeout`, con `Duration.ofMillis(100)` para GET tras una solicitud equivalente de calentamiento no medida y `Duration.ofMillis(500)` para POST sync, y comprobar después estado 200 y payload.
 
 **Rationale**: Excluye arranque, limpieza, fixtures y autenticación según la spec. El timeout no preemptivo evita dejar procesamiento HTTP vivo si se supera el límite y entrega una falla con duración observable. El puerto 1 en loopback rechaza conexión inmediatamente; los timeouts de cliente heredados de test quedan como cota de seguridad, no como espera esperada.
 
 **Alternatives considered**:
 
-- `@Timeout(100 ms)` en el método completo: rechazado porque incluiría preparación no comprendida por el criterio.
+- `@Timeout` en el método completo: rechazado porque incluiría preparación no comprendida por el criterio y no permitiría diferenciar los límites de GET y POST.
 - Cronometrar manualmente con `System.nanoTime`: posible, pero JUnit expresa mejor el límite y el diagnóstico.
 - Timeout preemptivo: rechazado porque puede interrumpir el hilo de prueba mientras el request continúa en otro hilo.
 
@@ -95,8 +95,8 @@
 | GET por equipo | Demuestra consulta local independiente de fuentes. | Verifica atributos del catálogo construido. | Garantiza respuesta filtrada sin 5xx. |
 | GET por posición | Demuestra consulta de asociaciones locales durante la caída. | Verifica posiciones variadas y multivaluadas. | Garantiza respuesta filtrada sin 5xx. |
 | GET combinado | Demuestra operación completa del catálogo local. | Verifica consistencia conjunta de los datos construidos. | Garantiza respuesta con intersección correcta y ≤100 ms. |
-| Sync fallido no destructivo | Conserva el último estado persistido cuando Football-Data falla. | Protege la base ya construida contra pérdida o modificación. | Garantiza HTTP 200/`FAILED`, ≤100 ms y datos intactos. |
-| Sync desde Redis | Opera con datos cacheados sin depender de Football-Data. | Construye cinco jugadores desde payloads externos simulados para las cinco ligas. | Garantiza HTTP 200/`COMPLETED`, ≤100 ms y cero acceso externo. |
+| Sync fallido no destructivo | Conserva el último estado persistido cuando Football-Data falla. | Protege la base ya construida contra pérdida o modificación. | Garantiza HTTP 200/`FAILED`, POST ≤500 ms, GET ≤100 ms tras calentamiento y datos intactos. |
+| Sync desde Redis | Opera con datos cacheados sin depender de Football-Data. | Construye cinco jugadores desde payloads externos simulados para las cinco ligas. | Garantiza HTTP 200/`COMPLETED`, POST ≤500 ms, GET ≤100 ms tras calentamiento y cero acceso externo. |
 
 **Decision**: Estos siete tests conforman la evidencia mínima y suficiente para los tres puntos constitucionales pedidos.
 

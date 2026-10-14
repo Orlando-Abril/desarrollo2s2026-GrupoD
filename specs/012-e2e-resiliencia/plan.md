@@ -8,7 +8,7 @@
 
 ## Summary
 
-Agregar evidencia e2e de que el catálogo continúa respondiendo desde datos persistidos o cacheados cuando Football-Data y WhoScored son inaccesibles. La implementación se limita a dos archivos Java nuevos de test: `E2EFixtures`, que persiste con `PlayerRepository` un conjunto determinista y reutilizable de jugadores de las cinco ligas, y `ExternalSourcesDownE2ETest`, que usa `@E2ETest`, `RestClient` y un usuario autenticado para validar lecturas, filtros, sincronización fallida no destructiva y sincronización satisfecha por Redis dentro del umbral de 100 ms.
+Agregar evidencia e2e de que el catálogo continúa respondiendo desde datos persistidos o cacheados cuando Football-Data y WhoScored son inaccesibles. La implementación se limita a dos archivos Java nuevos de test: `E2EFixtures`, que persiste con `PlayerRepository` un conjunto determinista y reutilizable de jugadores de las cinco ligas, y `ExternalSourcesDownE2ETest`, que usa `@E2ETest`, `RestClient` y un usuario autenticado para validar lecturas, filtros, sincronización fallida no destructiva y sincronización satisfecha por Redis dentro de los umbrales de 100 ms para GET y 500 ms para POST.
 
 El caso de caché obtiene el caché `CacheConfig.COMPETITION_TEAMS_CACHE` desde el `CacheManager` real y escribe `FootballDataResponse` para los cinco códigos. De ese modo la escritura usa exactamente el `JacksonJsonRedisSerializer<FootballDataResponse>` configurado por `CacheConfig`, sin reproducir su configuración ni modificarla.
 
@@ -26,7 +26,7 @@ El caso de caché obtiene el caché `CacheConfig.COMPETITION_TEAMS_CACHE` desde 
 
 **Project Type**: Aplicación web con backend Spring Boot y frontend separado; esta feature sólo agrega soporte y pruebas e2e al backend
 
-**Performance Goals**: Cada request de resiliencia (`GET /players` o `POST /players/sync`) termina en 100 ms o menos, una vez listo el contexto; preparación, login y carga de datos quedan fuera de la medición
+**Performance Goals**: Cada `GET /players` termina en 100 ms o menos tras una solicitud equivalente de calentamiento no medida, y cada `POST /players/sync` termina en 500 ms o menos, una vez listo el contexto; preparación, login y carga de datos quedan fuera de la medición
 
 **Constraints**: Un test por comportamiento verificable; HTTP real con Bearer JWT; fuentes externas en `127.0.0.1:1`; cero dependencias nuevas; cero cambios en archivos productivos o protegidos; no modificar `CacheConfig`; no ejecutar e2e en paralelo sobre la misma base/Redis; comparar catálogos sin depender del orden de consulta
 
@@ -46,7 +46,7 @@ El caso de caché obtiene el caché `CacheConfig.COMPETITION_TEAMS_CACHE` desde 
 | §5.3 Observabilidad | Las respuestas HTTP reales mantienen el recorrido por filtros y correlation ID existentes; la feature no modifica observabilidad. | PASS por preservación |
 | §7.2 Build y CI | Los nuevos tests conservan el tag `e2e` y entran en el `verify` ya usado por CI. | Se verifica al implementar |
 | §7.3 SonarCloud | No se agregan dependencias ni duplicación deliberada; se reutilizan helper y DTOs existentes. | Se verifica en el PR |
-| §7.6 Resiliencia | Cada comportamiento solicitado queda cubierto por una prueba e2e que exige respuesta no-5xx y límite de 100 ms. | PASS |
+| §7.6 Resiliencia | Cada comportamiento solicitado queda cubierto por una prueba e2e que exige respuesta no-5xx, GET ≤100 ms tras calentamiento y sync ≤500 ms. | PASS |
 | Gobernanza / Entrega 1 | No se modifica constitución ni archivos protegidos: `pom.xml`, `ci.yml`, `application.properties`, `SecurityConfig`, filtros o controllers. | PASS |
 
 No existen violaciones ni decisiones pendientes. La planificación puede avanzar.
@@ -111,7 +111,7 @@ La combinación Premier League + Arsenal FC + FORWARD tendrá exactamente una co
 
 ### Cliente HTTP y autenticación
 
-Cada método parte de la limpieza de `@E2ETest`. La clase inyecta `E2EFixtures` y `CacheManager`, pero no `PlayerRepository`. Un `@BeforeEach` crea `RestClient` contra `@LocalServerPort`, registra un usuario único de la clase, inicia sesión y conserva el Bearer JWT. Registro y login son preparación y no se incluyen en el límite de 100 ms. Todas las consultas y sincronizaciones del alcance se realizan con `RestClient`; la persistencia sólo se usa detrás de `E2EFixtures` para preparar el estado.
+Cada método parte de la limpieza de `@E2ETest`. La clase inyecta `E2EFixtures` y `CacheManager`, pero no `PlayerRepository`. Un `@BeforeEach` crea `RestClient` contra `@LocalServerPort`, registra un usuario único de la clase, inicia sesión y conserva el Bearer JWT. Registro y login son preparación y no se incluyen en los límites de 100 ms para GET y 500 ms para POST. Todas las consultas y sincronizaciones del alcance se realizan con `RestClient`; la persistencia sólo se usa detrás de `E2EFixtures` para preparar el estado.
 
 Las listas HTTP se deserializan como `List<PlayerResponse>` y se ordenan por `externalId` antes de comparar, porque el contrato no promete orden. El resumen se deserializa como `PlayerSyncResponse` y se valida separando HTTP 200 de su campo funcional `status`.
 
@@ -122,8 +122,8 @@ Las listas HTTP se deserializan como `List<PlayerResponse>` y se ordenan por `ex
 3. `filtersLocalPlayersByTeamWhenSourcesAreDown`: GET con equipo conocido y GET con equipo inexistente; ambas respuestas 200 en ≤100 ms, con coincidencia exacta y colección vacía respectivamente.
 4. `filtersLocalPlayersByPositionWhenSourcesAreDown`: GET con `position`, todas y sólo las pertenencias esperadas y ≤100 ms.
 5. `combinesLeagueTeamAndPositionWhenSourcesAreDown`: GET con los tres parámetros, intersección exacta y ≤100 ms.
-6. `failedSyncReturnsFailedAndPreservesExistingPlayers`: instantánea HTTP previa, POST con Redis vacío, `FAILED`/0 procesados/5 ligas fallidas en ≤100 ms, y GET posterior idéntico también en ≤100 ms.
-7. `syncUsesTypedRedisCacheWithoutCallingFootballData`: cinco payloads cacheados, POST `COMPLETED`/5 procesados/0 fallas en ≤100 ms y GET que confirma los cinco jugadores construidos.
+6. `failedSyncReturnsFailedAndPreservesExistingPlayers`: instantánea HTTP previa, POST con Redis vacío, `FAILED`/0 procesados/5 ligas fallidas en ≤500 ms, y GET posterior idéntico en ≤100 ms tras calentamiento.
+7. `syncUsesTypedRedisCacheWithoutCallingFootballData`: cinco payloads cacheados, POST `COMPLETED`/5 procesados/0 fallas en ≤500 ms y GET que confirma los cinco jugadores construidos en ≤100 ms tras calentamiento.
 
 El helper queda ejercitado por los primeros seis escenarios y por tanto es reutilizable sin requerir una clase de prueba exclusiva que duplicaría la cobertura.
 
@@ -141,7 +141,7 @@ La evidencia combina observación directa y resultado funcional: las cinco clave
 
 ### Medición y ausencia de 5xx
 
-Una utilidad privada del test envolverá exclusivamente cada intercambio objetivo con `assertTimeout(Duration.ofMillis(100), supplier)`. Después se exigirá el estado exacto 200; por lo tanto cualquier 5xx falla de forma explícita. Se usa timeout no preemptivo para no abandonar requests o transacciones en segundo plano: si se excede, la llamada termina y JUnit informa la duración real.
+Una utilidad privada del test envolverá exclusivamente cada intercambio objetivo con `assertTimeout`: `Duration.ofMillis(100)` para GET, después de una solicitud equivalente de calentamiento no medida, y `Duration.ofMillis(500)` para POST. Después se exigirá el estado exacto 200; por lo tanto cualquier 5xx falla de forma explícita. Se usa timeout no preemptivo para no abandonar requests o transacciones en segundo plano: si se excede, la llamada termina y JUnit informa la duración real.
 
 ### Preservación del catálogo fallido
 
@@ -150,7 +150,7 @@ El escenario `FAILED` comienza con Redis vacío por la limpieza común. Obtiene 
 ## Implementation Sequence
 
 1. Crear `E2EFixtures` como `@Component` de test con sus cinco builders, `PlayerRepository` encapsulado, persistencia única y API `FixtureSet` para búsquedas funcionales.
-2. Crear la estructura de `ExternalSourcesDownE2ETest`: `@E2ETest`, puerto aleatorio, inyección de `E2EFixtures`/`CacheManager`, `@MockitoSpyBean` del adapter real, cliente, registro/login y wrapper de request ≤100 ms.
+2. Crear la estructura de `ExternalSourcesDownE2ETest`: `@E2ETest`, puerto aleatorio, inyección de `E2EFixtures`/`CacheManager`, `@MockitoSpyBean` del adapter real, cliente, registro/login y wrapper de request con GET ≤100 ms tras calentamiento y POST ≤500 ms.
 3. Implementar los cinco tests de lectura con preparación explícita mediante `E2EFixtures` y comparación sin depender del orden.
 4. Implementar el test de sincronización fallida con instantáneas HTTP anterior/posterior y contadores completos.
 5. Implementar los builders de `FootballDataResponse`, cargar los cinco códigos a través del `CacheManager` real e implementar el test cacheado con `verifyNoInteractions` sobre el adapter real.

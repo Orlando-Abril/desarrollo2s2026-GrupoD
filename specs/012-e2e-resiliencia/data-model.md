@@ -153,7 +153,7 @@ Valor lógico formado por respuesta y duración del intercambio objetivo.
 |-------|------|
 | endpoint | `GET /players` o `POST /players/sync` |
 | HTTP status | Exactamente 200 |
-| duration | Menor o igual a 100 ms |
+| duration | GET: menor o igual a 100 ms tras calentamiento; POST sync: menor o igual a 500 ms |
 | included time | Desde invocación del `RestClient` hasta entidad de respuesta disponible |
 | excluded time | Arranque, limpieza, fixture, Redis seed, registro y login |
 

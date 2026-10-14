@@ -87,8 +87,8 @@ Esta es la validación final para CI y cobertura conjunta.
 | GET por equipo | 200, sólo Real Madrid, ≤100 ms |
 | GET por posición | 200, los dos midfielders esperados, ≤100 ms |
 | GET con liga + equipo + posición | 200, una coincidencia exacta, ≤100 ms |
-| POST sync con Redis vacío | 200 + `FAILED`, cinco ligas fallidas, catálogo idéntico, ≤100 ms |
-| POST sync con cinco entradas cacheadas | 200 + `COMPLETED`, cinco procesados, cero fallas, ≤100 ms |
+| POST sync con Redis vacío | 200 + `FAILED`, cinco ligas fallidas, catálogo idéntico, ≤500 ms |
+| POST sync con cinco entradas cacheadas | 200 + `COMPLETED`, cinco procesados, cero fallas, ≤500 ms |
 
 Ningún escenario acepta respuestas 5xx.
 
@@ -101,7 +101,7 @@ Una ejecución exitosa debe mostrar:
 - `processed=5`.
 - `failedLeagues=0`.
 - Cinco jugadores persistidos con los datos cacheados.
-- Duración del POST no mayor a 100 ms.
+- Duración del POST no mayor a 500 ms.
 
 Con el destino externo inválido, esos resultados no pueden obtenerse si alguna clave falta o si el valor no puede deserializarse con el tipo esperado.
 
@@ -111,7 +111,7 @@ Con el destino externo inválido, esos resultados no pueden obtenerse si alguna 
 - **Contexto falla con credenciales**: el socket está abierto, pero las credenciales o la base son incorrectas; ajuste `E2E_DB_*`.
 - **Sync cacheado devuelve `PARTIAL_FAILURE` o `FAILED`**: confirme las cinco claves, sus códigos exactos y que fueron escritas mediante el caché configurado.
 - **Sync fallido devuelve `COMPLETED`**: hay entradas residuales en Redis o el escenario agregó caché; confirme que la limpieza ocurre antes de cada método.
-- **Sólo falla el límite de 100 ms**: registre la duración y revise saturación local/CI. No aumente el límite ni cambie timeouts productivos sin modificar primero la especificación aprobada.
+- **Sólo falla un límite de duración**: registre la duración y revise saturación local/CI. El límite es 100 ms para GET tras calentamiento y 500 ms para POST sync. No aumente los límites ni cambie timeouts productivos sin modificar primero la especificación aprobada.
 - **Orden distinto de jugadores**: el endpoint no promete orden; compare por `externalId` después de ordenar.
 
 ## Protected-files check

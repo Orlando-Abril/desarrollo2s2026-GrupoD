@@ -15,6 +15,7 @@ import com.example.demo.model.Position;
 import com.example.demo.support.E2EFixtures;
 import com.example.demo.support.E2EFixtures.FixtureSet;
 import com.example.demo.support.E2ETest;
+import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -285,7 +286,7 @@ class ExternalSourcesDownE2ETest {
         return new FootballDataResponse(List.of(new FootballDataResponse.Team(team, List.of(member))));
     }
 
-    private static List<org.assertj.core.groups.Tuple> cachedExpectedFields() {
+    private static List<Tuple> cachedExpectedFields() {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         return cachedCompetitions().stream()
                 .map(competition -> {
@@ -297,7 +298,7 @@ class ExternalSourcesDownE2ETest {
                         case "GOALKEEPER" -> Position.GOALKEEPER;
                         default -> Position.DEFENDER;
                     };
-                    return org.assertj.core.groups.Tuple.tuple(member.id().toString(), member.name(), team.name(),
+                    return Tuple.tuple(member.id().toString(), member.name(), team.name(),
                             competition.league(), Set.of(position), member.nationality(),
                             Period.between(member.dateOfBirth(), today).getYears(), new BigDecimal("1.00"));
                 })

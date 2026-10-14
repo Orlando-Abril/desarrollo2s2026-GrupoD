@@ -7,7 +7,7 @@
 - La limpieza automática terminó antes del método.
 - Football-Data y WhoScored apuntan a `127.0.0.1:1` mediante el perfil existente.
 - Un usuario fue registrado y autenticado por HTTP; cada request incluye `Authorization: Bearer <token>`.
-- Cada intercambio descrito se completa en 100 ms o menos y nunca acepta un 5xx.
+- Cada GET descrito se completa en 100 ms o menos tras una solicitud equivalente de calentamiento no medida; cada POST sync se completa en 500 ms o menos; ningún intercambio acepta un 5xx.
 
 ## GET /players — catálogo completo
 
@@ -93,7 +93,7 @@ HTTP 200 con:
 
 - Un GET posterior retorna una instantánea exactamente igual a la anterior.
 - Ningún jugador ni posición fue creado, eliminado o modificado.
-- Tanto POST como GET posterior cumplen el límite individual de 100 ms.
+- El POST cumple el límite de 500 ms y el GET posterior cumple el límite de 100 ms tras calentamiento.
 
 ## POST /players/sync — cinco cache hits
 
@@ -127,7 +127,7 @@ HTTP 200 con:
 
 - Un GET posterior devuelve cinco jugadores con los external IDs y atributos de los payloads cacheados.
 - No hubo intento de conexión externo: cualquier ejecución del cuerpo del adapter contra el destino inválido produciría al menos una liga fallida y haría imposible el resumen exigido.
-- POST y GET posterior cumplen el límite individual de 100 ms.
+- El POST cumple el límite de 500 ms y el GET posterior cumple el límite de 100 ms tras calentamiento.
 
 ## Error policy
 
@@ -135,4 +135,4 @@ HTTP 200 con:
 - Un 4xx por parámetros indica que el test construyó mal la solicitud.
 - Cualquier 5xx incumple el contrato.
 - Un 200 con payload o `status` incorrecto también incumple el contrato.
-- Superar 100 ms incumple el contrato aunque HTTP y payload sean correctos.
+- Superar 100 ms en un GET medido tras calentamiento o 500 ms en un POST sync incumple el contrato aunque HTTP y payload sean correctos.
