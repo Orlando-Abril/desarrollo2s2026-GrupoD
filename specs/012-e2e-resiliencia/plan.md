@@ -26,7 +26,7 @@ El caso de caché obtiene el caché `CacheConfig.COMPETITION_TEAMS_CACHE` desde 
 
 **Project Type**: Aplicación web con backend Spring Boot y frontend separado; esta feature sólo agrega soporte y pruebas e2e al backend
 
-**Performance Goals**: Cada `GET /players` termina en 100 ms o menos tras una solicitud equivalente de calentamiento no medida, y cada `POST /players/sync` termina en 500 ms o menos, una vez listo el contexto; preparación, login y carga de datos quedan fuera de la medición
+**Performance Goals**: Cada `GET /players` termina en 100 ms o menos tras una solicitud equivalente de calentamiento no medida, y cada `POST /players/sync` termina en 500 ms o menos tras una sincronización equivalente de calentamiento no medida, una vez listo el contexto; preparación, login y carga de datos quedan fuera de la medición
 
 **Constraints**: Un test por comportamiento verificable; HTTP real con Bearer JWT; fuentes externas en `127.0.0.1:1`; cero dependencias nuevas; cero cambios en archivos productivos o protegidos; no modificar `CacheConfig`; no ejecutar e2e en paralelo sobre la misma base/Redis; comparar catálogos sin depender del orden de consulta
 
@@ -46,7 +46,7 @@ El caso de caché obtiene el caché `CacheConfig.COMPETITION_TEAMS_CACHE` desde 
 | §5.3 Observabilidad | Las respuestas HTTP reales mantienen el recorrido por filtros y correlation ID existentes; la feature no modifica observabilidad. | PASS por preservación |
 | §7.2 Build y CI | Los nuevos tests conservan el tag `e2e` y entran en el `verify` ya usado por CI. | Se verifica al implementar |
 | §7.3 SonarCloud | No se agregan dependencias ni duplicación deliberada; se reutilizan helper y DTOs existentes. | Se verifica en el PR |
-| §7.6 Resiliencia | Cada comportamiento solicitado queda cubierto por una prueba e2e que exige respuesta no-5xx, GET ≤100 ms tras calentamiento y sync ≤500 ms. | PASS |
+| §7.6 Resiliencia | Cada comportamiento solicitado queda cubierto por una prueba e2e que exige respuesta no-5xx, GET ≤100 ms tras calentamiento y sync ≤500 ms tras calentamiento. | PASS |
 | Gobernanza / Entrega 1 | No se modifica constitución ni archivos protegidos: `pom.xml`, `ci.yml`, `application.properties`, `SecurityConfig`, filtros o controllers. | PASS |
 
 No existen violaciones ni decisiones pendientes. La planificación puede avanzar.
@@ -141,7 +141,7 @@ La evidencia combina observación directa y resultado funcional: las cinco clave
 
 ### Medición y ausencia de 5xx
 
-Una utilidad privada del test envolverá exclusivamente cada intercambio objetivo con `assertTimeout`: `Duration.ofMillis(100)` para GET, después de una solicitud equivalente de calentamiento no medida, y `Duration.ofMillis(500)` para POST. Después se exigirá el estado exacto 200; por lo tanto cualquier 5xx falla de forma explícita. Se usa timeout no preemptivo para no abandonar requests o transacciones en segundo plano: si se excede, la llamada termina y JUnit informa la duración real.
+Una utilidad privada del test envolverá exclusivamente cada intercambio objetivo con `assertTimeout`: `Duration.ofMillis(100)` para GET, después de una solicitud equivalente de calentamiento no medida, y `Duration.ofMillis(500)` para POST, también después de una sincronización equivalente de calentamiento no medida (la sync es idempotente: con Redis vacío ambas llamadas devuelven `FAILED` sin modificar datos, y con caché la segunda actualiza los mismos cinco jugadores sin consultar Football-Data). Después se exigirá el estado exacto 200; por lo tanto cualquier 5xx falla de forma explícita. Se usa timeout no preemptivo para no abandonar requests o transacciones en segundo plano: si se excede, la llamada termina y JUnit informa la duración real.
 
 ### Preservación del catálogo fallido
 

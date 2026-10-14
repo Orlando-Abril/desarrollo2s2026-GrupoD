@@ -204,13 +204,20 @@ class ExternalSourcesDownE2ETest {
     }
 
     private PlayerSyncResponse postSync() {
-        ResponseEntity<PlayerSyncResponse> response = withinLimit(SYNC_HTTP_TIMEOUT, () -> client.post()
+        ResponseEntity<PlayerSyncResponse> warmUp = requestSync();
+        assertOk(warmUp);
+
+        ResponseEntity<PlayerSyncResponse> response = withinLimit(SYNC_HTTP_TIMEOUT, this::requestSync);
+        assertOk(response);
+        return response.getBody();
+    }
+
+    private ResponseEntity<PlayerSyncResponse> requestSync() {
+        return client.post()
                 .uri("/players/sync")
                 .header(HttpHeaders.AUTHORIZATION, authorization())
                 .retrieve()
-                .toEntity(PlayerSyncResponse.class));
-        assertOk(response);
-        return response.getBody();
+                .toEntity(PlayerSyncResponse.class);
     }
 
     private String authorization() {

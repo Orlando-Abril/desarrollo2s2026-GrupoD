@@ -44,7 +44,7 @@ Como integrante del equipo, quiero comprobar que una sincronización manual fall
 
 **Acceptance Scenarios**:
 
-1. **Given** jugadores existentes, Football-Data inaccesible y ausencia de entradas aplicables en caché, **When** se solicita `POST /players/sync`, **Then** responde 200 con estado `FAILED`, sin respuesta 5xx y en no más de 500 ms.
+1. **Given** jugadores existentes, Football-Data inaccesible y ausencia de entradas aplicables en caché, **When** se solicita `POST /players/sync`, **Then** responde 200 con estado `FAILED`, sin respuesta 5xx y en no más de 500 ms, medido tras una sincronización equivalente de calentamiento no medida.
 2. **Given** la misma ejecución fallida, **When** se vuelve a consultar el catálogo, **Then** conserva exactamente la misma cantidad de jugadores y los mismos valores de todos sus campos que antes de sincronizar.
 
 ---
@@ -59,7 +59,7 @@ Como persona usuaria, quiero que los datos externos ya cacheados sigan disponibl
 
 **Acceptance Scenarios**:
 
-1. **Given** datos vigentes de las cinco ligas en Redis y Football-Data inaccesible, **When** se solicita `POST /players/sync`, **Then** responde 200 con estado `COMPLETED`, procesa los datos cacheados y finaliza en no más de 500 ms.
+1. **Given** datos vigentes de las cinco ligas en Redis y Football-Data inaccesible, **When** se solicita `POST /players/sync`, **Then** responde 200 con estado `COMPLETED`, procesa los datos cacheados y finaliza en no más de 500 ms, medido tras una sincronización equivalente de calentamiento no medida.
 2. **Given** esa respuesta exitosa desde caché, **When** se inspecciona la evidencia de interacción externa de la prueba, **Then** se observan cero llamadas o intentos de conexión a Football-Data.
 
 ---
@@ -102,7 +102,7 @@ Como integrante del equipo, quiero un helper común para cargar jugadores repres
 - **FR-008**: Una sincronización con resultado `FAILED` MUST conservar sin altas, bajas ni modificaciones todos los jugadores y posiciones existentes antes de la solicitud.
 - **FR-009**: Con datos vigentes de las cinco ligas precargados en Redis, `POST /players/sync` MUST reutilizar esos datos y responder 200 con `status` igual a `COMPLETED` aunque Football-Data esté inaccesible.
 - **FR-010**: El escenario de caché MUST verificar de forma inequívoca que se realizaron cero llamadas o intentos de conexión a Football-Data durante la solicitud.
-- **FR-011**: Cada `GET /players` de los escenarios MUST finalizar en no más de 100 ms después de una solicitud equivalente de calentamiento no medida, y cada `POST /players/sync` MUST finalizar en no más de 500 ms; ambos umbrales se miden después del arranque de la aplicación y excluyen la preparación y limpieza de datos.
+- **FR-011**: Cada `GET /players` de los escenarios MUST finalizar en no más de 100 ms después de una solicitud equivalente de calentamiento no medida, y cada `POST /players/sync` MUST finalizar en no más de 500 ms después de una sincronización equivalente de calentamiento no medida; ambos umbrales se miden después del arranque de la aplicación y excluyen la preparación y limpieza de datos.
 - **FR-012**: Ningún escenario nominal de resiliencia MUST devolver una respuesta 5xx.
 - **FR-013**: La suite MUST proporcionar un helper reutilizable que cargue un conjunto determinista de jugadores válidos de las cinco ligas y permita acceder a ellos por liga, equipo y posición.
 - **FR-014**: El helper MUST poder ser utilizado por futuros e2e sin depender de una clase de prueba concreta ni requerir conocimiento de detalles de persistencia por parte de la prueba consumidora.
@@ -128,7 +128,7 @@ Como integrante del equipo, quiero un helper común para cargar jugadores repres
 - **SC-002**: El 100% de los jugadores y valores precargados permanece idéntico después de una sincronización totalmente fallida; se observan cero altas, cero bajas y cero modificaciones.
 - **SC-003**: Una sincronización sin respaldo disponible informa `FAILED`, mientras una sincronización con respaldo completo vigente informa `COMPLETED`; ambas responden 200.
 - **SC-004**: En el escenario con respaldo completo, la medición de interacciones registra exactamente cero accesos a Football-Data.
-- **SC-005**: El 100% de los `GET /players` cubiertos finaliza en 100 ms o menos tras su calentamiento, el 100% de los `POST /players/sync` cubiertos finaliza en 500 ms o menos y ninguna interacción devuelve 5xx.
+- **SC-005**: El 100% de los `GET /players` cubiertos finaliza en 100 ms o menos tras su calentamiento, el 100% de los `POST /players/sync` cubiertos finaliza en 500 ms o menos tras su calentamiento y ninguna interacción devuelve 5xx.
 - **SC-006**: El conjunto compartido contiene al menos cinco jugadores, incluye las cinco ligas obligatorias y permite obtener al menos una coincidencia conocida para cada dimensión de filtro: liga, equipo y posición.
 - **SC-007**: Al menos dos clases o escenarios e2e pueden usar el mismo helper sin duplicar la construcción de jugadores ni depender de una clase de prueba específica.
 - **SC-008**: La feature produce cero cambios no aprobados en archivos protegidos de Entrega 1.
