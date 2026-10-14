@@ -7,7 +7,7 @@
 - La limpieza automática terminó antes del método.
 - Football-Data y WhoScored apuntan a `127.0.0.1:1` mediante el perfil existente.
 - Un usuario fue registrado y autenticado por HTTP; cada request incluye `Authorization: Bearer <token>`.
-- Cada GET descrito se completa en 100 ms o menos tras una solicitud equivalente de calentamiento no medida; cada POST sync se completa en 500 ms o menos tras una solicitud equivalente de calentamiento no medida; ningún intercambio acepta un 5xx.
+- Cada GET descrito se completa en 100 ms o menos tras una solicitud equivalente de calentamiento no medida; cada POST sync se completa en 500 ms o menos tras dos solicitudes equivalentes de calentamiento no medidas; ningún intercambio acepta un 5xx.
 
 ## GET /players — catálogo completo
 

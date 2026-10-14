@@ -52,6 +52,7 @@ class ExternalSourcesDownE2ETest {
 
     private static final Duration GET_HTTP_TIMEOUT = Duration.ofMillis(100);
     private static final Duration SYNC_HTTP_TIMEOUT = Duration.ofMillis(500);
+    private static final int SYNC_WARM_UPS = 2;
     private static final String USERNAME = "e2e-resilience-user";
     private static final String PASSWORD = "e2e-resilience-password";
     private static final ParameterizedTypeReference<List<PlayerResponse>> PLAYER_LIST_TYPE =
@@ -204,8 +205,11 @@ class ExternalSourcesDownE2ETest {
     }
 
     private PlayerSyncResponse postSync() {
-        ResponseEntity<PlayerSyncResponse> warmUp = requestSync();
-        assertOk(warmUp);
+        // Con caché, la primera sync inserta y las siguientes actualizan: se calientan ambos
+        // caminos para que la medición recorra uno ya ejecutado.
+        for (int i = 0; i < SYNC_WARM_UPS; i++) {
+            assertOk(requestSync());
+        }
 
         ResponseEntity<PlayerSyncResponse> response = withinLimit(SYNC_HTTP_TIMEOUT, this::requestSync);
         assertOk(response);

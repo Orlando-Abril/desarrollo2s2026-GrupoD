@@ -26,7 +26,7 @@ El caso de caché obtiene el caché `CacheConfig.COMPETITION_TEAMS_CACHE` desde 
 
 **Project Type**: Aplicación web con backend Spring Boot y frontend separado; esta feature sólo agrega soporte y pruebas e2e al backend
 
-**Performance Goals**: Cada `GET /players` termina en 100 ms o menos tras una solicitud equivalente de calentamiento no medida, y cada `POST /players/sync` termina en 500 ms o menos tras una sincronización equivalente de calentamiento no medida, una vez listo el contexto; preparación, login y carga de datos quedan fuera de la medición
+**Performance Goals**: Cada `GET /players` termina en 100 ms o menos tras una solicitud equivalente de calentamiento no medida, y cada `POST /players/sync` termina en 500 ms o menos tras dos sincronizaciones equivalentes de calentamiento no medidas, una vez listo el contexto; preparación, login y carga de datos quedan fuera de la medición
 
 **Constraints**: Un test por comportamiento verificable; HTTP real con Bearer JWT; fuentes externas en `127.0.0.1:1`; cero dependencias nuevas; cero cambios en archivos productivos o protegidos; no modificar `CacheConfig`; no ejecutar e2e en paralelo sobre la misma base/Redis; comparar catálogos sin depender del orden de consulta
 
@@ -141,7 +141,7 @@ La evidencia combina observación directa y resultado funcional: las cinco clave
 
 ### Medición y ausencia de 5xx
 
-Una utilidad privada del test envolverá exclusivamente cada intercambio objetivo con `assertTimeout`: `Duration.ofMillis(100)` para GET, después de una solicitud equivalente de calentamiento no medida, y `Duration.ofMillis(500)` para POST, también después de una sincronización equivalente de calentamiento no medida (la sync es idempotente: con Redis vacío ambas llamadas devuelven `FAILED` sin modificar datos, y con caché la segunda actualiza los mismos cinco jugadores sin consultar Football-Data). Después se exigirá el estado exacto 200; por lo tanto cualquier 5xx falla de forma explícita. Se usa timeout no preemptivo para no abandonar requests o transacciones en segundo plano: si se excede, la llamada termina y JUnit informa la duración real.
+Una utilidad privada del test envolverá exclusivamente cada intercambio objetivo con `assertTimeout`: `Duration.ofMillis(100)` para GET, después de una solicitud equivalente de calentamiento no medida, y `Duration.ofMillis(500)` para POST, también después de dos sincronizaciones equivalentes de calentamiento no medidas (la sync es idempotente: con Redis vacío todas las llamadas devuelven `FAILED` sin modificar datos; con caché la primera inserta y las siguientes actualizan los mismos cinco jugadores sin consultar Football-Data, por lo que se calientan ambos caminos y la medición recorre el de actualización ya ejecutado). Después se exigirá el estado exacto 200; por lo tanto cualquier 5xx falla de forma explícita. Se usa timeout no preemptivo para no abandonar requests o transacciones en segundo plano: si se excede, la llamada termina y JUnit informa la duración real.
 
 ### Preservación del catálogo fallido
 

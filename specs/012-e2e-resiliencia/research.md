@@ -64,7 +64,7 @@
 
 ## R6. Medición de 100 ms para GET y 500 ms para sync
 
-**Decision**: Envolver sólo cada llamada HTTP objetivo en `assertTimeout`, con `Duration.ofMillis(100)` para GET tras una solicitud equivalente de calentamiento no medida y `Duration.ofMillis(500)` para POST sync tras una sincronización equivalente de calentamiento no medida, y comprobar después estado 200 y payload.
+**Decision**: Envolver sólo cada llamada HTTP objetivo en `assertTimeout`, con `Duration.ofMillis(100)` para GET tras una solicitud equivalente de calentamiento no medida y `Duration.ofMillis(500)` para POST sync tras dos sincronizaciones equivalentes de calentamiento no medidas, y comprobar después estado 200 y payload.
 
 **Rationale**: Excluye arranque, limpieza, fixtures y autenticación según la spec. El timeout no preemptivo evita dejar procesamiento HTTP vivo si se supera el límite y entrega una falla con duración observable. El puerto 1 en loopback rechaza conexión inmediatamente; los timeouts de cliente heredados de test quedan como cota de seguridad, no como espera esperada.
 
