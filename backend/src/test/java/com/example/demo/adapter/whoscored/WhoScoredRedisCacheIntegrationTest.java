@@ -50,7 +50,7 @@ class WhoScoredRedisCacheIntegrationTest {
         manager.afterPropertiesSet();
         var cache = manager.getCache("whoscored-player-stats");
         var stats = new WhoScoredPlayerStats("123761", "Bruno Fernandes", "32", List.of("Man Utd", "Manchester United"),
-                450, 3, 1, 19, 13, 5, 0, 0, new BigDecimal("7.39"), Instant.parse("2026-09-25T13:30:00Z"));
+                450, 3, 1, 19, 13, 5, 12, 0, 0, new BigDecimal("7.39"), Instant.parse("2026-09-25T13:30:00Z"));
 
         cache.put(42L, stats);
 
