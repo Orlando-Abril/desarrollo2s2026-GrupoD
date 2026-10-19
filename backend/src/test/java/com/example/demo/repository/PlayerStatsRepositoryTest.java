@@ -78,6 +78,20 @@ class PlayerStatsRepositoryTest {
         assertThat(playerRepository.count()).isOne();
     }
 
+    @Test
+    void storesDribblesAndKeepsThemNullWhenAbsent() {
+        PlayerStats withDribbles = stats(new PlayerStats(saka), 450, new BigDecimal("7.39"));
+        withDribbles.setDribbles(12);
+        statsRepository.saveAndFlush(withDribbles);
+        Player rice = playerRepository.save(Player.builder().externalId("2048").fullName("Declan Rice")
+                .team("Arsenal FC").league(League.PREMIER_LEAGUE).marketValue(new BigDecimal("1.00")).build());
+        statsRepository.saveAndFlush(stats(new PlayerStats(rice), 400, new BigDecimal("7.01")));
+        entityManager.clear();
+
+        assertThat(statsRepository.findById(saka.getId()).orElseThrow().getDribbles()).isEqualTo(12);
+        assertThat(statsRepository.findById(rice.getId()).orElseThrow().getDribbles()).isNull();
+    }
+
     private PlayerStats stats(PlayerStats target, Integer minutes, BigDecimal rating) {
         target.setWhoscoredPlayerId("123761");
         target.setMinutesPlayed(minutes);

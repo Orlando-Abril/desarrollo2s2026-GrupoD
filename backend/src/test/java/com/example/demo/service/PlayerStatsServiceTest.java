@@ -109,6 +109,40 @@ class PlayerStatsServiceTest {
     }
 
     @Test
+    void savesDribblesReportedBySource() {
+        player("Bruno Fernandes", "Manchester United FC", League.PREMIER_LEAGUE);
+        leagueRows(League.PREMIER_LEAGUE, withDribbles(row("123761", "Bruno Fernandes", "32",
+                List.of("Man Utd", "Manchester United"), 450, 3, 1, 19, 13, 5, 0, 0, "7.39"), 12));
+
+        service.updateAllStats();
+
+        PlayerStats saved = savedStats();
+        assertThat(saved.getDribbles()).isEqualTo(12);
+        assertThat(saved.getTackles()).isEqualTo(5);
+    }
+
+    @Test
+    void missingDribblesAreStoredAsNullAndTheRestIsSavedAsBefore() {
+        player("Bruno Fernandes", "Manchester United FC", League.PREMIER_LEAGUE);
+        leagueRows(League.PREMIER_LEAGUE, row("123761", "Bruno Fernandes", "32", List.of("Man Utd", "Manchester United"),
+                450, 3, 1, 19, 13, 5, 0, 0, "7.39"));
+
+        service.updateAllStats();
+
+        PlayerStats saved = savedStats();
+        assertThat(saved.getDribbles()).isNull();
+        assertThat(saved.getMinutesPlayed()).isEqualTo(450);
+        assertThat(saved.getGoals()).isEqualTo(3);
+        assertThat(saved.getAssists()).isEqualTo(1);
+        assertThat(saved.getShots()).isEqualTo(19);
+        assertThat(saved.getKeyPasses()).isEqualTo(13);
+        assertThat(saved.getTackles()).isEqualTo(5);
+        assertThat(saved.getYellowCards()).isZero();
+        assertThat(saved.getRedCards()).isZero();
+        assertThat(saved.getRating()).isEqualByComparingTo("7.39");
+    }
+
+    @Test
     void replacesThePreviousSetEntirelyIncludingNullsAndFetchedAt() {
         Player bruno = player("Bruno Fernandes", "Manchester United FC", League.PREMIER_LEAGUE);
         PlayerStats previous = previousStats(bruno);
@@ -677,8 +711,15 @@ class PlayerStatsServiceTest {
     static WhoScoredPlayerStats row(String playerId, String name, String teamId, List<String> teamNames,
                                     Integer minutes, Integer goals, Integer assists, Integer shots,
                                     Integer keyPasses, Integer tackles, Integer yellow, Integer red, String rating) {
-        return new WhoScoredPlayerStats(playerId, name, teamId, teamNames, minutes, goals, assists, shots,
-                keyPasses, tackles, yellow, red, rating == null ? null : new BigDecimal(rating), FETCHED_AT);
+        return withDribbles(new WhoScoredPlayerStats(playerId, name, teamId, teamNames, minutes, goals, assists,
+                shots, keyPasses, tackles, null, yellow, red, rating == null ? null : new BigDecimal(rating),
+                FETCHED_AT), null);
+    }
+
+    static WhoScoredPlayerStats withDribbles(WhoScoredPlayerStats row, Integer dribbles) {
+        return new WhoScoredPlayerStats(row.whoscoredPlayerId(), row.name(), row.whoscoredTeamId(), row.teamNames(),
+                row.minutesPlayed(), row.goals(), row.assists(), row.shots(), row.keyPasses(), row.tackles(),
+                dribbles, row.yellowCards(), row.redCards(), row.rating(), row.fetchedAt());
     }
 
     static WhoScoredPlayerStats simpleRow(String playerId, String name, String teamId, String... teamNames) {

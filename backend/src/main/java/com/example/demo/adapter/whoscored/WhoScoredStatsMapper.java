@@ -54,12 +54,13 @@ public class WhoScoredStatsMapper {
     }
 
     /**
-     * Combina las 4 respuestas de una liga por {@code (playerId, teamId)}. El resumen define las filas;
-     * las consultas detalladas sólo completan su métrica (ausente ⇒ {@code null}).
+     * Combina las 5 respuestas de una liga por {@code (playerId, teamId)}. El resumen define las filas;
+     * las consultas detalladas sólo completan su métrica (ausente ⇒ {@code null}). La de gambetas es opcional:
+     * si no se pudo obtener llega vacía y las gambetas quedan en {@code null}.
      */
     public List<WhoScoredPlayerStats> merge(WhoScoredFeedResponse summary, WhoScoredFeedResponse shots,
                                             WhoScoredFeedResponse keyPasses, WhoScoredFeedResponse tackles,
-                                            Instant fetchedAt) {
+                                            WhoScoredFeedResponse dribbles, Instant fetchedAt) {
         Map<Key, Row> summaryRows = index(summary, "summary");
         if (summaryRows.isEmpty() && !summary.playerTableStats().isEmpty()) {
             throw new WhoScoredException(WhoScoredException.UNEXPECTED_STRUCTURE,
@@ -68,7 +69,8 @@ public class WhoScoredStatsMapper {
         Map<Key, Row> shotRows = index(shots, "shots");
         Map<Key, Row> keyPassRows = index(keyPasses, "key-passes");
         Map<Key, Row> tackleRows = index(tackles, "tackles");
-        Map<String, Set<String>> teamNames = teamNames(List.of(summary, shots, keyPasses, tackles));
+        Map<Key, Row> dribbleRows = index(dribbles, "dribbles");
+        Map<String, Set<String>> teamNames = teamNames(List.of(summary, shots, keyPasses, tackles, dribbles));
 
         List<WhoScoredPlayerStats> result = new ArrayList<>(summaryRows.size());
         for (Map.Entry<Key, Row> entry : summaryRows.entrySet()) {
@@ -82,6 +84,7 @@ public class WhoScoredStatsMapper {
                     integer(detail(shotRows, key, Row::shotsTotal), key, "shots"),
                     integer(detail(keyPassRows, key, Row::keyPassesTotal), key, "keyPasses"),
                     integer(detail(tackleRows, key, Row::tackleWonTotal), key, "tackles"),
+                    integer(detail(dribbleRows, key, Row::dribbleWonTotal), key, "dribbles"),
                     integer(row.yellowCard(), key, "yellowCards"),
                     integer(row.redCard(), key, "redCards"),
                     rating(row.rating(), key),

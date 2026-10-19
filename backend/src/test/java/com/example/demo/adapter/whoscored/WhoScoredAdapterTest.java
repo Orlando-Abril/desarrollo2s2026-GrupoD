@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -63,14 +64,9 @@ class WhoScoredAdapterTest {
     }
 
     @Test
-    void requestsTheFourLeagueQueriesAndMergesThem() {
+    void requestsTheFiveLeagueQueriesAndMergesThem() {
         setUp(Duration.ZERO, true, Duration.ZERO);
-        expectQuery("summary", "all", "0").andRespond(withSuccess(fixture("league-summary.json"), TEXT_HTML_UTF8));
-        expectQuery("shots", "zones", "2").andRespond(withSuccess(fixture("league-shots.json"), TEXT_HTML_UTF8));
-        expectQuery("key-passes", "length", "2")
-                .andRespond(withSuccess(fixture("league-key-passes.json"), TEXT_HTML_UTF8));
-        expectQuery("tackles", "success", "2")
-                .andRespond(withSuccess(fixture("league-tackles.json"), TEXT_HTML_UTF8));
+        expectFullLeague();
 
         List<WhoScoredPlayerStats> rows = adapter.fetchLeaguePlayers(League.PREMIER_LEAGUE);
 
@@ -81,8 +77,43 @@ class WhoScoredAdapterTest {
                     assertThat(bruno.shots()).isEqualTo(19);
                     assertThat(bruno.keyPasses()).isEqualTo(13);
                     assertThat(bruno.tackles()).isEqualTo(5);
+                    assertThat(bruno.dribbles()).isEqualTo(12);
                 });
         assertThat(rows).extracting(WhoScoredPlayerStats::fetchedAt).containsOnly(rows.get(0).fetchedAt());
+    }
+
+    // --- spec 013: la consulta de gambetas es opcional ----------------------------------------------
+
+    @Test
+    void failureOfTheDribblesQueryStillReturnsTheLeagueWithoutDribbles(CapturedOutput output) {
+        setUp(Duration.ZERO, true, Duration.ZERO);
+        expectMandatoryQueries();
+        expectQuery("dribbles", "success", "2").andRespond(withServerError());
+
+        List<WhoScoredPlayerStats> rows = adapter.fetchLeaguePlayers(League.PREMIER_LEAGUE);
+
+        server.verify();
+        assertThat(rows).hasSize(8).extracting(WhoScoredPlayerStats::dribbles).containsOnlyNulls();
+        assertThat(rows).filteredOn(r -> r.whoscoredPlayerId().equals("123761")).singleElement()
+                .satisfies(bruno -> assertThat(bruno.tackles()).isEqualTo(5));
+        verify(mapper).merge(any(), any(), any(), any(),
+                argThat(dribbles -> dribbles.playerTableStats().isEmpty()), any());
+        assertThat(output).contains("whoscored_dribbles_unavailable league=PREMIER_LEAGUE");
+    }
+
+    @Test
+    void blockedDribblesQueryIsRetriedOnceAndThenSkipped(CapturedOutput output) {
+        setUp(Duration.ZERO, true, Duration.ZERO);
+        expectMandatoryQueries();
+        expectQuery("dribbles", "success", "2").andRespond(forbidden("blocked-cloudflare.html"));
+        expectQuery("dribbles", "success", "2").andRespond(forbidden("blocked-cloudflare.html"));
+
+        List<WhoScoredPlayerStats> rows = adapter.fetchLeaguePlayers(League.PREMIER_LEAGUE);
+
+        server.verify();
+        assertThat(rows).hasSize(8).extracting(WhoScoredPlayerStats::dribbles).containsOnlyNulls();
+        assertThat(output).contains("category=dribbles attempt=2")
+                .contains("whoscored_dribbles_unavailable league=PREMIER_LEAGUE");
     }
 
     @Test
@@ -235,7 +266,7 @@ class WhoScoredAdapterTest {
 
         assertCode(WhoScoredException.HTTP_ERROR);
         server.verify();
-        verify(mapper, never()).merge(any(), any(), any(), any(), any());
+        verify(mapper, never()).merge(any(), any(), any(), any(), any(), any());
     }
 
     void assertCode(String code) {
@@ -249,6 +280,12 @@ class WhoScoredAdapterTest {
     }
 
     void expectFullLeague() {
+        expectMandatoryQueries();
+        expectQuery("dribbles", "success", "2")
+                .andRespond(withSuccess(fixture("league-dribbles.json"), TEXT_HTML_UTF8));
+    }
+
+    void expectMandatoryQueries() {
         expectQuery("summary", "all", "0").andRespond(withSuccess(fixture("league-summary.json"), TEXT_HTML_UTF8));
         expectQuery("shots", "zones", "2").andRespond(withSuccess(fixture("league-shots.json"), TEXT_HTML_UTF8));
         expectQuery("key-passes", "length", "2")

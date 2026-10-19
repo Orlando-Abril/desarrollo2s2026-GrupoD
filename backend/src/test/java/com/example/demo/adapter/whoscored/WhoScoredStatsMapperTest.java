@@ -45,6 +45,40 @@ class WhoScoredStatsMapperTest {
     }
 
     @Test
+    void readsDribblesAndLeavesThemNullWhenTheSourceOmitsThem() {
+        List<WhoScoredPlayerStats> rows = mergeLeague();
+
+        assertThat(row(rows, "123761", "32").dribbles()).isEqualTo(12);
+        assertThat(row(rows, "353377", "32").dribbles()).isNull();
+    }
+
+    @Test
+    void emptyDribblesResponseLeavesEveryOtherMetricUnchanged() {
+        List<WhoScoredPlayerStats> withDribbles = mergeLeague();
+        List<WhoScoredPlayerStats> withoutDribbles = mapper.merge(parse("league-summary.json"),
+                parse("league-shots.json"), parse("league-key-passes.json"), parse("league-tackles.json"), empty(),
+                FETCHED_AT);
+
+        assertThat(withoutDribbles).extracting(WhoScoredPlayerStats::dribbles).containsOnlyNulls();
+        assertThat(withoutDribbles).usingRecursiveFieldByFieldElementComparatorIgnoringFields("dribbles")
+                .containsExactlyElementsOf(withDribbles);
+    }
+
+    @Test
+    void dribblesAloneCountAsAMetric() {
+        WhoScoredFeedResponse onlyIdentity = mapper.parse("""
+                {"playerTableStats":[{"playerId":123761,"name":"Bruno Fernandes","teamId":32,"teamName":"Man Utd"}]}""");
+
+        List<WhoScoredPlayerStats> rows = mapper.merge(onlyIdentity, empty(), empty(), empty(),
+                parse("league-dribbles.json"), FETCHED_AT);
+
+        assertThat(rows).singleElement().satisfies(r -> {
+            assertThat(r.dribbles()).isEqualTo(12);
+            assertThat(r.hasAnyMetric()).isTrue();
+        });
+    }
+
+    @Test
     void roundsRatingToTwoDecimalsAndReadsDecimalCardsAsIntegers() {
         List<WhoScoredPlayerStats> rows = mergeLeague();
 
@@ -89,7 +123,7 @@ class WhoScoredStatsMapperTest {
         WhoScoredFeedResponse onlyBruno = mapper.parse("""
                 {"playerTableStats":[{"playerId":123761,"name":"Bruno Fernandes","teamId":32,"teamName":"Man Utd","goal":3}]}""");
         List<WhoScoredPlayerStats> rows = mapper.merge(onlyBruno, parse("league-shots.json"),
-                parse("league-key-passes.json"), parse("league-tackles.json"), FETCHED_AT);
+                parse("league-key-passes.json"), parse("league-tackles.json"), parse("league-dribbles.json"), FETCHED_AT);
 
         assertThat(rows).singleElement().satisfies(r -> {
             assertThat(r.whoscoredPlayerId()).isEqualTo("123761");
@@ -160,16 +194,16 @@ class WhoScoredStatsMapperTest {
     void rowsWithoutAnyIdentityAreUnexpectedStructure() {
         WhoScoredFeedResponse noIdentity = mapper.parse("{\"playerTableStats\":[{\"goal\":1},{\"name\":\"X\"}]}");
 
-        assertUnexpectedStructure(() -> mapper.merge(noIdentity, empty(), empty(), empty(), FETCHED_AT));
+        assertUnexpectedStructure(() -> mapper.merge(noIdentity, empty(), empty(), empty(), empty(), FETCHED_AT));
     }
 
     @Test
     void emptyLeagueIsNotAnError() {
-        assertThat(mapper.merge(empty(), empty(), empty(), empty(), FETCHED_AT)).isEmpty();
+        assertThat(mapper.merge(empty(), empty(), empty(), empty(), empty(), FETCHED_AT)).isEmpty();
     }
 
     private List<WhoScoredPlayerStats> mergeSummaryOnly(String summaryFixture) {
-        return mapper.merge(parse(summaryFixture), empty(), empty(), empty(), FETCHED_AT);
+        return mapper.merge(parse(summaryFixture), empty(), empty(), empty(), empty(), FETCHED_AT);
     }
 
     private WhoScoredFeedResponse empty() {
@@ -184,7 +218,7 @@ class WhoScoredStatsMapperTest {
 
     private List<WhoScoredPlayerStats> mergeLeague() {
         return mapper.merge(parse("league-summary.json"), parse("league-shots.json"),
-                parse("league-key-passes.json"), parse("league-tackles.json"), FETCHED_AT);
+                parse("league-key-passes.json"), parse("league-tackles.json"), parse("league-dribbles.json"), FETCHED_AT);
     }
 
     private WhoScoredFeedResponse parse(String fixture) {

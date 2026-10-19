@@ -79,12 +79,29 @@ class CacheConfigTest {
         SerializationPair<Object> pair = manager.getCacheConfigurations()
                 .get(CacheConfig.WHOSCORED_PLAYER_STATS_CACHE).getValueSerializationPair();
         WhoScoredPlayerStats original = new WhoScoredPlayerStats("369430", "Enzo Fernández", "15",
-                List.of("Chelsea"), 25, 0, null, 0, 1, 0, 0, 0, new BigDecimal("6.14"),
+                List.of("Chelsea"), 25, 0, null, 0, 1, 0, 0, 0, 0, new BigDecimal("6.14"),
                 Instant.parse("2026-09-25T13:30:00Z"));
 
         Object cached = pair.read(pair.write(original));
 
         assertThat(cached).isInstanceOf(WhoScoredPlayerStats.class).isEqualTo(original);
+    }
+
+    @Test
+    void whoScoredPlayerStatsCachedBeforeDribblesExistedReadsWithNullDribbles() {
+        SerializationPair<Object> pair = manager.getCacheConfigurations()
+                .get(CacheConfig.WHOSCORED_PLAYER_STATS_CACHE).getValueSerializationPair();
+        String cachedBeforeDribbles = """
+                {"whoscoredPlayerId":"369430","name":"Enzo Fernández","whoscoredTeamId":"15","teamNames":["Chelsea"],
+                 "minutesPlayed":25,"goals":0,"assists":null,"shots":0,"keyPasses":1,"tackles":0,"yellowCards":0,
+                 "redCards":0,"rating":6.14,"fetchedAt":"2026-09-25T13:30:00Z"}""";
+
+        Object cached = pair.read(ByteBuffer.wrap(cachedBeforeDribbles.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(cached).isInstanceOfSatisfying(WhoScoredPlayerStats.class, stats -> {
+            assertThat(stats.dribbles()).isNull();
+            assertThat(stats.keyPasses()).isEqualTo(1);
+        });
     }
 
     private static WhoScoredProperties whoScoredProperties() {
