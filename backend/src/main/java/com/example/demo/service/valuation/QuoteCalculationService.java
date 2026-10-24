@@ -121,13 +121,7 @@ public class QuoteCalculationService {
         long startedAt = System.nanoTime();
         log.info("quote_recalculation_started runId={} requestedStrategy={}", run.id(), requestedStrategy);
         try {
-            Plan plan;
-            try {
-                snapshotService.snapshotAll(run.id());
-                plan = load(definitions);
-            } catch (RuntimeException exception) {
-                throw new RecalculationFailedException(run.id(), exception);
-            }
+            Plan plan = preparePlan(run, definitions);
 
             Tally tally = new Tally(plan.strategies());
             for (Player player : plan.players()) {
@@ -153,6 +147,15 @@ public class QuoteCalculationService {
             log.error("quote_recalculation_failed runId={} errorType={}",
                     run.id(), cause.getClass().getSimpleName(), exception);
             throw exception;
+        }
+    }
+
+    private Plan preparePlan(Run run, List<ValuationStrategyDefinition> definitions) {
+        try {
+            snapshotService.snapshotAll(run.id());
+            return load(definitions);
+        } catch (RuntimeException exception) {
+            throw new RecalculationFailedException(run.id(), exception);
         }
     }
 
