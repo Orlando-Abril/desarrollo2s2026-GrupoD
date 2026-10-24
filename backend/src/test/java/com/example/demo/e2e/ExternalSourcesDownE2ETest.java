@@ -253,7 +253,7 @@ class ExternalSourcesDownE2ETest {
     private static PlayerResponse expectedResponse(Player player) {
         return new PlayerResponse(player.getId(), player.getExternalId(), player.getFullName(), player.getTeam(),
                 player.getLeague(), player.getPositions(), player.getNationality(), player.getAge(),
-                player.getMarketValue());
+                player.getMarketValue().setScale(4));
     }
 
     private static List<CachedCompetition> cachedCompetitions() {
@@ -311,7 +311,7 @@ class ExternalSourcesDownE2ETest {
                     };
                     return Tuple.tuple(member.id().toString(), member.name(), team.name(),
                             competition.league(), Set.of(position), member.nationality(),
-                            Period.between(member.dateOfBirth(), today).getYears(), new BigDecimal("1.00"));
+                            Period.between(member.dateOfBirth(), today).getYears(), new BigDecimal("1.0000"));
                 })
                 .toList();
     }

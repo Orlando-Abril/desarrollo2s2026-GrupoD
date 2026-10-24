@@ -2,6 +2,7 @@ package com.example.demo.security;
 
 import com.example.demo.config.SecurityConfig;
 import com.example.demo.model.ApiKey;
+import com.example.demo.model.User;
 import com.example.demo.repository.ApiKeyRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -13,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
@@ -79,9 +81,11 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         String principal = apiKey.get().getOwner() != null
                 ? apiKey.get().getOwner().getUsername()
                 : apiKey.get().getKeyPrefix();
+        User owner = apiKey.get().getOwner();
 
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+                new UsernamePasswordAuthenticationToken(principal, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + (owner != null ? owner.getRole().name() : "ADMIN")))));
 
         filterChain.doFilter(request, response);
     }

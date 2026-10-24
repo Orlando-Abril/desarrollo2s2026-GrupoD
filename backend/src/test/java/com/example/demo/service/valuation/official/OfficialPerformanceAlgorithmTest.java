@@ -6,6 +6,7 @@ import com.example.demo.model.QuoteStatus;
 import com.example.demo.service.valuation.NormalizedPopulation;
 import com.example.demo.service.valuation.PopulationEntry;
 import com.example.demo.service.valuation.QuoteResult;
+import com.example.demo.service.valuation.ValuationAlgorithm;
 import com.example.demo.service.valuation.ValuationInput;
 import com.example.demo.service.valuation.strategy.Metric;
 import com.example.demo.service.valuation.strategy.MomentumStrategyV1;
@@ -157,6 +158,39 @@ class OfficialPerformanceAlgorithmTest {
 
         assertThat(algorithm.calculate(input(withMinutes(a(), 89), population), OFFICIAL)).isEqualTo(QuoteResult.noStats());
         assertThat(valuate(List.of(withMinutes(a(), 90), b())).get(A).status()).isEqualTo(QuoteStatus.CALCULATED);
+    }
+
+    @Test
+    void preparePopulationIsTheNormalizedPopulation() {
+        List<PopulationEntry> entries = List.of(a(), b(), c());
+
+        NormalizedPopulation prepared = algorithm.preparePopulation(entries);
+        NormalizedPopulation normalized = algorithm.normalize(entries);
+
+        assertThat(prepared.minMinutes()).isEqualTo(normalized.minMinutes());
+        for (Long id : List.of(A, B, C, X)) {
+            assertThat(prepared.contains(id)).as("jugador %s", id).isEqualTo(normalized.contains(id));
+        }
+        for (Long id : List.of(A, B, C)) {
+            assertThat(prepared.normalized(id, Position.MIDFIELDER)).isEqualTo(normalized.normalized(id, Position.MIDFIELDER));
+        }
+    }
+
+    @Test
+    void preparePopulationDefaultsToNull() {
+        ValuationAlgorithm withoutPopulation = new ValuationAlgorithm() {
+            @Override
+            public StrategyType type() {
+                return StrategyType.MOMENTUM;
+            }
+
+            @Override
+            public QuoteResult calculate(ValuationInput input, ValuationStrategyDefinition strategy) {
+                return QuoteResult.noStats();
+            }
+        };
+
+        assertThat(withoutPopulation.preparePopulation(List.of(a()))).isNull();
     }
 
     @Test

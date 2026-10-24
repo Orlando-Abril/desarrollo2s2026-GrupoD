@@ -1,0 +1,138 @@
+openapi: 3.0.3
+info:
+  title: Quotes API
+  version: v1
+  description: |
+    Endpoints de cotizaciones. La feature 016 define POST /quotes/recalculate.
+    017 (recálculo programado) y 018 (consulta de cotizaciones) amplían este archivo.
+paths:
+  /quotes/recalculate:
+    post:
+      tags: [Quotes]
+      operationId: recalculateQuotes
+      summary: Ejecuta una corrida de recálculo de cotizaciones
+      description: |
+        Toma un snapshot de estadísticas y calcula una cotización por jugador y estrategia con los datos
+        ya persistidos, sin consultar fuentes externas. Si la estrategia activa se calculó, actualiza el
+        precio de mercado. Corre de forma sincrónica y responde cuando termina. Requiere rol ADMIN: por JWT, o por una API key cuyo dueño es ADMIN (una key sin dueño cuenta como ADMIN).
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - in: header
+          name: X-Correlation-ID
+          required: false
+          schema: { type: string, format: uuid }
+          description: Si falta o es inválido, se genera uno. Se guarda en las cotizaciones y en los logs.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecalculateRequest' }
+            examples:
+              todas: { value: {} }
+              official: { value: { strategy: OFFICIAL } }
+      responses:
+        '200':
+          description: Corrida terminada (puede incluir jugadores fallidos y estrategias salteadas)
+          headers:
+            X-Correlation-ID: { schema: { type: string, format: uuid } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteRunResponse' }
+        '400':
+          description: Código de estrategia inexistente (`unknown_strategy`) o cuerpo inválido (`validation_error`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example:
+                error: unknown_strategy
+                message: "Estrategia de valuación desconocida: 'FOO'. Códigos válidos: OFFICIAL, MOMENTUM"
+        '401':
+          description: Sin credenciales, o con credenciales inválidas o vencidas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example: { error: unauthorized, message: Falta el header X-API-KEY }
+        '403':
+          description: Usuario autenticado sin rol ADMIN
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example: { error: forbidden, message: No tenés permisos para esta operación }
+        '409':
+          description: Ya hay una corrida en curso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example: { error: recalculation_in_progress, message: Ya hay un recálculo de cotizaciones en curso }
+        '500':
+          description: La corrida no pudo completarse (por ejemplo, falló el snapshot); no se guardaron cotizaciones de esa etapa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example: { error: recalculation_failed, message: No se pudo completar el recálculo }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    apiKeyAuth: { type: apiKey, in: header, name: X-API-KEY }
+  schemas:
+    RecalculateRequest:
+      type: object
+      properties:
+        strategy:
+          type: string
+          nullable: true
+          description: Código exacto de la estrategia. Ausente o null = todas.
+          example: OFFICIAL
+    QuoteRunResponse:
+      type: object
+      required: [runId, calculatedAt, strategies, skippedStrategies, playersProcessed, playersFailed, activeStrategy, marketValueUpdated]
+      properties:
+        runId: { type: string, format: uuid }
+        calculatedAt: { type: string, format: date-time }
+        requestedStrategy: { type: string, nullable: true, example: null }
+        strategies:
+          type: array
+          items: { $ref: '#/components/schemas/StrategyRunCounts' }
+        skippedStrategies:
+          type: array
+          items: { $ref: '#/components/schemas/SkippedStrategy' }
+        playersProcessed: { type: integer, minimum: 0, example: 2480 }
+        playersFailed: { type: integer, minimum: 0, example: 0 }
+        activeStrategy: { type: string, example: OFFICIAL }
+        marketValueUpdated: { type: boolean, example: true }
+      example:
+        runId: 7f1c2a9e-3b7d-4c51-9a3e-2d4f6b8c0e11
+        calculatedAt: '2026-10-23T18:00:00Z'
+        requestedStrategy: null
+        strategies:
+          - { code: OFFICIAL, version: 1, calculated: 2210, noStats: 270, insufficientHistory: 0 }
+        skippedStrategies:
+          - { code: MOMENTUM, version: 1, reason: no_algorithm }
+        playersProcessed: 2480
+        playersFailed: 0
+        activeStrategy: OFFICIAL
+        marketValueUpdated: true
+    StrategyRunCounts:
+      type: object
+      required: [code, version, calculated, noStats, insufficientHistory]
+      properties:
+        code: { type: string }
+        version: { type: integer, minimum: 1 }
+        calculated: { type: integer, minimum: 0 }
+        noStats: { type: integer, minimum: 0 }
+        insufficientHistory: { type: integer, minimum: 0 }
+    SkippedStrategy:
+      type: object
+      required: [code, version, reason]
+      properties:
+        code: { type: string }
+        version: { type: integer, minimum: 1 }
+        reason: { type: string, enum: [no_algorithm] }
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string }
+        message: { type: string }
