@@ -121,25 +121,14 @@ public class QuoteCalculationService {
         long startedAt = System.nanoTime();
         log.info("quote_recalculation_started runId={} requestedStrategy={}", run.id(), requestedStrategy);
         try {
-            Plan plan;
-            try {
-                snapshotService.snapshotAll(run.id());
-                plan = load(definitions);
-            } catch (RuntimeException exception) {
-                throw new RecalculationFailedException(run.id(), exception);
-            }
+            Plan plan = preparePlan(run, definitions);
 
             Tally tally = new Tally(plan.strategies());
             for (Player player : plan.players()) {
                 process(player, plan, run, tally);
             }
 
-            QuoteRunResult result;
-            try {
-                result = summarize(run, requestedStrategy, plan, tally);
-            } catch (RuntimeException exception) {
-                throw new RecalculationFailedException(run.id(), exception);
-            }
+            QuoteRunResult result = summarizeSafely(run, requestedStrategy, plan, tally);
             log.info("quote_recalculation_finished runId={} calculated={} skipped={} processed={} failed={} "
                             + "marketValueUpdated={} durationMs={}",
                     run.id(), result.calculated(), result.skipped(), result.playersProcessed(),
@@ -153,6 +142,15 @@ public class QuoteCalculationService {
             log.error("quote_recalculation_failed runId={} errorType={}",
                     run.id(), cause.getClass().getSimpleName(), exception);
             throw exception;
+        }
+    }
+
+    private Plan preparePlan(Run run, List<ValuationStrategyDefinition> definitions) {
+        try {
+            snapshotService.snapshotAll(run.id());
+            return load(definitions);
+        } catch (RuntimeException exception) {
+            throw new RecalculationFailedException(run.id(), exception);
         }
     }
 
@@ -244,6 +242,14 @@ public class QuoteCalculationService {
                 .runId(run.id())
                 .correlationId(run.correlationId())
                 .build();
+    }
+
+    private QuoteRunResult summarizeSafely(Run run, String requestedStrategy, Plan plan, Tally tally) {
+        try {
+            return summarize(run, requestedStrategy, plan, tally);
+        } catch (RuntimeException exception) {
+            throw new RecalculationFailedException(run.id(), exception);
+        }
     }
 
     private QuoteRunResult summarize(Run run, String requestedStrategy, Plan plan, Tally tally) {
