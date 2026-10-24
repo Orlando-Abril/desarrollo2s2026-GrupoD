@@ -2,10 +2,14 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.quote.QuoteRunResponse;
 import com.example.demo.dto.quote.RecalculateRequest;
+import com.example.demo.dto.quote.PlayerQuoteResponse;
+import com.example.demo.exception.InvalidQuoteQueryException;
 import com.example.demo.exception.GlobalExceptionHandler.ErrorResponse;
 import com.example.demo.filter.CorrelationIdFilter;
 import com.example.demo.service.valuation.QuoteCalculationService;
+import com.example.demo.service.valuation.QuoteQueryService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -14,24 +18,100 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @RestController
-@RequestMapping("/quotes")
 @Tag(name = "Quotes", description = "Cotizaciones de jugadores")
 public class QuoteController {
 
-    private final QuoteCalculationService calculationService;
+    private static final Pattern ISO_DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final DateTimeFormatter STRICT_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
 
-    public QuoteController(QuoteCalculationService calculationService) {
+    private final QuoteCalculationService calculationService;
+    private final QuoteQueryService queryService;
+
+    public QuoteController(QuoteCalculationService calculationService, QuoteQueryService queryService) {
         this.calculationService = calculationService;
+        this.queryService = queryService;
     }
 
-    @PostMapping("/recalculate")
+    @GetMapping("/players/{id}/quotes")
+    @SecurityRequirement(name = "bearerAuth")
+    @SecurityRequirement(name = "apiKeyAuth")
+    @Operation(summary = "Consulta cotizaciones históricas de un jugador",
+            description = "Sin at devuelve una lista cronológica; con at devuelve la última cotización vigente "
+                    + "al fin UTC de ese día. at no puede combinarse con from ni to. Sin strategy se usa la activa.")
+    @ApiResponse(responseCode = "200", description = "Historial sin at, o cotización vigente con at",
+            headers = @Header(name = CorrelationIdFilter.HEADER, description = "UUID de trazabilidad"),
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(oneOf = {PlayerQuoteResponse[].class, PlayerQuoteResponse.class})))
+    @ApiResponse(responseCode = "400", description = "Identificador, estrategia, fecha o combinación inválida",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class),
+                    examples = {
+                            @ExampleObject(name = "invalidPlayerId",
+                                    value = "{\"error\":\"validation_error\",\"message\":\"El id del jugador debe ser mayor a cero\"}"),
+                            @ExampleObject(name = "unknownStrategy",
+                                    value = "{\"error\":\"unknown_strategy\",\"message\":\"Estrategia de valuación desconocida\"}")
+                    }))
+    @ApiResponse(responseCode = "401", description = "Sin credenciales, o con credenciales inválidas o vencidas",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Jugador inexistente o sin cotización vigente hasta at",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class),
+                    examples = {
+                            @ExampleObject(name = "playerNotFound",
+                                    value = "{\"error\":\"player_not_found\",\"message\":\"No existe el jugador 999999\"}"),
+                            @ExampleObject(name = "quoteNotFound",
+                                    value = "{\"error\":\"quote_not_found\",\"message\":\"No hay cotización vigente\"}")
+                    }))
+    public Object getPlayerQuotes(
+            @Parameter(description = "Identificador interno positivo del jugador",
+                    schema = @Schema(type = "integer", format = "int64", minimum = "1"))
+            @PathVariable("id") Long playerId,
+            @Parameter(description = "Código exacto de estrategia; ausente usa la activa", example = "OFFICIAL")
+            @RequestParam(required = false) String strategy,
+            @Parameter(description = "Primer día UTC incluido; incompatible con at",
+                    schema = @Schema(type = "string", format = "date"))
+            @RequestParam(required = false) String from,
+            @Parameter(description = "Último día UTC incluido; incompatible con at",
+                    schema = @Schema(type = "string", format = "date"))
+            @RequestParam(required = false) String to,
+            @Parameter(description = "Día UTC al final del cual se busca vigencia; incompatible con from y to",
+                    schema = @Schema(type = "string", format = "date"))
+            @RequestParam(required = false) String at) {
+        if (at != null) {
+            if (from != null || to != null) {
+                throw new InvalidQuoteQueryException("at no puede combinarse con from ni to");
+            }
+            return queryService.quoteAt(playerId, strategy, parseDate("at", at));
+        }
+        return queryService.history(playerId, strategy, parseDate("from", from), parseDate("to", to));
+    }
+
+    private static LocalDate parseDate(String parameter, String value) {
+        if (value == null) {
+            return null;
+        }
+        if (!ISO_DATE.matcher(value).matches()) {
+            throw new InvalidQuoteQueryException(parameter + " debe tener formato YYYY-MM-DD");
+        }
+        try {
+            return LocalDate.parse(value, STRICT_DATE);
+        } catch (DateTimeParseException ex) {
+            throw new InvalidQuoteQueryException(parameter + " debe ser una fecha válida con formato YYYY-MM-DD");
+        }
+    }
+
+    @PostMapping("/quotes/recalculate")
     @SecurityRequirement(name = "bearerAuth")
     @SecurityRequirement(name = "apiKeyAuth")
     @Operation(summary = "Ejecuta una corrida de recálculo de cotizaciones",
