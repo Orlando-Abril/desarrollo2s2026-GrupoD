@@ -19,6 +19,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class QuoteExceptionHandler {
 
+    private static final String VALIDATION_ERROR = "validation_error";
+
     @ExceptionHandler(UnknownValuationStrategyException.class)
     public ResponseEntity<ErrorResponse> handleUnknownStrategy(UnknownValuationStrategyException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -40,19 +42,19 @@ public class QuoteExceptionHandler {
     @ExceptionHandler(InvalidQuoteQueryException.class)
     public ResponseEntity<ErrorResponse> handleInvalidQuery(InvalidQuoteQueryException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("validation_error", ex.getMessage()));
+                .body(new ErrorResponse(VALIDATION_ERROR, ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("validation_error", "Uno o más parámetros son inválidos"));
+                .body(new ErrorResponse(VALIDATION_ERROR, "Uno o más parámetros son inválidos"));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("validation_error", "El cuerpo del pedido es inválido"));
+                .body(new ErrorResponse(VALIDATION_ERROR, "El cuerpo del pedido es inválido"));
     }
 
     @ExceptionHandler(RecalculationInProgressException.class)
