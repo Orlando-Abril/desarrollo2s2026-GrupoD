@@ -24,15 +24,17 @@ import static com.example.demo.service.valuation.strategy.Metric.YELLOW_CARDS;
  */
 public final class MomentumStrategyV1 {
 
+    private static final String STANDARD_YELLOW_CARD_PENALTY = "-0.05";
+
     public static final ValuationStrategyDefinition DEFINITION = new ValuationStrategyDefinition(
             "MOMENTUM", 1, StrategyType.MOMENTUM,
             new BigDecimal("1.00"), new BigDecimal("0.15"), new BigDecimal("0.30"),
             Map.of(
                     //                           goals   assists shots   keyPass dribble tackles rating  minutes yellow   red
-                    Position.GOALKEEPER, weights("0.00", "0.00", "0.00", "0.05", "0.00", "0.05", "0.60", "0.30", "-0.05", "-0.20"),
+                    Position.GOALKEEPER, weights("0.00", "0.00", "0.00", "0.05", "0.00", "0.05", "0.60", "0.30", STANDARD_YELLOW_CARD_PENALTY, "-0.20"),
                     Position.DEFENDER,   weights("0.05", "0.05", "0.00", "0.10", "0.05", "0.30", "0.25", "0.20", "-0.10", "-0.20"),
-                    Position.MIDFIELDER, weights("0.20", "0.15", "0.05", "0.15", "0.10", "0.10", "0.15", "0.10", "-0.05", "-0.15"),
-                    Position.FORWARD,    weights("0.30", "0.15", "0.10", "0.05", "0.10", "0.00", "0.20", "0.10", "-0.05", "-0.15")),
+                    Position.MIDFIELDER, weights("0.20", "0.15", "0.05", "0.15", "0.10", "0.10", "0.15", "0.10", STANDARD_YELLOW_CARD_PENALTY, "-0.15"),
+                    Position.FORWARD,    weights("0.30", "0.15", "0.10", "0.05", "0.10", "0.00", "0.20", "0.10", STANDARD_YELLOW_CARD_PENALTY, "-0.15")),
             new MomentumParameters(4, 2));
 
     private MomentumStrategyV1() {
