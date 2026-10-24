@@ -128,12 +128,7 @@ public class QuoteCalculationService {
                 process(player, plan, run, tally);
             }
 
-            QuoteRunResult result;
-            try {
-                result = summarize(run, requestedStrategy, plan, tally);
-            } catch (RuntimeException exception) {
-                throw new RecalculationFailedException(run.id(), exception);
-            }
+            QuoteRunResult result = summarizeSafely(run, requestedStrategy, plan, tally);
             log.info("quote_recalculation_finished runId={} calculated={} skipped={} processed={} failed={} "
                             + "marketValueUpdated={} durationMs={}",
                     run.id(), result.calculated(), result.skipped(), result.playersProcessed(),
@@ -247,6 +242,14 @@ public class QuoteCalculationService {
                 .runId(run.id())
                 .correlationId(run.correlationId())
                 .build();
+    }
+
+    private QuoteRunResult summarizeSafely(Run run, String requestedStrategy, Plan plan, Tally tally) {
+        try {
+            return summarize(run, requestedStrategy, plan, tally);
+        } catch (RuntimeException exception) {
+            throw new RecalculationFailedException(run.id(), exception);
+        }
     }
 
     private QuoteRunResult summarize(Run run, String requestedStrategy, Plan plan, Tally tally) {
