@@ -57,7 +57,7 @@ public class Player {
     @Column(name = "height_cm")
     private Integer heightCm;
 
-    /** Base para el precio simulado en el mercado; se recalculará con rendimiento real más adelante. */
-    @Column(name = "market_value", nullable = false)
+    /** Precio de mercado: cotización de la estrategia activa en la última corrida (feature 016). Escala 4, igual que PlayerQuote.value. */
+    @Column(name = "market_value", nullable = false, precision = 12, scale = 4)
     private BigDecimal marketValue;
 }

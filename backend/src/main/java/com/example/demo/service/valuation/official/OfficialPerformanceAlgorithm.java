@@ -62,6 +62,11 @@ public class OfficialPerformanceAlgorithm implements ValuationAlgorithm {
     }
 
     @Override
+    public NormalizedPopulation preparePopulation(Collection<PopulationEntry> entries) {
+        return normalize(entries);
+    }
+
+    @Override
     public QuoteResult calculate(ValuationInput input, ValuationStrategyDefinition strategy) {
         validate(input, strategy);
         NormalizedPopulation population = input.population();

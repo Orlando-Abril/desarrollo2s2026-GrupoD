@@ -3,6 +3,8 @@ package com.example.demo.service.valuation;
 import com.example.demo.service.valuation.strategy.StrategyType;
 import com.example.demo.service.valuation.strategy.ValuationStrategyDefinition;
 
+import java.util.Collection;
+
 /**
  * Algoritmo que interpreta una definición de estrategia y valúa a un jugador. La corrida de recálculo
  * (feature 016) elige la implementación según {@code definition.type()}: OFFICIAL (feature 015) y MOMENTUM
@@ -19,4 +21,9 @@ public interface ValuationAlgorithm {
      * @throws IllegalArgumentException si {@code strategy.type()} no es {@link #type()} o la entrada es inválida
      */
     QuoteResult calculate(ValuationInput input, ValuationStrategyDefinition strategy);
+
+    /** Población de la corrida, armada una vez por estrategia antes de calcular (feature 016); null si el algoritmo no la usa. */
+    default NormalizedPopulation preparePopulation(Collection<PopulationEntry> entries) {
+        return null;
+    }
 }

@@ -1,6 +1,8 @@
 package com.example.demo.security;
 
 import com.example.demo.model.ApiKey;
+import com.example.demo.model.Role;
+import com.example.demo.model.User;
 import com.example.demo.repository.ApiKeyRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +23,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -87,6 +93,43 @@ class ApiKeyAuthFilterTest {
 
             verify(chain).doFilter(request, response);
             verifyNoInteractions(repository);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void apiKeyDeUnUsuarioUserAutenticaConRoleUser() throws Exception {
+        assertThat(authoritiesDe(User.builder().username("guada").role(Role.USER).build()))
+                .containsExactly("ROLE_USER");
+    }
+
+    @Test
+    void apiKeyDeUnUsuarioAdminAutenticaConRoleAdmin() throws Exception {
+        assertThat(authoritiesDe(User.builder().username("abril").role(Role.ADMIN).build()))
+                .containsExactly("ROLE_ADMIN");
+    }
+
+    @Test
+    void apiKeySinDuenioAutenticaConRoleAdmin() throws Exception {
+        assertThat(authoritiesDe(null)).containsExactly("ROLE_ADMIN");
+    }
+
+    private List<String> authoritiesDe(User owner) throws Exception {
+        String rawKey = "raw-key-con-rol";
+        ApiKeyRepository repository = mock(ApiKeyRepository.class);
+        when(repository.findByKeyHash(sha256Hex(rawKey))).thenReturn(Optional.of(
+                ApiKey.builder().keyHash(sha256Hex(rawKey)).keyPrefix("rol12345").owner(owner).active(true).build()));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", PROTECTED_PATH);
+        request.addHeader(API_KEY_HEADER, rawKey);
+        SecurityContextHolder.clearContext();
+
+        try {
+            new ApiKeyAuthFilter(repository).doFilter(request, new MockHttpServletResponse(), mock(FilterChain.class));
+
+            return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .toList();
         } finally {
             SecurityContextHolder.clearContext();
         }

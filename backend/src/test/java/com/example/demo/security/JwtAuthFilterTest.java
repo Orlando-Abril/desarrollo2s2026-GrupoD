@@ -1,5 +1,8 @@
 package com.example.demo.security;
 
+import com.example.demo.model.Role;
+import com.example.demo.model.User;
+import com.example.demo.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,14 +14,18 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class JwtAuthFilterTest {
 
@@ -28,13 +35,15 @@ class JwtAuthFilterTest {
             "{\"error\":\"unauthorized\",\"message\":\"Token inválido o vencido\"}";
 
     private JwtUtil jwtUtil;
+    private UserRepository userRepository;
     private JwtAuthFilter filter;
 
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
         jwtUtil = new JwtUtil(SECRET, 3_600_000);
-        filter = new JwtAuthFilter(jwtUtil);
+        userRepository = mock(UserRepository.class);
+        filter = new JwtAuthFilter(jwtUtil, userRepository);
     }
 
     @AfterEach
@@ -56,6 +65,22 @@ class JwtAuthFilterTest {
         assertThat(authentication.isAuthenticated()).isTrue();
         assertThat(authentication.getPrincipal()).isEqualTo("guada");
         verify(chain).doFilter(request, response);
+    }
+
+    @Test
+    void userRoleBecomesTheAuthority() throws Exception {
+        assertThat(authoritiesFor("guada", Role.USER)).containsExactly("ROLE_USER");
+    }
+
+    @Test
+    void adminRoleBecomesTheAuthority() throws Exception {
+        assertThat(authoritiesFor("abril", Role.ADMIN)).containsExactly("ROLE_ADMIN");
+    }
+
+    @Test
+    void unknownUserIsAuthenticatedWithoutAuthorities() throws Exception {
+        assertThat(authoritiesFor("fantasma", null)).isEmpty();
+        assertThat(SecurityContextHolder.getContext().getAuthentication().isAuthenticated()).isTrue();
     }
 
     @Test
@@ -136,6 +161,20 @@ class JwtAuthFilterTest {
         assertThat(response.getContentAsString()).isEqualTo(INVALID_TOKEN_BODY);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(chain, never()).doFilter(request, response);
+    }
+
+    private List<String> authoritiesFor(String username, Role role) throws Exception {
+        if (role != null) {
+            when(userRepository.findByUsername(username))
+                    .thenReturn(Optional.of(User.builder().username(username).role(role).build()));
+        }
+        MockHttpServletRequest request = protectedRequest("Bearer " + jwtUtil.generateToken(username));
+
+        filter.doFilter(request, new MockHttpServletResponse(), mock(FilterChain.class));
+
+        return SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
     }
 
     private MockHttpServletRequest protectedRequest(String authorization) {

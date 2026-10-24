@@ -1,6 +1,7 @@
 package com.example.demo.security;
 
 import com.example.demo.config.SecurityConfig;
+import com.example.demo.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -11,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
@@ -27,10 +30,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public JwtAuthFilter(JwtUtil jwtUtil) {
+    public JwtAuthFilter(JwtUtil jwtUtil, UserRepository userRepository) {
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -62,8 +67,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         String username = jwtUtil.extractUsername(token);
+        List<GrantedAuthority> authorities = userRepository.findByUsername(username)
+                .map(user -> List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())))
+                .orElse(List.of());
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(username, null, List.of()));
+                new UsernamePasswordAuthenticationToken(username, null, authorities));
         filterChain.doFilter(request, response);
     }
 

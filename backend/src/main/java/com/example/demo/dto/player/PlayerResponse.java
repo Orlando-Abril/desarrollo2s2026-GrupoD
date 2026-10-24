@@ -18,7 +18,7 @@ public record PlayerResponse(
         @ArraySchema(uniqueItems = true, schema = @Schema(implementation = Position.class)) Set<Position> positions,
         @Schema(example = "England", nullable = true) String nationality,
         @Schema(example = "25", nullable = true, minimum = "0") Integer age,
-        @Schema(example = "1.00", minimum = "0", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal marketValue) {
+        @Schema(example = "1.0000", minimum = "0", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal marketValue) {
     public PlayerResponse {
         positions = positions == null ? Set.of() : Set.copyOf(positions);
     }
