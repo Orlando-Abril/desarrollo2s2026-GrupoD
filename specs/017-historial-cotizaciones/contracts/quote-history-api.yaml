@@ -1,0 +1,188 @@
+openapi: 3.0.3
+info:
+  title: Player Quote History API
+  version: v1
+  description: Consulta autenticada del historial o la cotización vigente de un jugador.
+paths:
+  /players/{id}/quotes:
+    get:
+      tags: [Quotes]
+      operationId: getPlayerQuotes
+      summary: Consulta cotizaciones históricas de un jugador
+      description: |
+        Sin `at`, devuelve una lista cronológica para la estrategia y rango elegidos.
+        Con `at`, devuelve como objeto único la última cotización vigente al fin UTC de ese día.
+        `at` no puede combinarse con `from` ni `to`. Si `strategy` falta, se usa la estrategia activa.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador interno positivo del jugador. Un valor menor o igual a cero produce 400 `validation_error`.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: strategy
+          in: query
+          required: false
+          description: Código exacto de estrategia; ausente usa la estrategia activa.
+          schema:
+            type: string
+          example: OFFICIAL
+        - name: from
+          in: query
+          required: false
+          description: Primer día UTC incluido en el historial. Incompatible con `at`.
+          schema:
+            type: string
+            format: date
+          example: '2026-10-01'
+        - name: to
+          in: query
+          required: false
+          description: Último día UTC incluido en el historial. Incompatible con `at`.
+          schema:
+            type: string
+            format: date
+          example: '2026-10-20'
+        - name: at
+          in: query
+          required: false
+          description: Día UTC al final del cual se busca la cotización vigente. Incompatible con `from` y `to`.
+          schema:
+            type: string
+            format: date
+          example: '2026-10-10'
+      responses:
+        '200':
+          description: Lista histórica cuando `at` está ausente, u objeto vigente cuando `at` está presente.
+          headers:
+            X-Correlation-ID:
+              description: UUID de trazabilidad del pedido.
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/PlayerQuoteResponse'
+                  - $ref: '#/components/schemas/PlayerQuoteResponse'
+              examples:
+                history:
+                  summary: Historial cronológico
+                  value:
+                    - value: 1.1000
+                      score: 7.5000
+                      status: CALCULATED
+                      strategy: OFFICIAL
+                      version: 1
+                      calculatedAt: '2026-10-01T18:00:00Z'
+                    - value: 1.2450
+                      score: null
+                      status: NO_STATS
+                      strategy: OFFICIAL
+                      version: 1
+                      calculatedAt: '2026-10-08T18:00:00Z'
+                effectiveAt:
+                  summary: Cotización vigente al fin del día
+                  value:
+                    value: 1.2450
+                    score: null
+                    status: NO_STATS
+                    strategy: OFFICIAL
+                    version: 1
+                    calculatedAt: '2026-10-08T18:00:00Z'
+        '400':
+          description: Identificador no positivo, estrategia, fecha, rango o combinación de parámetros inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidPlayerId:
+                  value:
+                    error: validation_error
+                    message: El id del jugador debe ser mayor a cero
+                invalidRange:
+                  value:
+                    error: validation_error
+                    message: from no puede ser posterior a to
+                unknownStrategy:
+                  value:
+                    error: unknown_strategy
+                    message: "Estrategia de valuación desconocida: 'FOO'. Códigos válidos: OFFICIAL, MOMENTUM"
+        '401':
+          description: Sin credenciales, o con credenciales inválidas o vencidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                message: Falta el header X-API-KEY
+        '404':
+          description: El id es positivo pero el jugador no existe, o no había cotización vigente hasta `at`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                playerNotFound:
+                  value:
+                    error: player_not_found
+                    message: No existe el jugador 999999
+                quoteNotFound:
+                  value:
+                    error: quote_not_found
+                    message: No hay cotización OFFICIAL para el jugador 42 vigente al 2026-09-01
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  schemas:
+    PlayerQuoteResponse:
+      type: object
+      required: [value, score, status, strategy, version, calculatedAt]
+      properties:
+        value:
+          type: number
+          minimum: 0
+          example: 1.2450
+        score:
+          type: number
+          nullable: true
+          example: 8.7500
+        status:
+          type: string
+          enum: [CALCULATED, NO_STATS, INSUFFICIENT_HISTORY]
+        strategy:
+          type: string
+          example: OFFICIAL
+        version:
+          type: integer
+          minimum: 1
+          example: 1
+        calculatedAt:
+          type: string
+          format: date-time
+          example: '2026-10-20T18:00:00Z'
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string

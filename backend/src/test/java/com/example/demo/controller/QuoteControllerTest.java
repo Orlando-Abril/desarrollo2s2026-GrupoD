@@ -8,6 +8,7 @@ import com.example.demo.repository.ApiKeyRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.service.valuation.QuoteCalculationService;
 import com.example.demo.service.valuation.QuoteRunResult;
+import com.example.demo.service.valuation.QuoteQueryService;
 import com.example.demo.service.valuation.SkippedStrategy;
 import com.example.demo.service.valuation.StrategyRunCounts;
 import com.example.demo.support.AuthFixtures;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,6 +63,9 @@ class QuoteControllerTest {
 
     @MockitoBean
     private QuoteCalculationService service;
+
+    @MockitoBean
+    private QuoteQueryService queryService;
 
     private String adminKey;
 
@@ -144,6 +149,20 @@ class QuoteControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error").value("recalculation_failed"))
                 .andExpect(jsonPath("$.message").value("No se pudo completar el recálculo"));
+    }
+
+    @Test
+    void atCannotBeCombinedWithFromOrToAndDoesNotCallQueryService() throws Exception {
+        mockMvc.perform(admin(get("/players/42/quotes")
+                        .param("at", "2026-10-10").param("from", "2026-10-01")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("validation_error"));
+        mockMvc.perform(admin(get("/players/42/quotes")
+                        .param("at", "2026-10-10").param("to", "2026-10-20")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("validation_error"));
+
+        verifyNoInteractions(queryService);
     }
 
     private MockHttpServletRequestBuilder admin(MockHttpServletRequestBuilder request) {
