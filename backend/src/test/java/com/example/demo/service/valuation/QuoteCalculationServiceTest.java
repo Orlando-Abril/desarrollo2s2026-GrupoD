@@ -20,6 +20,9 @@ import com.example.demo.repository.PlayerQuoteRepository;
 import com.example.demo.repository.PlayerRepository;
 import com.example.demo.repository.PlayerStatsRepository;
 import com.example.demo.service.PlayerStatsService;
+import com.example.demo.service.valuation.momentum.MomentumFixtures;
+import com.example.demo.service.valuation.momentum.MomentumFormAlgorithm;
+import com.example.demo.service.valuation.official.OfficialPerformanceAlgorithm;
 import com.example.demo.service.valuation.strategy.StrategyType;
 import com.example.demo.service.valuation.strategy.ValuationStrategyCatalog;
 import org.junit.jupiter.api.AfterEach;
@@ -54,6 +57,9 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -548,6 +554,147 @@ class QuoteCalculationServiceTest {
                 .satisfies(event -> assertThat(event.getFormattedMessage())
                         .contains("quote_recalculation_failed")
                         .contains("errorType=IllegalStateException"));
+    }
+
+    // Feature 019: MOMENTUM
+
+    @Test
+    void momentumIsCalculatedWithOfficialAndIsNoLongerSkipped() {
+        Player a = player(1, "1.0000");
+        Player b = player(2, "1.0000");
+        withStats(a, b);
+        officialResults.put(1L, calculated("1.0500", "0.5000"));
+        officialResults.put(2L, calculated("1.0600", "0.6000"));
+        when(snapshotService.recentWindows(anyLong(), eq(6))).thenReturn(MomentumFixtures.repeated(5,
+                MomentumFixtures.idle()));
+
+        QuoteRunResult result = momentumService(official).recalculate(Optional.empty());
+
+        assertThat(result.skipped()).isEmpty();
+        assertThat(saved).extracting(quote -> quote.getPlayer().getId() + ":" + quote.getStrategyCode())
+                .containsExactlyInAnyOrder("1:OFFICIAL", "1:MOMENTUM", "2:OFFICIAL", "2:MOMENTUM");
+        assertThat(saved).filteredOn(quote -> quote.getStrategyCode().equals("MOMENTUM")).allSatisfy(quote -> {
+            assertThat(quote.getStatus()).isEqualTo(QuoteStatus.CALCULATED);
+            assertThat(quote.getValue()).isEqualByComparingTo("0.9700");
+        });
+        assertThat(a.getMarketValue()).isEqualByComparingTo("1.0500");
+    }
+
+    @Test
+    void onlyMomentumReceivesTheWindowsOfEachPlayer() {
+        Player a = player(1, "1.0000");
+        Player b = player(2, "1.0000");
+        withStats(a, b);
+        List<StatsWindow> windows = MomentumFixtures.repeated(5, MomentumFixtures.idle());
+        when(snapshotService.recentWindows(anyLong(), anyInt())).thenReturn(windows);
+        ValuationAlgorithm momentum = mock(ValuationAlgorithm.class);
+        when(momentum.type()).thenReturn(StrategyType.MOMENTUM);
+        when(momentum.calculate(any(), any())).thenReturn(QuoteResult.insufficientHistory());
+
+        service(new ValuationStrategyCatalog("OFFICIAL"), official, momentum).recalculate(Optional.empty());
+
+        verify(snapshotService).recentWindows(1L, 6);
+        verify(snapshotService).recentWindows(2L, 6);
+        verify(snapshotService, times(2)).recentWindows(anyLong(), anyInt());
+        ArgumentCaptor<ValuationInput> momentumInputs = ArgumentCaptor.forClass(ValuationInput.class);
+        verify(momentum, times(2)).calculate(momentumInputs.capture(), any());
+        assertThat(momentumInputs.getAllValues()).allSatisfy(input -> assertThat(input.windows()).isEqualTo(windows));
+        ArgumentCaptor<ValuationInput> officialInputs = ArgumentCaptor.forClass(ValuationInput.class);
+        verify(official, times(2)).calculate(officialInputs.capture(), any());
+        assertThat(officialInputs.getAllValues()).allSatisfy(input -> assertThat(input.windows()).isEmpty());
+    }
+
+    @Test
+    void withoutWindowsMomentumKeepsItsValueAsInsufficientHistory() {
+        Player a = player(1, "1.0000");
+        player(2, "1.0000");
+        withStats(a);
+        previous.add(previousQuote(a, "MOMENTUM", "1.2000"));
+        when(snapshotService.recentWindows(anyLong(), anyInt())).thenReturn(List.of());
+
+        momentumService(new OfficialPerformanceAlgorithm(90)).recalculate(Optional.empty());
+
+        assertThat(saved).filteredOn(quote -> quote.getStrategyCode().equals("MOMENTUM"))
+                .extracting(quote -> quote.getPlayer().getId() + ":" + quote.getStatus() + ":"
+                        + quote.getValue().toPlainString())
+                .containsExactlyInAnyOrder("1:INSUFFICIENT_HISTORY:1.2000", "2:INSUFFICIENT_HISTORY:1.0000");
+        assertThat(saved).filteredOn(quote -> quote.getStrategyCode().equals("OFFICIAL")
+                        && quote.getPlayer().getId() == 2L)
+                .singleElement().extracting(PlayerQuote::getStatus).isEqualTo(QuoteStatus.NO_STATS);
+    }
+
+    @Test
+    void officialQuotesAreTheSameWithAndWithoutMomentum() {
+        for (long id = 1; id <= 3; id++) {
+            Player player = player(id, "1.0000");
+            PlayerStats row = new PlayerStats();
+            row.setPlayer(player);
+            row.setMinutesPlayed(900);
+            row.setGoals((int) id * 2);
+            row.setAssists((int) id);
+            row.setRating(new BigDecimal("6.50").add(BigDecimal.valueOf(id)));
+            row.setFetchedAt(BEFORE);
+            stats.add(row);
+        }
+        when(snapshotService.recentWindows(anyLong(), anyInt())).thenReturn(MomentumFixtures.repeated(5,
+                MomentumFixtures.idle()));
+
+        service(new ValuationStrategyCatalog("OFFICIAL"), new OfficialPerformanceAlgorithm(90))
+                .recalculate(Optional.empty());
+        List<String> alone = officialSummary();
+        saved.clear();
+        momentumService(new OfficialPerformanceAlgorithm(90)).recalculate(Optional.empty());
+
+        assertThat(officialSummary()).hasSize(3).isEqualTo(alone);
+    }
+
+    @Test
+    void aPlayerWhoseWindowsFailToLoadFailsAndTheRunContinues() {
+        Player a = player(1, "1.0000");
+        Player b = player(2, "1.0000");
+        withStats(a, b);
+        officialResults.put(1L, calculated("1.0500", "0.5000"));
+        officialResults.put(2L, calculated("1.0600", "0.6000"));
+        when(snapshotService.recentWindows(1L, 6)).thenReturn(List.of());
+        when(snapshotService.recentWindows(2L, 6)).thenThrow(new IllegalStateException("db"));
+
+        QuoteRunResult result = momentumService(official).recalculate(Optional.empty());
+
+        assertThat(result.playersProcessed()).isEqualTo(1);
+        assertThat(result.playersFailed()).isEqualTo(1);
+        assertThat(saved).extracting(quote -> quote.getPlayer().getId()).containsOnly(1L);
+    }
+
+    @Test
+    void withoutNewDataMomentumKeepsTheValue() {
+        Player a = player(1, "1.0000");
+        withStats(a);
+        List<StatsWindow> windows = MomentumFixtures.repeated(5, MomentumFixtures.idle());
+        previous.add(PlayerQuote.builder().player(a).strategyCode("MOMENTUM").strategyVersion(1)
+                .value(new BigDecimal("1.2000")).score(new BigDecimal("0.4000")).status(QuoteStatus.CALCULATED)
+                .calculatedAt(BEFORE).runId(windows.get(4).currentRunId()).correlationId("previous").build());
+        when(snapshotService.recentWindows(anyLong(), anyInt())).thenReturn(windows);
+
+        momentumService(official).recalculate(Optional.empty());
+
+        assertThat(saved).filteredOn(quote -> quote.getStrategyCode().equals("MOMENTUM")).singleElement()
+                .satisfies(quote -> {
+                    assertThat(quote.getStatus()).isEqualTo(QuoteStatus.CALCULATED);
+                    assertThat(quote.getValue()).isEqualByComparingTo("1.2000");
+                });
+    }
+
+    private List<String> officialSummary() {
+        return saved.stream()
+                .filter(quote -> quote.getStrategyCode().equals("OFFICIAL"))
+                .map(quote -> quote.getPlayer().getId() + ":" + quote.getStatus() + ":" + quote.getValue() + ":"
+                        + quote.getScore())
+                .sorted()
+                .toList();
+    }
+
+    private QuoteCalculationService momentumService(ValuationAlgorithm officialAlgorithm) {
+        return service(new ValuationStrategyCatalog("OFFICIAL"), officialAlgorithm, new MomentumFormAlgorithm());
     }
 
     private QuoteCalculationService service() {

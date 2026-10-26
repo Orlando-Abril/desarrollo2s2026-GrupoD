@@ -40,7 +40,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Corrida de recálculo de cotizaciones (feature 016): toma un snapshot de estadísticas, valúa a cada jugador con
  * cada estrategia que tiene algoritmo y guarda una {@link PlayerQuote} por jugador y estrategia. Si la estrategia
- * activa se calculó, copia su valor a {@link Player#getMarketValue()}. Sólo usa datos persistidos.
+ * activa se calculó, copia su valor a {@link Player#getMarketValue()}. Sólo usa datos persistidos. MOMENTUM
+ * (feature 019) recibe además las últimas ventanas de estadísticas de cada jugador (feature 014).
  * <p>
  * Cada jugador se guarda en su propia transacción: una falla revierte sus cotizaciones y su precio, y la corrida
  * sigue. Como máximo corre una corrida a la vez (una sola instancia, ver research D6).
@@ -231,9 +232,12 @@ public class QuoteCalculationService {
     private PlayerQuote quote(Player player, PlayerStats stats, StrategyPlan strategy, Run run) {
         ValuationStrategyDefinition definition = strategy.definition();
         PlayerQuote latest = strategy.latest().get(player.getId());
+        List<StatsWindow> windows = definition.type() == StrategyType.MOMENTUM
+                ? snapshotService.recentWindows(player.getId(), definition.momentum().window() + 1)
+                : List.of();
         QuoteResult result = strategy.algorithm().calculate(
                 new ValuationInput(player.getId(), player.getPositions(), stats, strategy.population(),
-                        latest == null ? List.of() : List.of(latest), List.of()),
+                        latest == null ? List.of() : List.of(latest), windows),
                 definition);
 
         BigDecimal value;

@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static com.example.demo.service.valuation.strategy.Metric.MINUTES;
@@ -26,8 +27,11 @@ class MomentumStrategyV1Test {
         assertThat(MOMENTUM.type()).isEqualTo(StrategyType.MOMENTUM);
         assertThat(MOMENTUM.baseValue()).isEqualByComparingTo("1.00");
         assertThat(MOMENTUM.scaleFactor()).isEqualByComparingTo("0.15");
-        assertThat(MOMENTUM.maxVariation()).isEqualByComparingTo("0.30");
-        assertThat(MOMENTUM.momentum()).isEqualTo(new MomentumParameters(4, 2));
+        assertThat(MOMENTUM.maxVariation()).isEqualByComparingTo("0.15");
+        assertThat(MOMENTUM.momentum()).isEqualTo(new MomentumParameters(5, 2,
+                List.of(new BigDecimal("5"), new BigDecimal("4"), new BigDecimal("3"), new BigDecimal("2"),
+                        new BigDecimal("1")),
+                90, new BigDecimal("1.5")));
     }
 
     @ParameterizedTest

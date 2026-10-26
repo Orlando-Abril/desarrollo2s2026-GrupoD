@@ -23,7 +23,7 @@ Reglas:
 | Estrategia | Versión | Tipo | `baseValue` | `scaleFactor` | `maxVariation` | `momentum` |
 |------------|---------|------|-------------|---------------|----------------|------------|
 | `OFFICIAL` | 1 | `OFFICIAL` | 1.00 | 0.10 | 0.20 (±20% por corrida) | — |
-| `MOMENTUM` | 1 | `MOMENTUM` | 1.00 | 0.15 | 0.30 (±30% por corrida) | `window = 4`, `minHistory = 2` |
+| `MOMENTUM` | 1 | `MOMENTUM` | 1.00 | 0.15 | 0.15 (±15% por corrida) | `window = 5` (ventanas), `minHistory = 2` (snapshots), `recencyWeights = [5,4,3,2,1]`, `possibleMinutes = 90`, `ratingBand = 1.5` |
 
 ## 3. OFFICIAL v1: pesos por posición
 
@@ -50,7 +50,7 @@ Invariantes que verifican los tests:
 
 ## 4. MOMENTUM v1: pesos por posición
 
-Pondera la forma reciente: el algoritmo 019 mira las últimas `window` cotizaciones y, si hay menos de `minHistory`, registra `INSUFFICIENT_HISTORY`. Además premia la disponibilidad (minutos jugados) y penaliza las tarjetas con peso negativo.
+Pondera la forma reciente: el algoritmo de la feature 019 (`MomentumFormAlgorithm`) toma las últimas `window` ventanas de estadísticas de la feature 014, compara cada una contra el promedio de temporada del propio jugador con estos pesos y más peso a lo reciente, resta la falta de disponibilidad (con el peso de `MINUTES`) y las tarjetas (con los pesos negativos), y mueve la cotización anterior hasta ±`maxVariation`. Con menos de `minHistory` snapshots registra `INSUFFICIENT_HISTORY`. La fórmula y los ejemplos están en [specs/019-estrategia-momentum/contracts/momentum-algorithm.md](../../019-estrategia-momentum/contracts/momentum-algorithm.md).
 
 | Métrica | GOALKEEPER | DEFENDER | MIDFIELDER | FORWARD |
 |---------|-----------:|---------:|-----------:|--------:|
@@ -79,3 +79,5 @@ Invariantes que verifican los tests:
 3. Las cotizaciones guardadas mantienen su `strategyVersion`, así que la historia sigue explicando con qué versión se calculó cada precio. Las consultas por estrategia incluyen todas las versiones.
 4. Hay cambios que no alteran la huella y se pueden hacer sin subir la versión: el formato numérico (`0.10` → `0.1`), reordenar los enums y los comentarios.
 5. Si se cambia un parámetro y se mantiene la versión, la suite falla con un mensaje que explica cómo crear la versión nueva.
+
+**Excepción única (feature 019).** MOMENTUM v1 se redefinió en el lugar (variación máxima 0.30 → 0.15 y forma reciente sobre ventanas de estadísticas en lugar de cotizaciones) y se actualizó su huella sin subir la versión. Se justificó porque v1 nunca produjo una cotización: no tenía algoritmo y la corrida de recálculo (016) la salteaba, así que ningún precio registrado dependía de sus parámetros anteriores. Desde la primera cotización MOMENTUM, esta regla vuelve a regir sin excepciones.

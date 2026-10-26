@@ -10,7 +10,8 @@ import java.util.Set;
 
 /**
  * Entrada de {@link ValuationAlgorithm#calculate} para un jugador. OFFICIAL usa la población normalizada y la
- * última cotización previa; MOMENTUM (feature 019) usa las cotizaciones previas y las ventanas de 014.
+ * última cotización previa; MOMENTUM (feature 019) usa las ventanas de 014, las estadísticas de temporada como
+ * promedio contra el que compara cada ventana y la última cotización previa.
  *
  * @param stats          estadísticas de temporada; {@code null} si el jugador no tiene
  * @param population     población normalizada una vez por corrida; obligatoria para OFFICIAL

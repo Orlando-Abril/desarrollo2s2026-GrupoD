@@ -108,8 +108,8 @@ components:
         requestedStrategy: null
         strategies:
           - { code: OFFICIAL, version: 1, calculated: 2210, noStats: 270, insufficientHistory: 0 }
-        skippedStrategies:
-          - { code: MOMENTUM, version: 1, reason: no_algorithm }
+          - { code: MOMENTUM, version: 1, calculated: 2210, noStats: 0, insufficientHistory: 270 }
+        skippedStrategies: []
         playersProcessed: 2480
         playersFailed: 0
         activeStrategy: OFFICIAL

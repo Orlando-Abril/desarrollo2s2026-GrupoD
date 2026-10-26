@@ -133,6 +133,7 @@ class StatsSnapshotServiceTest {
 
         assertThat(window.previousSnapshotId()).isEqualTo(1L);
         assertThat(window.currentSnapshotId()).isEqualTo(2L);
+        assertThat(window.currentRunId()).isEqualTo(current.getRunId());
         assertThat(window.seasonReset()).isFalse();
         assertThat(window.minutesPlayed()).isEqualTo(100);
         assertThat(window.goals()).isEqualTo(2);

@@ -28,7 +28,8 @@ class PublishedStrategyVersionsTest {
 
     private static final Map<String, String> PUBLISHED = Map.of(
             "OFFICIAL:1", "85bf5b11888f28c21126279303776db25be43da1c922022369da91245dad04ed",
-            "MOMENTUM:1", "0b5e92f6aaa9c33a7ea98d7204ef89ecafd4d63ae0043f4ee268dbdfac9245a8");
+            // Redefinida en la feature 019 sin subir la versión: v1 nunca había producido una cotización.
+            "MOMENTUM:1", "e772d84090541b38055ee412508fe723cbc96e599c8e5a07aa6ed19cca132fc1");
 
     @Test
     void catalogDefinitionsMatchTheirPublishedFingerprints() {
@@ -43,6 +44,19 @@ class PublishedStrategyVersionsTest {
 
         assertThat(check(List.of(changed), PUBLISHED))
                 .singleElement().asString().contains("OFFICIAL v1 ya está publicada");
+    }
+
+    @Test
+    void changingMomentumParametersWithoutBumpingTheVersionFails() {
+        ValuationStrategyDefinition base = MomentumStrategyV1.DEFINITION;
+        MomentumParameters parameters = base.momentum();
+        ValuationStrategyDefinition changed = new ValuationStrategyDefinition(base.code(), base.version(), base.type(),
+                base.baseValue(), base.scaleFactor(), base.maxVariation(), base.weights(),
+                new MomentumParameters(parameters.window(), parameters.minHistory(), parameters.recencyWeights(),
+                        parameters.possibleMinutes(), new BigDecimal("2.0")));
+
+        assertThat(check(List.of(changed), PUBLISHED))
+                .singleElement().asString().contains("MOMENTUM v1 ya está publicada");
     }
 
     @Test
