@@ -188,6 +188,7 @@ public class StatsSnapshotService {
         return new StatsWindow(
                 previous.getId(),
                 current.getId(),
+                current.getRunId(),
                 previous.getCapturedAt(),
                 current.getCapturedAt(),
                 seasonReset,

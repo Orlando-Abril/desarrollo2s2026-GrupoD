@@ -73,7 +73,7 @@ public record ValuationStrategyDefinition(String code, int version, StrategyType
                                 + "=" + normalize(weight.getValue()))));
         String canonical = String.join("|", code, String.valueOf(version), type.name(), normalize(baseValue),
                 normalize(scaleFactor), normalize(maxVariation),
-                momentum == null ? "-" : momentum.window() + "," + momentum.minHistory(),
+                momentum == null ? "-" : momentumFingerprint(momentum),
                 entries.toString());
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
@@ -81,6 +81,13 @@ public record ValuationStrategyDefinition(String code, int version, StrategyType
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 no disponible", e);
         }
+    }
+
+    private static String momentumFingerprint(MomentumParameters momentum) {
+        StringJoiner recency = new StringJoiner(",", "[", "]");
+        momentum.recencyWeights().forEach(weight -> recency.add(normalize(weight)));
+        return momentum.window() + "," + momentum.minHistory() + "," + recency + "," + momentum.possibleMinutes()
+                + "," + normalize(momentum.ratingBand());
     }
 
     private static String normalize(BigDecimal value) {

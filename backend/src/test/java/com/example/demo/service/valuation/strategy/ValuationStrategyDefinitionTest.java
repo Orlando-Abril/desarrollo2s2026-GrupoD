@@ -8,10 +8,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,8 +89,20 @@ class ValuationStrategyDefinitionTest {
                 new BigDecimal("0.20"), weights, null);
     }
 
+    static MomentumParameters params(int window, int minHistory, List<String> recencyWeights, int possibleMinutes,
+                                     String ratingBand) {
+        return new MomentumParameters(window, minHistory,
+                recencyWeights == null ? null : recencyWeights.stream().map(w -> w == null ? null : new BigDecimal(w))
+                        .toList(),
+                possibleMinutes, ratingBand == null ? null : new BigDecimal(ratingBand));
+    }
+
+    static MomentumParameters params() {
+        return params(5, 2, List.of("5", "4", "3", "2", "1"), 90, "1.5");
+    }
+
     static Draft momentum() {
-        return official().withType(StrategyType.MOMENTUM).withMomentum(new MomentumParameters(4, 2));
+        return official().withType(StrategyType.MOMENTUM).withMomentum(params());
     }
 
     @ParameterizedTest
@@ -113,7 +128,43 @@ class ValuationStrategyDefinitionTest {
                 }),
                 Named.of("posiciones con distintas métricas", d -> d.withWeight(Position.FORWARD, Metric.SHOTS, "0.10")),
                 Named.of("MOMENTUM sin parámetros", d -> d.withType(StrategyType.MOMENTUM)),
-                Named.of("OFFICIAL con parámetros de MOMENTUM", d -> d.withMomentum(new MomentumParameters(4, 2))));
+                Named.of("OFFICIAL con parámetros de MOMENTUM", d -> d.withMomentum(params())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidMomentumParameters")
+    void rejectsInvalidMomentumParameters(Runnable build) {
+        assertThatThrownBy(build::run).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    static Stream<Named<Runnable>> invalidMomentumParameters() {
+        List<String> five = List.of("5", "4", "3", "2", "1");
+        return Stream.of(
+                Named.of("window 0", () -> params(0, 2, List.of(), 90, "1.5")),
+                Named.of("minHistory 1", () -> params(5, 1, five, 90, "1.5")),
+                Named.of("minHistory > window + 1", () -> params(5, 7, five, 90, "1.5")),
+                Named.of("recencyWeights nulo", () -> params(5, 2, null, 90, "1.5")),
+                Named.of("recencyWeights de otro tamaño", () -> params(5, 2, List.of("4", "3", "2", "1"), 90, "1.5")),
+                Named.of("recencyWeights con nulo", () -> params(5, 2, java.util.Arrays.asList("5", "4", null, "2", "1"),
+                        90, "1.5")),
+                Named.of("recencyWeights con 0", () -> params(5, 2, List.of("5", "4", "3", "2", "0"), 90, "1.5")),
+                Named.of("recencyWeights no decrecientes", () -> params(5, 2, List.of("5", "4", "4", "2", "1"), 90,
+                        "1.5")),
+                Named.of("possibleMinutes 0", () -> params(5, 2, five, 0, "1.5")),
+                Named.of("ratingBand nulo", () -> params(5, 2, five, 90, null)),
+                Named.of("ratingBand 0", () -> params(5, 2, five, 90, "0")));
+    }
+
+    @Test
+    void momentumParametersCopyTheRecencyWeights() {
+        List<BigDecimal> source = new ArrayList<>(List.of(BigDecimal.TEN, BigDecimal.ONE));
+        MomentumParameters parameters = new MomentumParameters(2, 2, source, 90, BigDecimal.ONE);
+
+        source.set(0, new BigDecimal("20"));
+
+        assertThat(parameters.recencyWeights()).containsExactly(BigDecimal.TEN, BigDecimal.ONE);
+        assertThatThrownBy(() -> parameters.recencyWeights().add(BigDecimal.ONE))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -166,6 +217,17 @@ class ValuationStrategyDefinitionTest {
                     .isEqualTo(official().build().fingerprint());
         }
 
+        @Test
+        void officialKeepsTheFormatWithoutMomentum() throws Exception {
+            String canonical = "TEST|1|OFFICIAL|1|0.1|0.2|-|"
+                    + "DEFENDER:GOALS=0.5;DEFENDER:RATING=0.5;FORWARD:GOALS=0.5;FORWARD:RATING=0.5;"
+                    + "GOALKEEPER:GOALS=0.5;GOALKEEPER:RATING=0.5;MIDFIELDER:GOALS=0.5;MIDFIELDER:RATING=0.5";
+            String expected = HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8)));
+
+            assertThat(official().build().fingerprint()).isEqualTo(expected);
+        }
+
         @ParameterizedTest
         @MethodSource("singleChanges")
         void changesWhenAnyParameterChanges(UnaryOperator<Draft> change) {
@@ -178,8 +240,11 @@ class ValuationStrategyDefinitionTest {
                     Named.of("baseValue", d -> d.withBaseValue("1.01")),
                     Named.of("scaleFactor", d -> d.withScaleFactor("0.11")),
                     Named.of("maxVariation", d -> d.withMaxVariation("0.21")),
-                    Named.of("momentum.window", d -> d.withMomentum(new MomentumParameters(5, 2))),
-                    Named.of("momentum.minHistory", d -> d.withMomentum(new MomentumParameters(4, 3))),
+                    Named.of("momentum.window", d -> d.withMomentum(params(4, 2, List.of("4", "3", "2", "1"), 90, "1.5"))),
+                    Named.of("momentum.minHistory", d -> d.withMomentum(params(5, 3, List.of("5", "4", "3", "2", "1"), 90, "1.5"))),
+                    Named.of("momentum.recencyWeights", d -> d.withMomentum(params(5, 2, List.of("6", "4", "3", "2", "1"), 90, "1.5"))),
+                    Named.of("momentum.possibleMinutes", d -> d.withMomentum(params(5, 2, List.of("5", "4", "3", "2", "1"), 95, "1.5"))),
+                    Named.of("momentum.ratingBand", d -> d.withMomentum(params(5, 2, List.of("5", "4", "3", "2", "1"), 90, "2"))),
                     Named.of("un peso", d -> d.withWeight(Position.DEFENDER, Metric.RATING, "0.51")));
         }
     }

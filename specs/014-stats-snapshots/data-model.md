@@ -62,6 +62,7 @@ Record inmutable derivado de dos snapshots consecutivos; no se persiste.
 |-------|------|-----------------------|
 | `previousSnapshotId` | `Long` | No; identifica el extremo anterior. |
 | `currentSnapshotId` | `Long` | No; identifica el extremo nuevo. |
+| `currentRunId` | `UUID` | No; corrida que capturó el extremo nuevo (agregado en la feature 019 para detectar datos nuevos en MOMENTUM). |
 | `fromCapturedAt` | `Instant` | No; captura anterior. |
 | `toCapturedAt` | `Instant` | No; captura nueva. |
 | `seasonReset` | `boolean` | Verdadero sólo cuando ambos minutos existen y los nuevos son menores. |
