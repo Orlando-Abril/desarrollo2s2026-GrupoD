@@ -3,6 +3,9 @@ package com.example.demo.controller;
 import com.example.demo.dto.quote.QuoteRunResponse;
 import com.example.demo.dto.quote.RecalculateRequest;
 import com.example.demo.dto.quote.PlayerQuoteResponse;
+import com.example.demo.dto.quote.RankingPageResponse;
+import com.example.demo.model.League;
+import com.example.demo.model.Position;
 import com.example.demo.exception.InvalidQuoteQueryException;
 import com.example.demo.exception.GlobalExceptionHandler.ErrorResponse;
 import com.example.demo.filter.CorrelationIdFilter;
@@ -23,11 +26,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 
 @RestController
@@ -43,6 +50,66 @@ public class QuoteController {
     public QuoteController(QuoteCalculationService calculationService, QuoteQueryService queryService) {
         this.calculationService = calculationService;
         this.queryService = queryService;
+    }
+
+    @GetMapping("/players/ranking")
+    @SecurityRequirement(name = "bearerAuth")
+    @SecurityRequirement(name = "apiKeyAuth")
+    @Operation(summary = "Consulta el ranking vigente de jugadores",
+            description = "Usa la última cotización de la estrategia efectiva, ordena por valor descendente e id "
+                    + "ascendente y calcula el puesto sobre el conjunto filtrado antes de paginar.")
+    @ApiResponse(responseCode = "200", description = "Página del ranking",
+            headers = @Header(name = CorrelationIdFilter.HEADER, description = "UUID de trazabilidad"),
+            content = @Content(schema = @Schema(implementation = RankingPageResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Estrategia, filtro o paginación inválidos",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Credenciales ausentes, inválidas o vencidas",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public RankingPageResponse ranking(
+            @Parameter(description = "Código exacto; ausente usa la estrategia activa", example = "OFFICIAL")
+            @RequestParam(required = false) String strategy,
+            @Parameter(description = "Liga exacta del dominio", schema = @Schema(allowableValues = {
+                    "PREMIER_LEAGUE", "LA_LIGA", "SERIE_A", "BUNDESLIGA", "LIGUE_1"}))
+            @RequestParam(required = false) String league,
+            @Parameter(description = "Posición incluida entre las del jugador", schema = @Schema(allowableValues = {
+                    "GOALKEEPER", "DEFENDER", "MIDFIELDER", "FORWARD"}))
+            @RequestParam(required = false) String position,
+            @Parameter(description = "Página basada en cero", schema = @Schema(type = "integer", format = "int32",
+                    minimum = "0", defaultValue = "0"))
+            @RequestParam(required = false) String page,
+            @Parameter(description = "Elementos por página", schema = @Schema(type = "integer", format = "int32",
+                    minimum = "1", maximum = "100", defaultValue = "20"))
+            @RequestParam(required = false) String size,
+            @Parameter(hidden = true) @PageableDefault(size = 20) Pageable pageable) {
+        int pageNumber = parseInteger("page", page, 0, Integer.MAX_VALUE, pageable.getPageNumber());
+        int pageSize = parseInteger("size", size, 1, 100, pageable.getPageSize());
+        League parsedLeague = parseEnum("league", league, League.class);
+        Position parsedPosition = parseEnum("position", position, Position.class);
+        return queryService.ranking(strategy, parsedLeague, parsedPosition, PageRequest.of(pageNumber, pageSize));
+    }
+
+    private static int parseInteger(String name, String raw, int min, int max, int defaultValue) {
+        if (raw == null) return defaultValue;
+        if (raw.isBlank()) throw new InvalidQuoteQueryException(name + " no puede estar vacío");
+        try {
+            int value = Integer.parseInt(raw);
+            if (value < min || value > max) throw new InvalidQuoteQueryException(
+                    name + " debe estar entre " + min + " y " + max);
+            return value;
+        } catch (NumberFormatException ex) {
+            throw new InvalidQuoteQueryException(name + " debe ser un entero");
+        }
+    }
+
+    private static <E extends Enum<E>> E parseEnum(String name, String raw, Class<E> type) {
+        if (raw == null) return null;
+        if (raw.isBlank()) throw new InvalidQuoteQueryException(name + " no puede estar vacío");
+        try {
+            return Enum.valueOf(type, raw);
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidQuoteQueryException(name + " desconocida: '" + raw + "'. Valores válidos: "
+                    + String.join(", ", Arrays.stream(type.getEnumConstants()).map(Enum::name).toList()));
+        }
     }
 
     @GetMapping("/players/{id}/quotes")

@@ -2,6 +2,8 @@ package com.example.demo.repository;
 
 import com.example.demo.model.PlayerQuote;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
@@ -64,4 +66,39 @@ public interface PlayerQuoteRepository extends Repository<PlayerQuote, Long> {
                                      or (q2.calculatedAt = q.calculatedAt and q2.id > q.id)))
             """)
     List<PlayerQuote> findLatestForAllPlayers(@Param("code") String strategyCode);
+
+    @Query(value = """
+            with quote_history as (
+                select q.player_id, q.strategy_code, q.strategy_version, q.quote_value,
+                       row_number() over (partition by q.player_id, q.strategy_code order by q.calculated_at desc, q.id desc) as quote_order,
+                       lead(q.quote_value) over (partition by q.player_id, q.strategy_code order by q.calculated_at desc, q.id desc) as previous_value
+                from player_quotes q where q.strategy_code = :strategy
+            ), eligible as (
+                select p.id as player_id, p.full_name, p.team, p.league, q.quote_value as current_value,
+                       q.previous_value, q.strategy_code, q.strategy_version
+                from quote_history q join players p on p.id = q.player_id
+                where q.quote_order = 1
+                  and (cast(:league as varchar) is null or cast(p.league as varchar) = cast(:league as varchar))
+                  and (cast(:position as varchar) is null or exists (select 1 from player_positions pp
+                       where pp.player_id = p.id and cast(pp.position as varchar) = cast(:position as varchar)))
+            ), ranked as (
+                select row_number() over (order by current_value desc, player_id asc) as ranking_position, eligible.* from eligible
+            )
+            select ranking_position as rank, player_id as "playerId", full_name as name, team, league,
+                   current_value as "currentValue", previous_value as "previousValue",
+                   strategy_code as strategy, strategy_version as version
+            from ranked order by current_value desc, player_id asc
+            """, countQuery = """
+            with latest as (
+                select q.player_id, row_number() over (partition by q.player_id, q.strategy_code order by q.calculated_at desc, q.id desc) as quote_order
+                from player_quotes q where q.strategy_code = :strategy
+            )
+            select count(*) from latest q join players p on p.id = q.player_id
+            where q.quote_order = 1
+              and (cast(:league as varchar) is null or cast(p.league as varchar) = cast(:league as varchar))
+              and (cast(:position as varchar) is null or exists (select 1 from player_positions pp
+                   where pp.player_id = p.id and cast(pp.position as varchar) = cast(:position as varchar)))
+            """, nativeQuery = true)
+    Page<RankingRowProjection> findRanking(@Param("strategy") String strategy, @Param("league") String league,
+                                           @Param("position") String position, Pageable pageable);
 }

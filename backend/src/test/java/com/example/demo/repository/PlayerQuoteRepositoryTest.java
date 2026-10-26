@@ -3,7 +3,9 @@ package com.example.demo.repository;
 import com.example.demo.model.League;
 import com.example.demo.model.Player;
 import com.example.demo.model.PlayerQuote;
+import com.example.demo.model.Position;
 import com.example.demo.model.QuoteStatus;
+import com.example.demo.support.RankingFixtures;
 import com.example.demo.support.UnitTestProfile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Named;
@@ -15,6 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -251,6 +255,56 @@ class PlayerQuoteRepositoryTest {
                     .containsExactly(1, 1, 1, 2);
             assertThat(quoteRepository.findFirstByPlayerIdAndStrategyCodeOrderByCalculatedAtDescIdDesc(
                     saka.getId(), "OFFICIAL")).get().extracting(PlayerQuote::getStrategyVersion).isEqualTo(2);
+        }
+
+        @Test
+        void rankingUsesLatestAndImmediatelyPreviousQuoteWithStableGlobalOrder() {
+            Player first = RankingFixtures.player(playerRepository, "First", "A", League.PREMIER_LEAGUE,
+                    Position.FORWARD);
+            Player second = RankingFixtures.player(playerRepository, "Second", "B", League.PREMIER_LEAGUE,
+                    Position.MIDFIELDER);
+            Player withoutQuote = RankingFixtures.player(playerRepository, "No quote", "C", League.PREMIER_LEAGUE,
+                    Position.DEFENDER);
+            RankingFixtures.quote(quoteRepository, first, "RANK", 1, "8.0000", "2026-10-01T00:00:00Z");
+            RankingFixtures.quote(quoteRepository, first, "RANK", 2, "15.0000", "2026-10-02T00:00:00Z");
+            RankingFixtures.quote(quoteRepository, second, "RANK", 1, "15.0000", "2026-10-02T00:00:00Z");
+            entityManager.flush();
+            entityManager.clear();
+
+            Page<RankingRowProjection> ranking = quoteRepository.findRanking("RANK", null, null,
+                    PageRequest.of(0, 20));
+
+            assertThat(ranking.getContent()).extracting(RankingRowProjection::getRank,
+                            RankingRowProjection::getPlayerId, RankingRowProjection::getCurrentValue,
+                            RankingRowProjection::getPreviousValue)
+                    .containsExactly(
+                            tuple(1L, first.getId(), new BigDecimal("15.0000"), new BigDecimal("8.0000")),
+                            tuple(2L, second.getId(), new BigDecimal("15.0000"), null));
+            assertThat(ranking.getTotalElements()).isEqualTo(2);
+            assertThat(withoutQuote.getId()).isNotNull();
+        }
+
+        @Test
+        void rankingFiltersWithoutDuplicatingMultiPositionPlayersAndPaginatesAfterRanking() {
+            for (int i = 0; i < 22; i++) {
+                Player player = RankingFixtures.player(playerRepository, "Rank " + i, "A",
+                        League.LA_LIGA, Position.FORWARD, Position.MIDFIELDER);
+                RankingFixtures.quote(quoteRepository, player, "FILTER", 1,
+                        String.format("%d.0000", 100 - i), "2026-10-02T00:00:00Z");
+            }
+            Player otherLeague = RankingFixtures.player(playerRepository, "Other", "B", League.SERIE_A,
+                    Position.FORWARD);
+            RankingFixtures.quote(quoteRepository, otherLeague, "FILTER", 1, "999.0000",
+                    "2026-10-02T00:00:00Z");
+            entityManager.flush();
+            entityManager.clear();
+
+            Page<RankingRowProjection> page = quoteRepository.findRanking("FILTER", "LA_LIGA", "FORWARD",
+                    PageRequest.of(1, 20));
+
+            assertThat(page.getTotalElements()).isEqualTo(22);
+            assertThat(page.getTotalPages()).isEqualTo(2);
+            assertThat(page.getContent()).extracting(RankingRowProjection::getRank).containsExactly(21L, 22L);
         }
 
         private List<PlayerQuote> history(Player player, String code, String from, String to) {

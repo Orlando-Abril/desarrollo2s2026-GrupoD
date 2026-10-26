@@ -3,6 +3,9 @@ package com.example.demo.config;
 import com.example.demo.adapter.footballdata.dto.FootballDataResponse;
 import com.example.demo.adapter.whoscored.dto.WhoScoredPlayerStats;
 import com.example.demo.model.League;
+import com.example.demo.model.Position;
+import com.example.demo.dto.quote.RankingEntryResponse;
+import com.example.demo.dto.quote.RankingPageResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.cache.RedisCacheManager;
@@ -20,6 +23,7 @@ import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -102,6 +106,22 @@ class CacheConfigTest {
             assertThat(stats.dribbles()).isNull();
             assertThat(stats.keyPasses()).isEqualTo(1);
         });
+    }
+
+    @Test
+    void rankingCacheHasOneHourTtlAndRoundTripsAsTypedPageIncludingNullPercentage() {
+        var configuration = manager.getCacheConfigurations().get(CacheConfig.QUOTES_RANKING_CACHE);
+        assertThat(configuration.getTtlFunction().getTimeToLive("key", null)).isEqualTo(Duration.ofHours(1));
+        RankingPageResponse original = new RankingPageResponse(List.of(new RankingEntryResponse(1,
+                new RankingEntryResponse.RankingPlayerResponse(7, "Player", "Club", League.LA_LIGA,
+                        Set.of(Position.FORWARD)), new BigDecimal("12.3400"), null, "OFFICIAL", 2)),
+                0, 20, 1, 1);
+
+        Object cached = configuration.getValueSerializationPair().read(
+                configuration.getValueSerializationPair().write(original));
+
+        assertThat(cached).isInstanceOf(RankingPageResponse.class).isEqualTo(original);
+        assertThat(((RankingPageResponse) cached).items().get(0).percentageChange()).isNull();
     }
 
     private static WhoScoredProperties whoScoredProperties() {
