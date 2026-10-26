@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info: { title: Ranking de jugadores, version: 1.0.0 }
+paths:
+  /players/ranking:
+    get:
+      tags: [Quotes]
+      summary: Ranking vigente de jugadores por estrategia
+      description: Usa la última cotización; ordena valor descendente e id ascendente; calcula puesto antes de paginar.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - { name: strategy, in: query, required: false, description: Código exacto; ausente usa la activa., schema: { type: string, example: OFFICIAL } }
+        - { name: league, in: query, required: false, schema: { $ref: '#/components/schemas/League' } }
+        - { name: position, in: query, required: false, schema: { $ref: '#/components/schemas/Position' } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Página, posiblemente vacía.
+          content: { application/json: { schema: { $ref: '#/components/schemas/RankingPageResponse' } } }
+        '400':
+          description: Filtro o paginación inválidos.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+        '401':
+          description: Credenciales ausentes, inválidas o vencidas.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    apiKeyAuth: { type: apiKey, in: header, name: X-API-KEY }
+  schemas:
+    RankingPageResponse:
+      type: object
+      required: [items, page, size, totalElements, totalPages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/RankingEntryResponse' } }
+        page: { type: integer, minimum: 0, example: 0 }
+        size: { type: integer, minimum: 1, maximum: 100, example: 20 }
+        totalElements: { type: integer, format: int64, minimum: 0, example: 45 }
+        totalPages: { type: integer, minimum: 0, example: 3 }
+    RankingEntryResponse:
+      type: object
+      required: [rank, player, value, percentageChange, strategy, version]
+      properties:
+        rank: { type: integer, format: int64, minimum: 1, example: 1 }
+        player: { $ref: '#/components/schemas/RankingPlayerResponse' }
+        value: { type: number, example: 10.2500 }
+        percentageChange: { type: number, nullable: true, multipleOf: 0.01, example: 25.00 }
+        strategy: { type: string, example: OFFICIAL }
+        version: { type: integer, minimum: 1, example: 2 }
+    RankingPlayerResponse:
+      type: object
+      required: [id, name, team, league, positions]
+      properties:
+        id: { type: integer, format: int64, minimum: 1, example: 42 }
+        name: { type: string, example: Bukayo Saka }
+        team: { type: string, example: Arsenal FC }
+        league: { $ref: '#/components/schemas/League' }
+        positions: { type: array, uniqueItems: true, minItems: 1, items: { $ref: '#/components/schemas/Position' } }
+    League: { type: string, enum: [PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNDESLIGA, LIGUE_1] }
+    Position: { type: string, enum: [GOALKEEPER, DEFENDER, MIDFIELDER, FORWARD] }
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties: { error: { type: string }, message: { type: string } }

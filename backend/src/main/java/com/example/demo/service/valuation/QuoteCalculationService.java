@@ -16,6 +16,7 @@ import com.example.demo.service.valuation.strategy.ValuationStrategyDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionOperations;
@@ -59,6 +60,7 @@ public class QuoteCalculationService {
     private final Clock clock;
     private final TransactionOperations playerTransaction;
     private final TransactionTemplate readOnlyTransaction;
+    private final ApplicationEventPublisher eventPublisher;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public QuoteCalculationService(ValuationStrategyCatalog catalog,
@@ -69,7 +71,8 @@ public class QuoteCalculationService {
                                    PlayerQuoteRepository quoteRepository,
                                    Clock clock,
                                    TransactionOperations playerTransaction,
-                                   PlatformTransactionManager transactionManager) {
+                                   PlatformTransactionManager transactionManager,
+                                   ApplicationEventPublisher eventPublisher) {
         this.catalog = catalog;
         this.algorithms = byType(algorithms);
         this.snapshotService = snapshotService;
@@ -80,6 +83,7 @@ public class QuoteCalculationService {
         this.playerTransaction = playerTransaction;
         this.readOnlyTransaction = new TransactionTemplate(transactionManager);
         this.readOnlyTransaction.setReadOnly(true);
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -104,16 +108,26 @@ public class QuoteCalculationService {
             correlationId = UUID.randomUUID().toString();
             MDC.put(CorrelationIdFilter.MDC_KEY, correlationId);
         }
+        Run run = new Run(UUID.randomUUID(), clock.instant(), correlationId);
         try {
-            Run run = new Run(UUID.randomUUID(), clock.instant(), correlationId);
             return execute(run, strategyCode.orElse(null), definitions);
         } finally {
+            publishCompleted(run.id());
             running.set(false);
             if (previousCorrelationId == null) {
                 MDC.remove(CorrelationIdFilter.MDC_KEY);
             } else {
                 MDC.put(CorrelationIdFilter.MDC_KEY, previousCorrelationId);
             }
+        }
+    }
+
+    private void publishCompleted(UUID runId) {
+        try {
+            eventPublisher.publishEvent(new QuoteRunCompletedEvent(runId));
+        } catch (RuntimeException exception) {
+            log.error("quote_run_completed_event_failed runId={} errorType={}",
+                    runId, exception.getClass().getSimpleName(), exception);
         }
     }
 

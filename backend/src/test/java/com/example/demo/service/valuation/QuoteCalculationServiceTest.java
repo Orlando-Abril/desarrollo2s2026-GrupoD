@@ -29,6 +29,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionOperations;
 
@@ -75,6 +76,7 @@ class QuoteCalculationServiceTest {
     private final PlayerStatsRepository statsRepository = mock(PlayerStatsRepository.class);
     private final PlayerQuoteRepository quoteRepository = mock(PlayerQuoteRepository.class);
     private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final ValuationAlgorithm official = mock(ValuationAlgorithm.class);
     private final Logger logger = (Logger) LoggerFactory.getLogger(QuoteCalculationService.class);
     private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
@@ -268,6 +270,36 @@ class QuoteCalculationServiceTest {
                     .isInstanceOf(UnknownValuationStrategyException.class);
         }
         verify(snapshotService, never()).snapshotAll(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void acceptedRunPublishesItsCompletionOnSuccessBeforeReleasingTheGuard() {
+        player(1, "1.0000");
+        QuoteCalculationService service = service();
+        doAnswer(invocation -> {
+            assertThatThrownBy(() -> service.recalculate(Optional.empty()))
+                    .isInstanceOf(RecalculationInProgressException.class);
+            return null;
+        }).when(eventPublisher).publishEvent(any(QuoteRunCompletedEvent.class));
+
+        QuoteRunResult result = service.recalculate(Optional.empty());
+
+        ArgumentCaptor<QuoteRunCompletedEvent> event = ArgumentCaptor.forClass(QuoteRunCompletedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertThat(event.getValue().runId()).isEqualTo(result.runId());
+    }
+
+    @Test
+    void acceptedRunPublishesItsCompletionOnTerminalFailure() {
+        doThrowOnSnapshot(new IllegalStateException("db down"));
+
+        RecalculationFailedException failure = (RecalculationFailedException) org.assertj.core.api.Assertions
+                .catchThrowable(() -> service().recalculate(Optional.empty()));
+
+        ArgumentCaptor<QuoteRunCompletedEvent> event = ArgumentCaptor.forClass(QuoteRunCompletedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertThat(event.getValue().runId()).isEqualTo(failure.runId());
     }
 
     @Test
@@ -487,6 +519,7 @@ class QuoteCalculationServiceTest {
         release.countDown();
         assertThat(first.get(5, TimeUnit.SECONDS).playersProcessed()).isEqualTo(1);
         verify(snapshotService, times(1)).snapshotAll(any());
+        verify(eventPublisher, times(1)).publishEvent(any(QuoteRunCompletedEvent.class));
     }
 
     @Test
@@ -524,7 +557,7 @@ class QuoteCalculationServiceTest {
     private QuoteCalculationService service(ValuationStrategyCatalog catalog, ValuationAlgorithm... algorithms) {
         return new QuoteCalculationService(catalog, List.of(algorithms), snapshotService, playerRepository,
                 statsRepository, quoteRepository, Clock.fixed(NOW, ZoneOffset.UTC),
-                TransactionOperations.withoutTransaction(), transactionManager);
+                TransactionOperations.withoutTransaction(), transactionManager, eventPublisher);
     }
 
     private void doThrowOnSnapshot(RuntimeException exception) {

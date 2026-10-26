@@ -18,6 +18,7 @@ class QuoteOpenApiTest {
 
     private static final String OPERATION = "$.paths['/quotes/recalculate'].post";
     private static final String HISTORY = "$.paths['/players/{id}/quotes'].get";
+    private static final String RANKING = "$.paths['/players/ranking'].get";
 
     @Autowired
     private MockMvc mvc;
@@ -58,5 +59,30 @@ class QuoteOpenApiTest {
                 .andExpect(jsonPath(HISTORY + ".responses['400'].content['application/json'].examples.invalidPlayerId").exists())
                 .andExpect(jsonPath("$.components.schemas.PlayerQuoteResponse").exists())
                 .andExpect(jsonPath("$.components.schemas.PlayerQuoteResponse.required.length()").value(6));
+    }
+
+    @Test
+    void documentsRankingParametersResponsesSecurityAndNullableRequiredPercentage() throws Exception {
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andExpect(jsonPath(RANKING + ".security[*].bearerAuth").exists())
+                .andExpect(jsonPath(RANKING + ".security[*].apiKeyAuth").exists())
+                .andExpect(jsonPath(RANKING + ".parameters.length()").value(5))
+                .andExpect(jsonPath(RANKING + ".parameters[?(@.name == 'strategy')]").exists())
+                .andExpect(jsonPath(RANKING + ".parameters[?(@.name == 'league')]").exists())
+                .andExpect(jsonPath(RANKING + ".parameters[?(@.name == 'position')]").exists())
+                .andExpect(jsonPath(RANKING + ".parameters[?(@.name == 'page')].schema.default").value(0))
+                .andExpect(jsonPath(RANKING + ".parameters[?(@.name == 'page')].schema.minimum").value(0))
+                .andExpect(jsonPath(RANKING + ".parameters[?(@.name == 'size')].schema.default").value(20))
+                .andExpect(jsonPath(RANKING + ".parameters[?(@.name == 'size')].schema.maximum").value(100))
+                .andExpect(jsonPath(RANKING + ".responses['200']").exists())
+                .andExpect(jsonPath(RANKING + ".responses['400']").exists())
+                .andExpect(jsonPath(RANKING + ".responses['401']").exists())
+                .andExpect(jsonPath(RANKING + ".responses['200'].headers['X-Correlation-ID']").exists())
+                .andExpect(jsonPath("$.components.schemas.RankingPageResponse.required").isArray())
+                .andExpect(jsonPath("$.components.schemas.RankingEntryResponse.required[?(@ == 'percentageChange')]").exists())
+                .andExpect(jsonPath("$.components.schemas.RankingEntryResponse.properties.percentageChange.type[?(@ == 'null')]")
+                        .exists())
+                .andExpect(jsonPath("$.components.schemas.RankingPlayerResponse.required[?(@ == 'positions')]")
+                        .exists());
     }
 }
