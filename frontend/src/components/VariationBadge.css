@@ -1,0 +1,13 @@
+.variation-badge {
+  display: inline-block;
+  border: var(--borde);
+  padding: 3px 7px;
+  background: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.variation-badge--up { color: var(--verde); }
+.variation-badge--down { color: var(--rojo); }
+.variation-badge--flat, .variation-badge--none { color: var(--tinta-2); }

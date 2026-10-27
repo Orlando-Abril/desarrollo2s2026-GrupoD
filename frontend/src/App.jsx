@@ -3,6 +3,7 @@ import AppLayout from './layout/AppLayout.jsx'
 import AlbumPage from './pages/AlbumPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import NotFound from './pages/NotFound.jsx'
+import PlayerDetailPage from './pages/PlayerDetailPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import RankingPage from './pages/RankingPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
@@ -26,6 +27,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/album" element={<AlbumPage />} />
           <Route path="/ranking" element={<RankingPage />} />
+          <Route path="/jugadores/:id" element={<PlayerDetailPage />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

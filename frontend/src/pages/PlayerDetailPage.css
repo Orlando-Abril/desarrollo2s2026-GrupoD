@@ -1,0 +1,6 @@
+.player-detail { display: grid; gap: var(--esp-5); overflow-x: hidden; }
+.player-detail > * { min-width: 0; }
+.player-detail__back { justify-self: start; font-family: var(--font-mono); font-size: 13px; font-weight: 700; text-decoration: none; }
+.player-detail__back:hover { text-decoration: underline; }
+.player-detail__loading { display: grid; }
+.player-detail__loading .casillero { width: 100%; }

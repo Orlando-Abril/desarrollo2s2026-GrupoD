@@ -1,0 +1,36 @@
+.player-header {
+  display: grid;
+  gap: var(--esp-4);
+  border: var(--borde-grueso);
+  padding: var(--esp-3);
+  background: #fff;
+  box-shadow: var(--sombra-md);
+}
+.player-header__photo {
+  position: relative;
+  overflow: hidden;
+  width: min(100%, 220px);
+  aspect-ratio: 1 / 1.05;
+  border: var(--borde);
+  background-color: var(--figurita-liga);
+  background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.13) 0 9px, transparent 9px 18px);
+}
+.player-header__number { position: absolute; z-index: 2; top: 6px; left: 8px; color: #fff; font-family: var(--font-display); font-size: 40px; line-height: .9; -webkit-text-stroke: 1.5px var(--tinta); }
+.player-header__number small { display: block; font-size: 16px; }
+.player-header__position { position: absolute; z-index: 2; top: 8px; right: 7px; border: var(--borde); padding: 3px 6px; background: var(--amarillo); color: var(--tinta); font-family: var(--font-mono); font-size: 12px; font-weight: 700; transform: rotate(6deg); }
+.player-header__silhouette { position: absolute; bottom: -2px; left: 14%; width: 72%; color: var(--tinta); }
+.player-header__body { display: grid; align-content: start; gap: var(--esp-3); min-width: 0; }
+.player-header__name { margin: 0; overflow-wrap: anywhere; font-family: var(--font-display); font-size: clamp(32px, 6vw, 52px); font-weight: 400; line-height: .95; text-transform: uppercase; }
+.player-header__facts { display: grid; gap: var(--esp-2); margin: 0; font-family: var(--font-mono); font-size: 13px; }
+.player-header__facts div { display: flex; flex-wrap: wrap; gap: var(--esp-2); }
+.player-header__facts dt { color: var(--tinta-2); }
+.player-header__facts dt::after { content: ':'; }
+.player-header__facts dd { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; }
+.player-header__swatch { width: 12px; height: 12px; border: var(--borde); background: var(--figurita-liga); }
+.player-header__quote { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--esp-2) var(--esp-3); border-top: 2px dashed var(--tinta); padding-top: var(--esp-3); }
+.player-header__quote span:first-child { flex-basis: 100%; color: var(--tinta-2); font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; }
+.player-header__quote strong { font-family: var(--font-display); font-size: 36px; font-weight: 400; line-height: 1; }
+
+@media (min-width: 768px) {
+  .player-header { grid-template-columns: 220px minmax(0, 1fr); gap: var(--esp-5); padding: var(--esp-4); }
+}
