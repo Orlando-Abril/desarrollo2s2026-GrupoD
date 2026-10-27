@@ -133,7 +133,7 @@ Decisiones de diseño de la feature 026. Cada una indica qué se eligió, por qu
   - Configuración con `@Value`, sin tocar `application.properties`:
     - `market.superuser.username` (`superuser` por defecto)
     - `market.superuser.email` (`superuser@futbol-market.local` por defecto)
-    - `market.superuser.password` (`Superuser.2026` por defecto)
+    - `market.superuser.password`: sin default en código (Sonar `java:S2068`); `market.properties` lo define como `${market.superuser.default-password}`, que vale `Superuser.2026`. `usesDefaultPassword()` compara contra esa propiedad.
     - `market.superuser.enabled`: se lee de un archivo **nuevo** `market.properties`, cargado con `@PropertySource("classpath:market.properties")` en `config/MarketConfig`. `src/main/resources/market.properties` lo pone en `true`. `src/test/resources/market.properties` lo pone en `false`, y en los tests pisa al de main porque `test-classes` va primero en el classpath. Así los tests existentes de Entrega 1 corren sin superusuario y sin emisión, sin modificarlos. Los tests nuevos de la 026 que lo necesitan lo habilitan con `@TestPropertySource(properties = "market.superuser.enabled=true")`. Una variable de entorno `MARKET_SUPERUSER_ENABLED` sigue teniendo prioridad sobre el archivo.
   - Se pueden sobrescribir por variable de entorno con el binding relajado de Spring (`MARKET_SUPERUSER_USERNAME`, etc.).
   - `ensureSuperuser()` no es `@Transactional`: `run()` la ejecuta dentro de `TransactionOperations`, con el mismo patrón que `PlayerStatsService`. Así no depende de un proxy de Spring y la auditoría (`MANDATORY`) encuentra la transacción. Flujo:

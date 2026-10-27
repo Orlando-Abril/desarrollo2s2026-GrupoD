@@ -100,7 +100,8 @@ User ensureSuperuser()                // no es @Transactional: requiere una tran
 | `market.superuser.enabled` | `true` en el código; además `market.properties` (nuevo): `true` en `src/main/resources`, `false` en `src/test/resources` |
 | `market.superuser.username` | `superuser` |
 | `market.superuser.email` | `superuser@futbol-market.local` |
-| `market.superuser.password` | `Superuser.2026` |
+| `market.superuser.password` | `${market.superuser.default-password}` en `market.properties` (no hay default en código) |
+| `market.superuser.default-password` | `Superuser.2026` en `market.properties` (main y test) |
 
 Errores de arranque (`IllegalStateException`): `superuser_username_taken` (existe sin ADMIN) y `superuser_email_taken`.
 

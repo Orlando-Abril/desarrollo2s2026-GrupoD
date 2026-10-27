@@ -147,12 +147,12 @@ description: "Task list for feature 026: Modelo de datos del mercado"
 ### Implementation for User Story 1
 
 - [X] T019 [US1] Crear `backend/src/main/resources/market.properties` con `market.superuser.enabled=true`, `backend/src/test/resources/market.properties` con `market.superuser.enabled=false`, y `main/config/MarketConfig.java`: un `@Configuration` con `@PropertySource("classpath:market.properties")`. Cada archivo lleva un comentario de una línea que explique qué hace (el de test: "pisa al de main en los tests; los tests de 026 lo habilitan con @TestPropertySource"). Research D11.
-- [X] T020 [US1] Crear `SuperuserAccount` en `main/service/market/SuperuserAccount.java`. Es un `@Component` que recibe `@Value("${market.superuser.username:superuser}")`, `@Value("${market.superuser.email:superuser@futbol-market.local}")` y `@Value("${market.superuser.password:Superuser.2026}")`, y expone:
+- [X] T020 [US1] Crear `SuperuserAccount` en `main/service/market/SuperuserAccount.java`. Es un `@Component` que recibe `@Value("${market.superuser.username:superuser}")`, `@Value("${market.superuser.email:superuser@futbol-market.local}")` y `@Value("${market.superuser.password}")` y `@Value("${market.superuser.default-password}")`, y expone:
   - `username()`, `email()` y `password()`;
   - `boolean usesDefaultPassword()`;
   - `Long id()`, que busca con `UserRepository.findByUsername` y lanza `IllegalStateException("superuser_missing")` si no existe.
 
-  La contraseña por defecto va en una constante `DEFAULT_PASSWORD`, con un comentario que diga que es para desarrollo y demo (research D11). El mensaje de error va en la constante `public static final String MISSING = "superuser_missing"`, y `id()` lanza `new IllegalStateException(MISSING)`. **No** agregar claves a `application.properties`.
+  La contraseña por defecto **no** va en el código (Sonar `java:S2068`): vive en `market.properties` (main y test) como `market.superuser.default-password=Superuser.2026` y `market.superuser.password=${market.superuser.default-password}`, con un comentario que diga que es para desarrollo y demo (research D11). El mensaje de error va en la constante `public static final String MISSING = "superuser_missing"`, y `id()` lanza `new IllegalStateException(MISSING)`. **No** agregar claves a `application.properties`.
 - [X] T021 [US1] Crear `SuperuserInitializer implements ApplicationRunner` en `main/service/market/SuperuserInitializer.java` (research D11, contracts §SuperuserInitializer):
   - **Sin** `@ConditionalOnProperty` (research D11): recibe `@Value("${market.superuser.enabled:true}") boolean enabled`. Si es `false`, `run(...)` loguea `market_superuser_disabled` en `info` y termina sin hacer nada más.
   - `public User ensureSuperuser()` **no** es `@Transactional`: requiere una transacción activa. Sigue el flujo de D11:
@@ -372,12 +372,12 @@ description: "Task list for feature 026: Modelo de datos del mercado"
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [X] T053 [P] Revisar que ningún log ni `AuditLog` incluya la contraseña o el hash del superusuario: `Grep` de `password` en `main/service/market` y `main/service/audit`. Sólo puede aparecer en `SuperuserAccount` (configuración y `DEFAULT_PASSWORD`), en la comparación de `usesDefaultPassword()` y al llamar a `passwordEncoder.encode` (SC-007).
+- [X] T053 [P] Revisar que ningún log ni `AuditLog` incluya la contraseña o el hash del superusuario: `Grep` de `password` en `main/service/market` y `main/service/audit`. Sólo puede aparecer en `SuperuserAccount` (configuración y `defaultPassword`), en la comparación de `usesDefaultPassword()` y al llamar a `passwordEncoder.encode` (SC-007).
 - [X] T054 [P] Confirmar con `git diff --stat main -- backend/src/main/java/com/example/demo/model/User.java backend/src/main/java/com/example/demo/repository/UserRepository.java backend/src/main/resources/application.properties backend/src/main/java/com/example/demo/service/PlayerCatalogService.java` que no hay cambios en los archivos protegidos (FR-027).
 - [X] T055 [P] Revisar los javadocs de las clases nuevas: una línea de propósito y la referencia a la spec 026 donde aplique, con la densidad de `PlayerQuote` y `PlayerQuoteRepository`. Sin comentarios redundantes.
 - [X] T056 Correr `.\mvnw.cmd test` completo y comparar con T001: no hay fallas nuevas, sólo se agregan tests y ningún test existente fue modificado (`git diff --stat main -- backend/src/test` sólo muestra archivos nuevos). Anotar el total.
 - [X] T057 Ejecutar quickstart §3 (arranque manual con variables de entorno, consultas SQL, reinicio y login con `POST /auth/login`) y anotar el resultado. Repetir el arranque sin variables y verificar el `WARN` `market_superuser_default_password`.
-- [ ] T058 En el análisis de SonarCloud del PR, marcar el hotspot `java:S2068` de `DEFAULT_PASSWORD` en `main/service/market/SuperuserAccount.java` como revisado y seguro. Justificación: "Contraseña por defecto sólo para desarrollo y demo; en despliegue se configura con MARKET_SUPERUSER_PASSWORD y el arranque advierte con un WARN si se usa la por defecto (spec 026, research D11)".
+- [X] T058 Sonar marcó `java:S2068` como vulnerabilidad (no hotspot) en `SuperuserAccount.java` y bloqueó el quality gate. Se resolvió sacando la contraseña por defecto del código a `market.properties` (ver T020).
 - [ ] T059 Revisar los issues nuevos de SonarCloud en el PR (constitución §3.2) y resolverlos si superan el umbral.
 
 ---

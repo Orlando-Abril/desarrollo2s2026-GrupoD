@@ -7,8 +7,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Configuración e identidad del superusuario, dueño inicial de todos los tokens (spec 026, FR-001).
- * Se configura por entorno ({@code MARKET_SUPERUSER_*}); los valores por defecto viven acá y no en
- * {@code application.properties}.
+ * Se configura por entorno ({@code MARKET_SUPERUSER_*}). La contraseña por defecto vive en
+ * {@code market.properties}, no en el código ni en {@code application.properties}.
  */
 @Component
 public class SuperuserAccount {
@@ -16,22 +16,22 @@ public class SuperuserAccount {
     /** Mensaje de la {@link IllegalStateException} de {@link #id()} cuando el superusuario no existe. */
     public static final String MISSING = "superuser_missing";
 
-    // Contraseña por defecto sólo para desarrollo y demo; en despliegue se configura con MARKET_SUPERUSER_PASSWORD.
-    static final String DEFAULT_PASSWORD = "Superuser.2026";
-
     private final UserRepository userRepository;
     private final String username;
     private final String email;
     private final String password;
+    private final String defaultPassword;
 
     public SuperuserAccount(UserRepository userRepository,
                             @Value("${market.superuser.username:superuser}") String username,
                             @Value("${market.superuser.email:superuser@futbol-market.local}") String email,
-                            @Value("${market.superuser.password:" + DEFAULT_PASSWORD + "}") String password) {
+                            @Value("${market.superuser.password}") String password,
+                            @Value("${market.superuser.default-password}") String defaultPassword) {
         this.userRepository = userRepository;
         this.username = username;
         this.email = email;
         this.password = password;
+        this.defaultPassword = defaultPassword;
     }
 
     public String username() {
@@ -47,7 +47,7 @@ public class SuperuserAccount {
     }
 
     public boolean usesDefaultPassword() {
-        return DEFAULT_PASSWORD.equals(password);
+        return defaultPassword.equals(password);
     }
 
     public Long id() {
