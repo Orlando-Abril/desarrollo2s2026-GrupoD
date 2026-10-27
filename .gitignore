@@ -1,8 +1,6 @@
 HELP.md
 target/
-*.class
-*.jar
-!**/.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -33,9 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
-Thumbs.db
-*.tmp
-*.swp
 
 ### Local secrets and generated reports ###
 .env
