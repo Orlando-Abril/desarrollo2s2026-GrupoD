@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.player.PlayerDetailResponse;
 import com.example.demo.dto.player.PlayerResponse;
 import com.example.demo.dto.player.PlayerSyncResponse;
 import com.example.demo.exception.GlobalExceptionHandler.ErrorResponse;
@@ -8,6 +9,7 @@ import com.example.demo.model.League;
 import com.example.demo.model.Position;
 import com.example.demo.service.PlayerCatalogQueryService;
 import com.example.demo.service.PlayerCatalogService;
+import com.example.demo.service.PlayerDetailService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -20,8 +22,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,10 +41,13 @@ import java.util.List;
 public class PlayerController {
     private final PlayerCatalogQueryService queryService;
     private final PlayerCatalogService catalogService;
+    private final PlayerDetailService detailService;
 
-    public PlayerController(PlayerCatalogQueryService queryService, PlayerCatalogService catalogService) {
+    public PlayerController(PlayerCatalogQueryService queryService, PlayerCatalogService catalogService,
+                            PlayerDetailService detailService) {
         this.queryService = queryService;
         this.catalogService = catalogService;
+        this.detailService = detailService;
     }
 
     @PostMapping("/sync")
@@ -81,5 +88,28 @@ public class PlayerController {
             @RequestParam(required = false) @Pattern(regexp = ".*\\S.*", message = "team no puede estar vacío") String team,
             @Parameter(description = "Posición incluida en el conjunto del jugador") @RequestParam(required = false) Position position) {
         return queryService.findPlayers(league, team, position);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Obtener el detalle de un jugador",
+            description = "Devuelve datos persistidos del jugador, estadísticas y cotización de la estrategia activa; nunca consulta fuentes externas.")
+    @ApiResponse(responseCode = "200", description = "Detalle encontrado; stats y quote pueden ser nulos",
+            headers = @Header(name = CorrelationIdFilter.HEADER, description = "UUID de trazabilidad"),
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = PlayerDetailResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Identificador inválido",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Sin credenciales, o con credenciales inválidas o vencidas",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Jugador inexistente",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = ErrorResponse.class)))
+    public PlayerDetailResponse detail(
+            @Parameter(description = "Identificador interno positivo del jugador",
+                    schema = @Schema(type = "integer", format = "int64", minimum = "1"))
+            @PathVariable Long id) {
+        return detailService.findById(id);
     }
 }

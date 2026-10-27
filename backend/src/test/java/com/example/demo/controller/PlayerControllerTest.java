@@ -7,6 +7,7 @@ import com.example.demo.model.League;
 import com.example.demo.model.Position;
 import com.example.demo.service.PlayerCatalogQueryService;
 import com.example.demo.service.PlayerCatalogService;
+import com.example.demo.service.PlayerDetailService;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.validation.beanvalidation.MethodValidationInterceptor;
@@ -28,7 +29,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PlayerControllerTest {
     private final PlayerCatalogQueryService service = mock(PlayerCatalogQueryService.class);
     private final PlayerCatalogService catalogService = mock(PlayerCatalogService.class);
-    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(validated(new PlayerController(service, catalogService)))
+    private final PlayerDetailService detailService = mock(PlayerDetailService.class);
+    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(
+                    validated(new PlayerController(service, catalogService, detailService)))
             .setControllerAdvice(new GlobalExceptionHandler())
             .addFilters(new CorrelationIdFilter()).build();
 
