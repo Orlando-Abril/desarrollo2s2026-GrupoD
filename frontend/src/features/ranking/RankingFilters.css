@@ -1,0 +1,18 @@
+.ranking-filters {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  border: var(--borde);
+  padding: 12px;
+  background: var(--blanco);
+}
+
+.ranking-filters select {
+  width: 100%;
+  font-size: 14px;
+}
+
+@media (min-width: 640px) {
+  .ranking-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
