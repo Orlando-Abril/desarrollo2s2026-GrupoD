@@ -1,9 +1,11 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import App from '../App.jsx'
 import ProtectedRoute from './ProtectedRoute.jsx'
 import PublicOnlyRoute from './PublicOnlyRoute.jsx'
+
+vi.mock('../pages/RankingPage.jsx', () => ({ default: () => <div>ranking page</div> }))
 
 let authenticated = false
 vi.mock('../session/SessionContext.jsx', () => ({
@@ -23,6 +25,7 @@ function renderRoutes(initialPath) {
       <Routes>
         <Route element={<ProtectedRoute />}>
           <Route path="/album" element={<div>album</div>} />
+          <Route path="/ranking" element={<div>ranking</div>} />
         </Route>
         <Route element={<PublicOnlyRoute />}>
           <Route path="/ingresar" element={<div>login</div>} />
@@ -49,6 +52,23 @@ describe('route guards', () => {
     authenticated = false
     renderRoutes('/album')
     expect(screen.getByTestId('location').textContent).toBe('/ingresar')
+  })
+
+  it('redirects unauthenticated ranking access to login', () => {
+    authenticated = false
+    renderRoutes('/ranking')
+    expect(screen.getByTestId('location').textContent).toBe('/ingresar')
+  })
+
+  it('renders protected ranking and marks it current in desktop and mobile navigation', () => {
+    authenticated = true
+    renderApp('/ranking')
+
+    expect(screen.getByText('ranking page')).toBeTruthy()
+    const desktop = screen.getByRole('navigation', { name: 'Navegación principal' })
+    const mobile = screen.getByRole('navigation', { name: 'Navegación móvil' })
+    expect(within(desktop).getByRole('link', { name: /Ranking/ }).getAttribute('aria-current')).toBe('page')
+    expect(within(mobile).getByRole('link', { name: /Ranking/ }).getAttribute('aria-current')).toBe('page')
   })
 
   it('redirects authenticated public-only access to album', () => {
