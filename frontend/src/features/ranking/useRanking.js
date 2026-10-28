@@ -8,7 +8,7 @@ const EMPTY_PAGE = { items: [], page: 0, size: PAGE_SIZE, totalElements: 0, tota
 
 export default function useRanking() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
-  const [page, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
   const [data, setData] = useState(EMPTY_PAGE)
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState(null)
@@ -19,7 +19,7 @@ export default function useRanking() {
     const controller = new AbortController()
 
     getRanking(
-      { strategy, league, position, page: page - 1, size: PAGE_SIZE },
+      { strategy, league, position, page: currentPage - 1, size: PAGE_SIZE },
       { signal: controller.signal },
     )
       .then((response) => {
@@ -28,7 +28,7 @@ export default function useRanking() {
           response.totalElements > 0
           && response.items.length === 0
           && response.totalPages > 0
-          && page > response.totalPages
+          && currentPage > response.totalPages
         ) {
           setStatus('loading')
           setCurrentPage(response.totalPages)
@@ -45,11 +45,14 @@ export default function useRanking() {
       })
 
     return () => controller.abort()
-  }, [league, page, position, retryKey, strategy])
+  }, [currentPage, league, position, retryKey, strategy])
 
   const from = data.totalElements === 0 ? 0 : data.page * data.size + 1
   const to = data.page * data.size + data.items.length
-  const pageWindow = useMemo(() => buildPageWindow(page, data.totalPages), [data.totalPages, page])
+  const pageWindow = useMemo(
+    () => buildPageWindow(currentPage, data.totalPages),
+    [currentPage, data.totalPages],
+  )
   const changeFilter = useCallback((name, value) => {
     if (filters[name] === value) return
     setStatus('loading')
@@ -58,11 +61,11 @@ export default function useRanking() {
     setCurrentPage(1)
   }, [filters])
   const setPage = useCallback((nextPage) => {
-    if (nextPage === page) return
+    if (nextPage === currentPage) return
     setStatus('loading')
     setError(null)
     setCurrentPage(nextPage)
-  }, [page])
+  }, [currentPage])
   const retry = useCallback(() => {
     setStatus('loading')
     setError(null)
@@ -75,7 +78,7 @@ export default function useRanking() {
     status,
     error,
     retry,
-    page,
+    page: currentPage,
     setPage,
     items: data.items,
     total: data.totalElements,
