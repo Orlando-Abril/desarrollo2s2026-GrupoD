@@ -87,7 +87,7 @@ public class SuperuserInitializer implements ApplicationRunner {
                 .passwordHash(passwordEncoder.encode(account.password()))
                 .role(Role.ADMIN)
                 .build());
-        auditService.record(AuditActor.system(), AuditAction.SUPERUSER_CREATED, "USER", created.getId(),
+        auditService.audit(AuditActor.system(), AuditAction.SUPERUSER_CREATED, "USER", created.getId(),
                 null, UserSnapshot.of(created));
         log.info("market_superuser_created id={}", created.getId());
         return created;

@@ -64,8 +64,8 @@ Es un repositorio nuevo sobre la entidad existente `User`; `UserRepository` no s
 ### `service/audit/TransactionAuditService`
 
 ```text
-AuditLog record(AuditActor actor, AuditAction action, String entityType, Object entityId,
-                Object before, Object after)
+AuditLog audit(AuditActor actor, AuditAction action, String entityType, Object entityId,
+               Object before, Object after)
 ```
 
 - Requiere una transacción activa (`Propagation.MANDATORY`). Sin transacción lanza `IllegalTransactionStateException`.

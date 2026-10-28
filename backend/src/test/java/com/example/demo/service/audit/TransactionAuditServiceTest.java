@@ -72,7 +72,7 @@ class TransactionAuditServiceTest {
     void recordsEveryField() {
         MDC.put(CorrelationIdFilter.MDC_KEY, CORRELATION_ID);
 
-        AuditLog saved = auditService.record(AuditActor.user(7L), AuditAction.TOKENS_ISSUED, "HOLDING", 42L,
+        AuditLog saved = auditService.audit(AuditActor.user(7L), AuditAction.TOKENS_ISSUED, "HOLDING", 42L,
                 new Snapshot(42L, 0), new Snapshot(42L, 100));
 
         AuditLog reloaded = repository.findById(saved.getId()).orElseThrow();
@@ -88,7 +88,7 @@ class TransactionAuditServiceTest {
 
     @Test
     void generatesACorrelationIdWhenThereIsNoRequest() {
-        AuditLog saved = auditService.record(AuditActor.system(), AuditAction.SUPERUSER_CREATED, "USER", 1L,
+        AuditLog saved = auditService.audit(AuditActor.system(), AuditAction.SUPERUSER_CREATED, "USER", 1L,
                 null, new Snapshot(1L, 0));
 
         assertThat(UUID.fromString(saved.getCorrelationId())).isNotNull();
@@ -96,7 +96,7 @@ class TransactionAuditServiceTest {
 
     @Test
     void storesNullBeforeStateAndReadableAfterState() {
-        AuditLog saved = auditService.record(AuditActor.system(), AuditAction.TOKENS_ISSUED, "HOLDING", 5L,
+        AuditLog saved = auditService.audit(AuditActor.system(), AuditAction.TOKENS_ISSUED, "HOLDING", 5L,
                 null, new Snapshot(5L, 100));
 
         AuditLog reloaded = repository.findById(saved.getId()).orElseThrow();
@@ -108,7 +108,7 @@ class TransactionAuditServiceTest {
 
     @Test
     void rejectsAMissingAfterState() {
-        assertThatThrownBy(() -> auditService.record(AuditActor.system(), AuditAction.TOKENS_ISSUED,
+        assertThatThrownBy(() -> auditService.audit(AuditActor.system(), AuditAction.TOKENS_ISSUED,
                 "HOLDING", 5L, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -116,7 +116,7 @@ class TransactionAuditServiceTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void requiresAnActiveTransaction() {
-        assertThatThrownBy(() -> auditService.record(AuditActor.system(), AuditAction.TOKENS_ISSUED,
+        assertThatThrownBy(() -> auditService.audit(AuditActor.system(), AuditAction.TOKENS_ISSUED,
                 "HOLDING", 9L, null, new Snapshot(9L, 100)))
                 .isInstanceOf(IllegalTransactionStateException.class);
 

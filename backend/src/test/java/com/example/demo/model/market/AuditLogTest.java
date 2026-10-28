@@ -17,7 +17,7 @@ class AuditLogTest {
 
     @Test
     void buildsAnEntryWithItsFields() {
-        AuditLog log = AuditLog.of(AuditActor.user(3L), ACTION, "HOLDING", "7", null, "{}", NOW, CORRELATION_ID);
+        AuditLog log = AuditLog.of(AuditActor.user(3L), ACTION, new AuditTarget("HOLDING", "7"), null, "{}", NOW, CORRELATION_ID);
 
         assertThat(log.getActorType()).isEqualTo(AuditActorType.USER);
         assertThat(log.getActorUserId()).isEqualTo(3L);
@@ -27,12 +27,12 @@ class AuditLogTest {
     @Test
     void rejectsMissingRequiredFields() {
         List<Runnable> invalid = List.of(
-                () -> AuditLog.of(ACTOR, null, "HOLDING", "7", null, "{}", NOW, CORRELATION_ID),
-                () -> AuditLog.of(ACTOR, ACTION, null, "7", null, "{}", NOW, CORRELATION_ID),
-                () -> AuditLog.of(ACTOR, ACTION, "HOLDING", null, null, "{}", NOW, CORRELATION_ID),
-                () -> AuditLog.of(ACTOR, ACTION, "HOLDING", "7", null, null, NOW, CORRELATION_ID),
-                () -> AuditLog.of(ACTOR, ACTION, "HOLDING", "7", null, "{}", null, CORRELATION_ID),
-                () -> AuditLog.of(ACTOR, ACTION, "HOLDING", "7", null, "{}", NOW, null));
+                () -> AuditLog.of(ACTOR, null, new AuditTarget("HOLDING", "7"), null, "{}", NOW, CORRELATION_ID),
+                () -> AuditLog.of(ACTOR, ACTION, new AuditTarget(null, "7"), null, "{}", NOW, CORRELATION_ID),
+                () -> AuditLog.of(ACTOR, ACTION, new AuditTarget("HOLDING", null), null, "{}", NOW, CORRELATION_ID),
+                () -> AuditLog.of(ACTOR, ACTION, new AuditTarget("HOLDING", "7"), null, null, NOW, CORRELATION_ID),
+                () -> AuditLog.of(ACTOR, ACTION, new AuditTarget("HOLDING", "7"), null, "{}", null, CORRELATION_ID),
+                () -> AuditLog.of(ACTOR, ACTION, new AuditTarget("HOLDING", "7"), null, "{}", NOW, null));
 
         invalid.forEach(call -> assertThatThrownBy(call::run).isInstanceOf(IllegalArgumentException.class));
     }

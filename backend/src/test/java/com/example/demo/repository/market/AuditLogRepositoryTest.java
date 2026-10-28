@@ -4,6 +4,7 @@ import com.example.demo.config.ImmutableEntityConfig;
 import com.example.demo.model.market.AuditAction;
 import com.example.demo.model.market.AuditActor;
 import com.example.demo.model.market.AuditLog;
+import com.example.demo.model.market.AuditTarget;
 import com.example.demo.support.UnitTestProfile;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.Test;
@@ -32,8 +33,8 @@ class AuditLogRepositoryTest {
     @Autowired private TestEntityManager entityManager;
 
     private AuditLog saved(String entityId, Instant occurredAt) {
-        AuditLog log = repository.save(AuditLog.of(AuditActor.system(), AuditAction.TOKENS_ISSUED, "HOLDING",
-                entityId, null, "{\"quantity\":100}", occurredAt, UUID.randomUUID().toString()));
+        AuditLog log = repository.save(AuditLog.of(AuditActor.system(), AuditAction.TOKENS_ISSUED,
+                new AuditTarget("HOLDING", entityId), null, "{\"quantity\":100}", occurredAt, UUID.randomUUID().toString()));
         entityManager.flush();
         return log;
     }

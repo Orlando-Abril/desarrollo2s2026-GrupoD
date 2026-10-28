@@ -68,14 +68,14 @@ public class AuditLog {
     @Column(name = "correlation_id", length = 36, nullable = false, updatable = false)
     private String correlationId;
 
-    public static AuditLog of(AuditActor actor, AuditAction action, String entityType, String entityId,
+    public static AuditLog of(AuditActor actor, AuditAction action, AuditTarget target,
                               String beforeJson, String afterJson, Instant occurredAt, String correlationId) {
         AuditLog log = new AuditLog();
         log.actorType = required(actor, "actor").type();
         log.actorUserId = actor.userId();
         log.action = required(action, "action");
-        log.entityType = required(entityType, "entityType");
-        log.entityId = required(entityId, "entityId");
+        log.entityType = required(required(target, "target").type(), "entityType");
+        log.entityId = required(target.id(), "entityId");
         log.beforeState = beforeJson;
         log.afterState = required(afterJson, "afterJson");
         log.occurredAt = required(occurredAt, "occurredAt");

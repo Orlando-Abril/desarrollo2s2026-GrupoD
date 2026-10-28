@@ -70,7 +70,7 @@ public class TokenIssuanceService {
     private void issue(Long superuserId, Long playerId) {
         Holding holding = holdingRepository.save(Holding.issue(entityManager.getReference(User.class, superuserId),
                 entityManager.getReference(Player.class, playerId), TOKENS_PER_PLAYER, Instant.now(clock)));
-        auditService.record(AuditActor.system(), AuditAction.TOKENS_ISSUED, "HOLDING", holding.getId(),
+        auditService.audit(AuditActor.system(), AuditAction.TOKENS_ISSUED, "HOLDING", holding.getId(),
                 null, HoldingSnapshot.of(holding));
     }
 }

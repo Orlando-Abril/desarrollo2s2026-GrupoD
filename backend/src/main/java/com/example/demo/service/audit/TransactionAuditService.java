@@ -4,6 +4,7 @@ import com.example.demo.filter.CorrelationIdFilter;
 import com.example.demo.model.market.AuditAction;
 import com.example.demo.model.market.AuditActor;
 import com.example.demo.model.market.AuditLog;
+import com.example.demo.model.market.AuditTarget;
 import com.example.demo.repository.market.AuditLogRepository;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
@@ -34,13 +35,13 @@ public class TransactionAuditService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public AuditLog record(AuditActor actor, AuditAction action, String entityType, Object entityId,
-                           Object before, Object after) {
+    public AuditLog audit(AuditActor actor, AuditAction action, String entityType, Object entityId,
+                          Object before, Object after) {
         if (after == null) {
             throw new IllegalArgumentException("after is required");
         }
         String beforeJson = before == null ? null : objectMapper.writeValueAsString(before);
-        AuditLog log = AuditLog.of(actor, action, entityType, String.valueOf(entityId), beforeJson,
+        AuditLog log = AuditLog.of(actor, action, new AuditTarget(entityType, String.valueOf(entityId)), beforeJson,
                 objectMapper.writeValueAsString(after), Instant.now(clock), correlationId());
         return repository.save(log);
     }

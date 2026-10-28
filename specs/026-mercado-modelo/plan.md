@@ -18,7 +18,7 @@ Esta feature agrega el modelo persistente del mercado de tokens, sin motor de ca
   - Órdenes y trades por usuario, y la suma de créditos reservados.
   - `MarketUserRepository` (`Repository<User, Long>`), que lee, bloquea y modifica `User.balance` sin tocar `UserRepository`. Sólo lo usa el motor de calce, auditando `BALANCE_CHANGED` (FR-028).
 - **Servicios**:
-  - `service/audit/TransactionAuditService.record(...)`: transacción `MANDATORY`, correlation id del MDC y `Clock`.
+  - `service/audit/TransactionAuditService.audit(...)`: transacción `MANDATORY`, correlation id del MDC y `Clock`.
   - `service/market/SuperuserInitializer` (`ApplicationRunner`): crea el superusuario ADMIN con `@Value` y valores por defecto en el código. `run()` ejecuta `ensureSuperuser()` dentro de `TransactionOperations` y loguea un `WARN` si usa la contraseña por defecto.
   - `service/market/TokenIssuanceService`: emite 100 tokens por jugador al superusuario, de forma idempotente, con la tenencia como marca.
   - `service/market/TokenIssuanceListener`: emite los jugadores nuevos al terminar cada recálculo (`QuoteRunCompletedEvent`). `PlayerCatalogService` no se modifica.

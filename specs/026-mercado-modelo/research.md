@@ -68,13 +68,13 @@ Decisiones de diseño de la feature 026. Cada una indica qué se eligió, por qu
     - `entityType` (String, largo 32) y `entityId` (String, largo 64).
     - `beforeState` y `afterState`, String con `@JdbcTypeCode(SqlTypes.JSON)`. Se guardan como `jsonb` en PostgreSQL y `json` en H2.
     - `occurredAt` (`Instant`) y `correlationId` (String, largo 36, obligatorio).
-  - `TransactionAuditService.record(AuditActor actor, AuditAction action, String entityType, Object entityId, Object before, Object after)`:
+  - `TransactionAuditService.audit(AuditActor actor, AuditAction action, String entityType, Object entityId, Object before, Object after)`:
     - Serializa `before` y `after` con el `JsonMapper` de Jackson 3 (`tools.jackson`) que configura Spring Boot 4. Un `null` se guarda como columna nula, que representa "sin estado anterior".
     - Toma el correlation id del MDC (`CorrelationIdFilter.MDC_KEY`) o genera un UUID si no hay.
     - Usa `Clock` para la fecha.
     - Se ejecuta en la transacción de quien llama (`Propagation.MANDATORY`). Así el cambio y su auditoría se confirman o se revierten juntos.
   - Los estados se serializan desde records de snapshot (`HoldingSnapshot`, `UserSnapshot` sin contraseña), nunca desde la entidad. Esto evita cargar relaciones lazy y filtrar el hash de la contraseña o la API key (FR-024).
-- **Rationale**: FR-021 a FR-024, constitución §4.2 y DoD §7.5 (correlation id). El nombre `TransactionAuditService.record(...)` es el del prompt maestro. `MANDATORY` evita que alguien audite fuera de una transacción y deje un registro de un cambio revertido.
+- **Rationale**: FR-021 a FR-024, constitución §4.2 y DoD §7.5 (correlation id). El nombre `TransactionAuditService.audit(...)` es el del prompt maestro. `MANDATORY` evita que alguien audite fuera de una transacción y deje un registro de un cambio revertido.
 - **Alternatives considered**:
   - `REQUIRES_NEW`: dejaría auditoría de cambios que luego se revierten.
   - Hibernate Envers: audita entidades completas, no tiene autor ni correlation id propios y agrega una dependencia.

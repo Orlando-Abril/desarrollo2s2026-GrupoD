@@ -74,12 +74,12 @@ description: "Task list for feature 026: Modelo de datos del mercado"
     - `correlation_id` varchar(36) obligatorio.
   - Índices `idx_audit_logs_entity (entity_type, entity_id)` e `idx_audit_logs_occurred (occurred_at)`.
   - `CHECK`: `(actor_type = 'SYSTEM' AND actor_user_id IS NULL) OR (actor_type = 'USER' AND actor_user_id IS NOT NULL)`.
-  - Fábrica estática `AuditLog.of(AuditActor, AuditAction, String entityType, String entityId, String beforeJson, String afterJson, Instant occurredAt, String correlationId)`, que valida los obligatorios con `IllegalArgumentException`.
+  - Fábrica estática `AuditLog.of(AuditActor, AuditAction, AuditTarget(String type, String id), String beforeJson, String afterJson, Instant occurredAt, String correlationId)`, que valida los obligatorios con `IllegalArgumentException`.
   - `@PreRemove void preventRemove()`, que lanza `UnsupportedOperationException("audit_log_is_immutable")`.
   - Javadoc que explique por qué hace falta `@PreRemove`: Hibernate permite borrar entidades `@Immutable`. Debe decir también que los `DELETE` JPQL masivos y el SQL nativo quedan fuera de la garantía.
 - [X] T010 Crear `AuditLogRepository extends Repository<AuditLog, Long>` en `main/repository/market/AuditLogRepository.java`, con los métodos de contracts §AuditLogRepository: `save`, `findById`, `findByEntityTypeAndEntityIdOrderByOccurredAtAscIdAsc` y `findByActionOrderByIdAsc`. Sin ningún método `delete*`. Javadoc como el de `PlayerQuoteRepository`.
 - [X] T011 Crear `TransactionAuditService` en `main/service/audit/TransactionAuditService.java` (contracts §TransactionAuditService, research D6):
-  - Firma: `@Transactional(propagation = MANDATORY) AuditLog record(AuditActor actor, AuditAction action, String entityType, Object entityId, Object before, Object after)`.
+  - Firma: `@Transactional(propagation = MANDATORY) AuditLog audit(AuditActor actor, AuditAction action, String entityType, Object entityId, Object before, Object after)`.
   - Serializa `before` y `after` con el `tools.jackson.databind.json.JsonMapper` inyectado. `before == null` se guarda como columna nula; `after == null` lanza `IllegalArgumentException`.
   - `entityId` se guarda con `String.valueOf`.
   - El correlation id sale de `MDC.get(CorrelationIdFilter.MDC_KEY)` o, si es nulo o vacío, de `UUID.randomUUID()`.
@@ -158,7 +158,7 @@ description: "Task list for feature 026: Modelo de datos del mercado"
   - `public User ensureSuperuser()` **no** es `@Transactional`: requiere una transacción activa. Sigue el flujo de D11:
     - Busca por username. Si existe con ADMIN, lo devuelve sin cambios. Si existe sin ADMIN, lanza `superuser_username_taken`.
     - Si no existe y `existsByEmail` da verdadero, lanza `superuser_email_taken`.
-    - Si no, crea el usuario con `User.builder()`, `passwordEncoder.encode(...)`, `role(Role.ADMIN)` y el saldo por defecto del builder; guarda con `UserRepository.save`; y audita con `TransactionAuditService.record(AuditActor.system(), SUPERUSER_CREATED, "USER", id, null, UserSnapshot.of(user))`.
+    - Si no, crea el usuario con `User.builder()`, `passwordEncoder.encode(...)`, `role(Role.ADMIN)` y el saldo por defecto del builder; guarda con `UserRepository.save`; y audita con `TransactionAuditService.audit(AuditActor.system(), SUPERUSER_CREATED, "USER", id, null, UserSnapshot.of(user))`.
   - `run(...)`:
     1. Ejecuta `ensureSuperuser()` dentro de `transactionOperations.execute(status -> ensureSuperuser())`, con el mismo patrón que `PlayerStatsService`.
     2. Ante una `DataIntegrityViolationException` (atrapada fuera de esa transacción, que ya se revirtió), relee el usuario en una transacción nueva. Si es ADMIN, continúa; si no, relanza.
