@@ -84,10 +84,22 @@ describe('route guards', () => {
     [true, '/registro', '/album'],
     [false, '/desconocida', '/ingresar'],
     [true, '/desconocida', '/album'],
+    [false, '/jugadores/42', '/ingresar'],
   ])('resolves session=%s path=%s to %s', (session, initial, expected) => {
     authenticated = session
     renderApp(initial)
     expect(screen.getByTestId('location').textContent).toBe(expected)
     expect(screen.getByTestId('location').dataset.navigation).toBe('REPLACE')
+  })
+})
+
+describe('player detail route', () => {
+  it('renders the protected player detail page with a session', () => {
+    authenticated = true
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+    renderApp('/jugadores/42')
+    expect(screen.getByTestId('location').textContent).toBe('/jugadores/42')
+    expect(screen.getByText('Cargando jugador…')).toBeTruthy()
+    vi.unstubAllGlobals()
   })
 })

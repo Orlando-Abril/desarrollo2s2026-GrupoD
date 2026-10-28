@@ -32,7 +32,7 @@ Como usuario autenticado, quiero abrir el Ranking desde la navegacion principal 
 2. **Given** un usuario autenticado en una pantalla movil, **When** selecciona Ranking en la navegacion inferior, **Then** llega a la misma vista y puede consultar todos los datos sin perder contenido ni funcionalidad.
 3. **Given** una persona no autenticada, **When** intenta abrir `/ranking`, **Then** se aplica el mismo flujo de acceso protegido que en las demas vistas privadas y no se muestran datos del ranking.
 4. **Given** resultados de distintas ligas, **When** se muestran, **Then** cada liga se identifica por texto y por su color visual correspondiente, sin depender exclusivamente del color para comunicar su identidad.
-5. **Given** una fila de jugador en esta entrega, **When** el usuario la selecciona o navega con teclado, **Then** la fila no se comporta ni se anuncia como enlace porque el detalle de jugador aun no forma parte del alcance disponible.
+5. **Given** una fila de jugador en esta entrega, **When** el usuario la selecciona o navega con teclado, **Then** la fila no se comporta ni se anuncia como enlace en esta entrega (la feature 024 agrego despues un enlace en el nombre del jugador hacia `/jugadores/{id}`; ver FR-009).
 
 ---
 
@@ -117,7 +117,7 @@ Como usuario autenticado, quiero recorrer las paginas y recibir estados claros d
 - **FR-006**: La liga MUST mostrar su denominacion y el color visual asociado en el producto; el color MUST NOT ser el unico medio para identificarla.
 - **FR-007**: Una variacion positiva MUST presentarse como suba con tratamiento verde; una negativa, como baja con tratamiento rojo; una variacion cero, como sin cambios con tratamiento neutro; y una variacion ausente, como sin dato con tratamiento neutro.
 - **FR-008**: Los cuatro estados de variacion MUST ser distinguibles mediante texto, signo, icono o descripcion accesible, ademas del color.
-- **FR-009**: Las filas MUST permanecer no interactivas en esta entrega y MUST NOT aparentar ni anunciar navegacion. La navegacion a `/jugadores/:id` se habilitara solamente cuando la feature 024 exista y forme parte del alcance de una entrega posterior.
+- **FR-009**: En la entrega original de esta feature las filas eran no interactivas. La navegacion al detalle se agrego en la feature 024: el nombre de cada jugador es un enlace a `/jugadores/{player.id}`; el resto de la fila no es interactivo.
 
 **Estrategia, filtros y paginacion**
 

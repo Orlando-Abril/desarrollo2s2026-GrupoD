@@ -29,7 +29,7 @@ Controles accesibles: “Estrategia”, “Liga” y “Posición”. Cambiar cu
 6. Cotización
 7. Variación
 
-Cada encabezado tiene `scope="col"`. Liga tiene texto y swatch. Se muestran todas las posiciones. Las filas no son links ni controles en esta entrega.
+Cada encabezado tiene `scope="col"`. Liga tiene texto y swatch. Se muestran todas las posiciones. Las filas no son links ni controles en esta entrega; la feature 024 agregó un `Link` en el nombre del jugador hacia `/jugadores/{player.id}` (ver FR-009).
 
 ## VariationBadge contract
 
@@ -41,6 +41,8 @@ Prop única `value` (`number | null`). Cuatro salidas semánticas:
 - null: sin dato, neutra y distinta de cero.
 
 No conoce jugador, ranking ni navegación, por lo que puede reutilizarse en 024.
+
+> Actualizado en 024: se unificó con el `VariationBadge` compartido de `frontend/src/components/`. El ranking lo usa como `<VariationBadge percent={percentageChange} />`; `null` se muestra como “—” (“Sin variación disponible”) y `0` como “Sin cambios”.
 
 ## Page states
 

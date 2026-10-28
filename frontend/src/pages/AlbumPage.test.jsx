@@ -49,6 +49,7 @@ function renderAlbum() {
           <Routes>
             <Route path="/album" element={<AlbumPage />} />
             <Route path="/ingresar" element={<LoginDestination />} />
+            <Route path="/jugadores/:id" element={<LoginDestination />} />
           </Routes>
         </AutoLogin>
       </SessionProvider>
@@ -242,6 +243,20 @@ describe('AlbumPage', () => {
     const rows = screen.getAllByRole('row')
     expect(rows[1].getAttribute('tabindex')).toBeNull()
     expect(within(rows[1]).queryByRole('link')).toBeNull()
+  })
+
+  it('links every card to its player detail without touching the table view', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(200, [player(7, { fullName: 'Julián Álvarez' }), player(8)])))
+    renderAlbum()
+    const link = await screen.findByRole('link', { name: 'Ver detalle de Julián Álvarez' })
+    expect(link.getAttribute('href')).toBe('/jugadores/7')
+    expect(within(link).getByRole('article', { name: /Julián Álvarez/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ver detalle de Jugador 0008' }).getAttribute('href')).toBe('/jugadores/8')
+    fireEvent.click(screen.getByRole('button', { name: '☰ Lista' }))
+    expect(within(screen.getByRole('table')).queryAllByRole('link')).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: '▦ Cartas' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Ver detalle de Julián Álvarez' }))
+    expect(await screen.findByText('/jugadores/7')).toBeTruthy()
   })
 
   it('uses native accessible buttons and keeps cards non-interactive', async () => {

@@ -14,3 +14,14 @@ export function getRanking(
 
   return request(`/players/ranking${suffix}`, { signal })
 }
+
+export function getPlayerQuotes(id, { strategy = '', from = '', to = '', at = '' } = {}, { signal } = {}) {
+  if (at && (from || to)) throw new TypeError('at no puede combinarse con from ni to')
+  const query = new URLSearchParams()
+  if (strategy) query.set('strategy', strategy)
+  if (from) query.set('from', from)
+  if (to) query.set('to', to)
+  if (at) query.set('at', at)
+  const suffix = query.size ? `?${query.toString()}` : ''
+  return request(`/players/${encodeURIComponent(id)}/quotes${suffix}`, { signal })
+}
