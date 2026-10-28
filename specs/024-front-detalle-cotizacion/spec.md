@@ -84,17 +84,17 @@ Mientras se cargan los datos el usuario ve un estado de carga; si algo falla ve 
 
 ---
 
-### User Story 5 - Llegar al detalle desde el Ranking (Priority: P3) — dependencia documentada, fuera de alcance
+### User Story 5 - Llegar al detalle desde el Ranking (Priority: P3)
 
 Desde cada fila del Ranking de jugadores, el usuario puede ir al detalle de ese jugador.
 
-**Why this priority**: La pantalla de Ranking es la feature 023, que todavía no existe en el frontend. Esta feature no construye esa pantalla ni modifica el ítem "Ranking" del menú; solo deja disponible la ruta `/jugadores/:id` como destino estable.
+**Why this priority**: La pantalla de Ranking la construyó la feature 023 con filas no interactivas. Al integrarse con la 023 (ya en `main`), esta feature agrega el enlace desde el Ranking hacia `/jugadores/:id`; no modifica el ítem "Ranking" del menú.
 
-**Independent Test**: No se implementa ni se prueba en esta feature. La feature 023 es responsable de hacer clickeable cada fila del Ranking hacia `/jugadores/:id` y de probarlo; esta feature garantiza que esa ruta resuelve el detalle de cualquier jugador por su identificador (cubierto por las User Stories 1 y 4).
+**Independent Test**: Renderizar el Ranking y comprobar que el nombre de cada jugador es un enlace a `/jugadores/{id}` de ese jugador (`RankingPage.test.jsx`); que esa ruta resuelve el detalle está cubierto por las User Stories 1 y 4.
 
-**Acceptance Scenarios** (a verificar en la feature 023):
+**Acceptance Scenarios**:
 
-1. **Given** la pantalla de Ranking de la feature 023 con jugadores, **When** el usuario activa una fila, **Then** navega a `/jugadores/{id}` de ese jugador y ve el detalle definido en esta spec.
+1. **Given** la pantalla de Ranking de la feature 023 con jugadores, **When** el usuario activa el nombre de un jugador, **Then** navega a `/jugadores/{id}` de ese jugador y ve el detalle definido en esta spec.
 
 ---
 
@@ -120,7 +120,7 @@ Desde cada fila del Ranking de jugadores, el usuario puede ir al detalle de ese 
 - **FR-001**: El sistema MUST ofrecer la pantalla de detalle en la ruta `/jugadores/:id`, accesible solo con sesión iniciada; sin sesión, MUST redirigir al ingreso igual que las demás rutas protegidas.
 - **FR-002**: Cada figurita del Álbum MUST llevar al detalle de su jugador, activable con puntero, toque y teclado, y anunciada como enlace a lectores de pantalla, sin cambiar su aspecto visual actual.
 - **FR-003**: La vista en tabla del Álbum no se modifica en esta feature (la autorización de la Entrega 1 cubre solo la figurita o la grilla); se llega al detalle desde la vista de figuritas.
-- **FR-004** *(dependencia, fuera de alcance)*: La ruta `/jugadores/:id` MUST ser el destino estable para enlazar el detalle desde otras pantallas. Hacer clickeable cada fila del Ranking es responsabilidad de la feature 023; esta feature no construye la pantalla de Ranking ni modifica el ítem "Ranking" del menú.
+- **FR-004**: La ruta `/jugadores/:id` MUST ser el destino estable para enlazar el detalle desde otras pantallas. En el Ranking (feature 023), el nombre de cada jugador MUST ser un enlace a `/jugadores/{player.id}`; este enlace se agregó en esta feature al integrarse con la 023. Esta feature no modifica el ítem "Ranking" del menú.
 - **FR-005**: La pantalla MUST ofrecer un camino visible para volver al Álbum.
 
 **Cabecera del jugador**
@@ -199,7 +199,7 @@ Desde cada fila del Ranking de jugadores, el usuario puede ir al detalle de ese 
 - Por autorización de la Entrega 1 se puede agregar una librería de gráficos, la ruta nueva y el cambio mínimo en la figurita o la grilla del Álbum para volverla enlazable sin cambiar su aspecto; no se modifica el backend.
 - La compra/venta de tokens desde el detalle queda fuera de alcance (corresponde a la consola de trading).
 - `VariationBadge` se crea en esta feature y la 023 lo reutiliza.
-- La pantalla de Ranking (feature 023) queda fuera de alcance: no se construye ni se habilita su ítem en el menú. La 023 hará clickeable cada fila hacia `/jugadores/:id`.
+- La pantalla de Ranking (feature 023) queda fuera de alcance: no se construye ni se habilita su ítem en el menú. Al integrarse con la 023, esta feature agregó el enlace del nombre de cada jugador del Ranking hacia `/jugadores/:id`.
 
 ## Clarifications
 

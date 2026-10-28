@@ -72,3 +72,7 @@
   font-weight: 700;
   white-space: nowrap;
 }
+
+.ranking-table__player { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.ranking-table__player:hover { text-decoration-thickness: 2px; }
+.ranking-table__player:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; }

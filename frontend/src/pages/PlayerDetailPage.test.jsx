@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import PlayerDetailPage from './PlayerDetailPage.jsx'
@@ -222,7 +222,7 @@ describe('PlayerDetailPage', () => {
       routeFetch(defaultHandler)
       renderDetail()
       await screen.findByRole('heading', { level: 1, name: 'Bukayo Saka' })
-      await act(async () => fireEvent.click(screen.getByRole('link', { name: 'Ir al 43' })))
+      fireEvent.click(screen.getByRole('link', { name: 'Ir al 43' }))
       expect(await screen.findByRole('heading', { level: 1, name: 'Martin Ødegaard' })).toBeTruthy()
       expect(screen.queryByText('Bukayo Saka')).toBeNull()
     })

@@ -36,4 +36,25 @@ describe('VariationBadge', () => {
     render(<VariationBadge current={current} previous={previous} />)
     expect(screen.getByRole('img', { name: 'Sin variación disponible' }).textContent).toBe('—')
   })
+
+  describe('with a precomputed percent', () => {
+    it.each([
+      [12.5, 'Subió 12,50 %', '▲ +12,50 %', 'up'],
+      [-3.25, 'Bajó 3,25 %', '▼ −3,25 %', 'down'],
+      [0, 'Sin cambios', '= 0,00 %', 'flat'],
+      [0.001, 'Sin cambios', '= 0,00 %', 'flat'],
+    ])('shows %s without credits', (percent, name, content, direction) => {
+      render(<VariationBadge percent={percent} />)
+      const badge = screen.getByRole('img', { name })
+      expect(plain(badge.textContent)).toBe(content)
+      expect(badge.className).toContain(`variation-badge--${direction}`)
+    })
+
+    it('shows a dash when the percent is missing', () => {
+      render(<VariationBadge percent={null} />)
+      const badge = screen.getByRole('img', { name: 'Sin variación disponible' })
+      expect(badge.textContent).toBe('—')
+      expect(badge.className).toContain('variation-badge--none')
+    })
+  })
 })

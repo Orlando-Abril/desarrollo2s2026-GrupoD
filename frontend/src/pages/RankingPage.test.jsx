@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const useRankingMock = vi.fn()
@@ -6,6 +7,10 @@ const useRankingMock = vi.fn()
 vi.mock('../features/ranking/useRanking.js', () => ({ default: useRankingMock }))
 
 const { default: RankingPage } = await import('./RankingPage.jsx')
+
+function renderPage() {
+  return render(<MemoryRouter><RankingPage /></MemoryRouter>)
+}
 
 function entry(rank, id, percentageChange, overrides = {}) {
   const { player: playerOverrides = {}, ...entryOverrides } = overrides
@@ -61,7 +66,7 @@ describe('RankingPage', () => {
   })
 
   it('renders the server order, semantic columns and all ranking information', () => {
-    render(<RankingPage />)
+    renderPage()
 
     const headers = screen.getAllByRole('columnheader')
     expect(headers.map((cell) => cell.textContent)).toEqual([
@@ -76,12 +81,21 @@ describe('RankingPage', () => {
     expect(within(rows[1]).getByText('Mediocampista')).toBeTruthy()
     expect(within(rows[1]).getByText('Delantero')).toBeTruthy()
     expect(within(rows[0]).getByText('1.004,00 cr')).toBeTruthy()
-    expect(screen.getByLabelText('Subió 2,5 por ciento')).toBeTruthy()
-    expect(screen.getByLabelText('Bajó 1,25 por ciento')).toBeTruthy()
-    expect(screen.getByLabelText('Sin cambios')).toBeTruthy()
-    expect(screen.getByLabelText('Sin dato')).toBeTruthy()
-    expect(rows[0].getAttribute('tabindex')).toBeNull()
-    expect(within(rows[0]).queryByRole('link')).toBeNull()
+    expect(within(rows[0]).getByRole('img', { name: 'Subió 2,50 %' })).toBeTruthy()
+    expect(within(rows[1]).getByRole('img', { name: 'Bajó 1,25 %' })).toBeTruthy()
+    expect(within(rows[2]).getByRole('img', { name: 'Sin cambios' })).toBeTruthy()
+    expect(within(rows[3]).getByRole('img', { name: 'Sin variación disponible' })).toBeTruthy()
+  })
+
+  it('links each player name to its detail', () => {
+    renderPage()
+
+    const rows = screen.getAllByRole('row').slice(1)
+    expect(rows.map((row) => within(row).getByRole('link').getAttribute('href'))).toEqual([
+      '/jugadores/4', '/jugadores/2', '/jugadores/8', '/jugadores/1',
+    ])
+    expect(within(rows[0]).getByRole('link', { name: 'Jugador 4' })).toBeTruthy()
+    expect(within(rows[0]).getAllByRole('link')).toHaveLength(1)
   })
 
   it('keeps deliberately long names inside the local table wrapper', () => {
@@ -94,7 +108,7 @@ describe('RankingPage', () => {
       to: 1,
     }))
 
-    const { container } = render(<RankingPage />)
+    const { container } = renderPage()
 
     expect(screen.getAllByText(longText)).toHaveLength(2)
     expect(container.querySelector('.ranking-page')).toBeTruthy()
@@ -104,7 +118,7 @@ describe('RankingPage', () => {
   it('offers accessible strategy, league and position filters', () => {
     const state = rankingState()
     useRankingMock.mockReturnValue(state)
-    render(<RankingPage />)
+    renderPage()
 
     expect(screen.getByLabelText('Estrategia').selectedOptions[0].textContent).toBe('Activa (OFFICIAL)')
     fireEvent.change(screen.getByLabelText('Estrategia'), { target: { value: 'MOMENTUM' } })
@@ -128,7 +142,7 @@ describe('RankingPage', () => {
       to: 0,
       pageWindow: [],
     }))
-    render(<RankingPage />)
+    renderPage()
 
     expect(screen.getByLabelText('Estrategia').selectedOptions[0].textContent).toBe('Activa')
     expect(screen.getByLabelText('Liga').value).toBe('LA_LIGA')
@@ -137,7 +151,7 @@ describe('RankingPage', () => {
 
   it('hides previous table and pager while loading but keeps filters enabled', () => {
     useRankingMock.mockReturnValue(rankingState({ status: 'loading' }))
-    render(<RankingPage />)
+    renderPage()
 
     expect(screen.getByText('Cargando ranking…').getAttribute('aria-busy')).toBe('true')
     expect(screen.queryByRole('table')).toBeNull()
@@ -152,7 +166,7 @@ describe('RankingPage', () => {
     useRankingMock.mockReturnValue(state)
     const scrollIntoView = vi.fn()
     Element.prototype.scrollIntoView = scrollIntoView
-    render(<RankingPage />)
+    renderPage()
 
     expect(screen.getByRole('button', { name: 'Página anterior' }).disabled).toBe(true)
     expect(screen.getByRole('button', { name: 'Página siguiente' }).disabled).toBe(false)
@@ -164,7 +178,7 @@ describe('RankingPage', () => {
   it('shows a generic recoverable error without leaking details', () => {
     const state = rankingState({ status: 'error', error: new Error('database password') })
     useRankingMock.mockReturnValue(state)
-    render(<RankingPage />)
+    renderPage()
 
     expect(screen.getByText('No pudimos abrir el ranking')).toBeTruthy()
     expect(screen.queryByText(/database password/i)).toBeNull()
@@ -183,7 +197,7 @@ describe('RankingPage', () => {
       to: 0,
       pageWindow: [],
     }))
-    render(<RankingPage />)
+    renderPage()
 
     expect(screen.getByText('Todavía no hay cotizaciones')).toBeTruthy()
     expect(screen.queryByRole('table')).toBeNull()

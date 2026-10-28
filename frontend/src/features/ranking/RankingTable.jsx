@@ -1,6 +1,7 @@
+import { Link } from 'react-router-dom'
+import VariationBadge from '../../components/VariationBadge.jsx'
 import { LEAGUES, POSITIONS } from '../../domain/catalogo.js'
 import { formatCredits, formatInteger } from '../../utils/format.js'
-import VariationBadge from './VariationBadge.jsx'
 import './RankingTable.css'
 
 const HEADERS = ['Puesto', 'Jugador', 'Equipo', 'Liga', 'Posición', 'Cotización', 'Variación']
@@ -21,7 +22,9 @@ export default function RankingTable({ items }) {
             return (
               <tr key={player.id}>
                 <td className="ranking-table__number" data-testid="ranking-position">{formatInteger(entry.rank)}</td>
-                <td className="ranking-table__wrap"><strong>{player.name}</strong></td>
+                <td className="ranking-table__wrap">
+                  <Link className="ranking-table__player" to={`/jugadores/${player.id}`}><strong>{player.name}</strong></Link>
+                </td>
                 <td className="ranking-table__wrap">{player.team}</td>
                 <td>
                   <span className="ranking-table__league">
@@ -35,7 +38,7 @@ export default function RankingTable({ items }) {
                   </span>
                 </td>
                 <td className="ranking-table__number">{formatCredits(entry.value)}</td>
-                <td><VariationBadge value={entry.percentageChange} /></td>
+                <td><VariationBadge percent={entry.percentageChange} /></td>
               </tr>
             )
           })}
