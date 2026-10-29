@@ -44,17 +44,16 @@ class MarketUserRepositoryTest {
     }
 
     /**
-     * Documenta el comportamiento actual: {@code users.balance} es {@code numeric(38,2)}, así que un total
-     * con 4 decimales se redondea en la base. El motor de calce lo tiene que resolver con el equipo
-     * (spec 026, research D8).
+     * {@code users.balance} es {@code numeric(38,4)} desde la spec 027 (research D5): un total con 4 decimales
+     * se guarda sin redondear.
      */
     @Test
-    void currentBalanceColumnRoundsToTwoDecimals() {
+    void balanceColumnKeepsFourDecimals() {
         User user = MarketFixtures.user(entityManager);
 
         repository.addToBalance(user.getId(), new BigDecimal("3.1311"));
 
         assertThat(repository.findBalanceById(user.getId())).get(org.assertj.core.api.InstanceOfAssertFactories.BIG_DECIMAL)
-                .isEqualByComparingTo("1003.13");
+                .isEqualByComparingTo("1003.1311");
     }
 }

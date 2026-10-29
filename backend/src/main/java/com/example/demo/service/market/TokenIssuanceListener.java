@@ -4,6 +4,7 @@ import com.example.demo.service.valuation.QuoteRunCompletedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -24,6 +25,7 @@ public class TokenIssuanceListener {
     }
 
     @EventListener
+    @Order(MarketListenerOrder.TOKEN_ISSUANCE)
     public void onQuoteRunCompleted(QuoteRunCompletedEvent event) {
         try {
             tokenIssuanceService.issueMissing();

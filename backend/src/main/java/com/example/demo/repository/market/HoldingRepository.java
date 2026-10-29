@@ -31,6 +31,10 @@ public interface HoldingRepository extends Repository<Holding, Long> {
             + "(select 1 from Holding h where h.player = p and h.user.id = :userId) order by p.id")
     List<Long> findPlayerIdsWithoutHolding(@Param("userId") Long userId);
 
+    /** Jugadores de los que el usuario tiene tokens; para el superusuario, los que recorre el creador de mercado. */
+    @Query("select h.player.id from Holding h where h.user.id = :userId and h.quantity > 0 order by h.player.id")
+    List<Long> findPlayerIdsWithTokens(@Param("userId") Long userId);
+
     @Query("select coalesce(sum(h.quantity), 0) from Holding h where h.player.id = :playerId")
     long sumQuantityByPlayerId(@Param("playerId") Long playerId);
 }

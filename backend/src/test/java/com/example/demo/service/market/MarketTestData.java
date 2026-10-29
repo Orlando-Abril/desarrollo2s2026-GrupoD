@@ -9,23 +9,26 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * Datos compartidos por los tests de la 026 que habilitan el superusuario. Todos los contextos de test usan
- * la misma base H2, así que estos tests limpian antes y después de cada caso para no dejar superusuario,
- * tenencias ni auditorías a los demás. Los jugadores no se borran: cada test crea los suyos.
+ * Datos compartidos por los tests del mercado (026 y 027). Todos los contextos de test usan la misma base H2, así
+ * que estos tests limpian antes y después de cada caso para no dejar superusuario, órdenes, operaciones,
+ * tenencias ni auditorías a los demás. Los jugadores no se borran: cada test crea los suyos. El orden de borrado
+ * respeta las claves foráneas: las operaciones referencian órdenes, y las órdenes y tenencias, usuarios.
  */
-final class MarketTestData {
+public final class MarketTestData {
 
     private MarketTestData() {
     }
 
-    static void clean(JdbcTemplate jdbcTemplate) {
+    public static void clean(JdbcTemplate jdbcTemplate) {
+        jdbcTemplate.execute("DELETE FROM trades");
+        jdbcTemplate.execute("DELETE FROM orders");
         jdbcTemplate.execute("DELETE FROM holdings");
         jdbcTemplate.execute("DELETE FROM audit_logs");
         jdbcTemplate.execute("DELETE FROM api_keys");
         jdbcTemplate.execute("DELETE FROM users");
     }
 
-    static Player player(PlayerRepository playerRepository) {
+    public static Player player(PlayerRepository playerRepository) {
         return playerRepository.save(Player.builder()
                 .externalId("026-" + UUID.randomUUID())
                 .fullName("Jugador 026")
