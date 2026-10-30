@@ -26,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,6 +61,23 @@ public class PortfolioService {
         List<UserTradeRow> tradeRows = tradeRepository.findCostBasisRows(targetUserId);
         boolean isSuperuser = superuserAccount.username().equals(target.getUsername());
 
+        Map<Long, PositionCostState> states = buildCostStates(targetUserId, holdingRows, tradeRows, isSuperuser);
+        validateHoldingConsistency(holdingRows, states);
+        List<PortfolioPositionResponse> positions = buildPositions(holdingRows, states);
+
+        BigDecimal balance = money(target.getBalance());
+        BigDecimal reserved = money(orderRepository.sumReservedCredits(targetUserId));
+        BigDecimal totalCost = sum(positions.stream().map(PortfolioPositionResponse::costBasis).toList());
+        BigDecimal totalCurrent = sum(positions.stream().map(PortfolioPositionResponse::currentValue).toList());
+        BigDecimal totalProfit = sum(positions.stream().map(PortfolioPositionResponse::profitLoss).toList());
+        return new PortfolioResponse(targetUserId, balance, reserved, money(balance.subtract(reserved)), positions,
+                totalCost, totalCurrent, totalProfit, money(balance.add(totalCurrent)));
+    }
+
+    private static Map<Long, PositionCostState> buildCostStates(Long targetUserId,
+                                                                 List<PortfolioHoldingRow> holdingRows,
+                                                                 List<UserTradeRow> tradeRows,
+                                                                 boolean isSuperuser) {
         Map<Long, PositionCostState> states = new HashMap<>();
         if (isSuperuser) {
             holdingRows.forEach(row -> states.put(row.playerId(), PositionCostState.initialEmission()));
@@ -69,15 +85,23 @@ public class PortfolioService {
         for (UserTradeRow trade : tradeRows) {
             PositionCostState state = states.computeIfAbsent(trade.playerId(), ignored ->
                     isSuperuser ? PositionCostState.initialEmission() : new PositionCostState());
-            if (targetUserId.equals(trade.buyerId())) {
-                state.buy(trade.quantity(), trade.price());
-            } else if (targetUserId.equals(trade.sellerId())) {
-                state.sell(trade.quantity());
-            } else {
-                throw inconsistent("trade_without_target_user:" + trade.id());
-            }
+            applyTrade(targetUserId, trade, state);
         }
+        return states;
+    }
 
+    private static void applyTrade(Long targetUserId, UserTradeRow trade, PositionCostState state) {
+        if (targetUserId.equals(trade.buyerId())) {
+            state.buy(trade.quantity(), trade.price());
+        } else if (targetUserId.equals(trade.sellerId())) {
+            state.sell(trade.quantity());
+        } else {
+            throw inconsistent("trade_without_target_user:" + trade.id());
+        }
+    }
+
+    private static void validateHoldingConsistency(List<PortfolioHoldingRow> holdingRows,
+                                                   Map<Long, PositionCostState> states) {
         Map<Long, PortfolioHoldingRow> holdingsByPlayer = new LinkedHashMap<>();
         holdingRows.forEach(row -> holdingsByPlayer.put(row.playerId(), row));
         for (Map.Entry<Long, PositionCostState> entry : states.entrySet()) {
@@ -87,33 +111,29 @@ public class PortfolioService {
                 throw inconsistent("holding_trade_quantity_mismatch:" + entry.getKey());
             }
         }
+    }
 
-        List<PortfolioPositionResponse> positions = new ArrayList<>();
-        for (PortfolioHoldingRow row : holdingRows) {
-            PositionCostState state = states.get(row.playerId());
-            if (state == null || state.quantity != row.quantity()) {
-                throw inconsistent("missing_cost_basis:" + row.playerId());
-            }
-            if (row.marketValue() == null) {
-                throw inconsistent("missing_market_value:" + row.playerId());
-            }
-            BigDecimal cost = money(state.cost);
-            BigDecimal average = money(state.cost.divide(BigDecimal.valueOf(state.quantity), MathContext.DECIMAL128));
-            BigDecimal marketValue = money(row.marketValue());
-            BigDecimal current = money(marketValue.multiply(BigDecimal.valueOf(row.quantity())));
-            BigDecimal profit = money(current.subtract(cost));
-            positions.add(new PortfolioPositionResponse(row.playerId(), row.playerName(), row.quantity(),
-                    row.reservedQuantity(), row.quantity() - row.reservedQuantity(), average, cost,
-                    marketValue, current, profit));
+    private static List<PortfolioPositionResponse> buildPositions(List<PortfolioHoldingRow> holdingRows,
+                                                                   Map<Long, PositionCostState> states) {
+        return holdingRows.stream()
+                .map(row -> buildPosition(row, states.get(row.playerId())))
+                .toList();
+    }
+
+    private static PortfolioPositionResponse buildPosition(PortfolioHoldingRow row, PositionCostState state) {
+        if (state == null || state.quantity != row.quantity()) {
+            throw inconsistent("missing_cost_basis:" + row.playerId());
         }
-
-        BigDecimal balance = money(target.getBalance());
-        BigDecimal reserved = money(orderRepository.sumReservedCredits(targetUserId));
-        BigDecimal totalCost = sum(positions.stream().map(PortfolioPositionResponse::costBasis).toList());
-        BigDecimal totalCurrent = sum(positions.stream().map(PortfolioPositionResponse::currentValue).toList());
-        BigDecimal totalProfit = sum(positions.stream().map(PortfolioPositionResponse::profitLoss).toList());
-        return new PortfolioResponse(targetUserId, balance, reserved, money(balance.subtract(reserved)), positions,
-                totalCost, totalCurrent, totalProfit, money(balance.add(totalCurrent)));
+        if (row.marketValue() == null) {
+            throw inconsistent("missing_market_value:" + row.playerId());
+        }
+        BigDecimal cost = money(state.cost);
+        BigDecimal average = money(state.cost.divide(BigDecimal.valueOf(state.quantity), MathContext.DECIMAL128));
+        BigDecimal marketValue = money(row.marketValue());
+        BigDecimal current = money(marketValue.multiply(BigDecimal.valueOf(row.quantity())));
+        BigDecimal profit = money(current.subtract(cost));
+        return new PortfolioPositionResponse(row.playerId(), row.playerName(), row.quantity(), row.reservedQuantity(),
+                row.quantity() - row.reservedQuantity(), average, cost, marketValue, current, profit);
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
