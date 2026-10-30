@@ -141,6 +141,35 @@ describe('useRanking', () => {
     expect(getRankingMock.mock.calls[1][0]).toEqual(getRankingMock.mock.calls[0][0])
   })
 
+  it('reloads the current criteria and page while aborting the replaced request', async () => {
+    const stale = deferred()
+    const fresh = deferred()
+    getRankingMock
+      .mockResolvedValueOnce(rankingPage({ totalElements: 60, totalPages: 3 }))
+      .mockResolvedValueOnce(rankingPage({ page: 1, totalElements: 60, totalPages: 3 }))
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(fresh.promise)
+    const { result } = renderHook(() => useRanking())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    act(() => result.current.setPage(2))
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    act(() => result.current.changeFilter('league', 'LA_LIGA'))
+    await waitFor(() => expect(getRankingMock).toHaveBeenCalledTimes(3))
+
+    act(() => result.current.reload())
+
+    expect(result.current.status).toBe('loading')
+    expect(result.current.page).toBe(1)
+    expect(result.current.filters.league).toBe('LA_LIGA')
+    expect(getRankingMock.mock.calls[2][1].signal.aborted).toBe(true)
+    await waitFor(() => expect(getRankingMock).toHaveBeenCalledTimes(4))
+    expect(getRankingMock.mock.calls[3][0]).toEqual({
+      strategy: '', league: 'LA_LIGA', position: '', page: 0, size: 20,
+    })
+    fresh.resolve(rankingPage())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+  })
+
   it('aborts a replaced request and ignores its stale completion', async () => {
     const stale = deferred()
     const current = deferred()

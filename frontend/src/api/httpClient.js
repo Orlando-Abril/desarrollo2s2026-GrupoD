@@ -80,6 +80,7 @@ export async function request(path, options = {}) {
     expectJson = true,
     headers: extraHeaders = {},
     signal,
+    timeoutMs = 10_000,
   } = options
   const controller = new AbortController()
   const abortFromCaller = () => controller.abort()
@@ -88,7 +89,7 @@ export async function request(path, options = {}) {
   } else {
     signal?.addEventListener('abort', abortFromCaller, { once: true })
   }
-  const timeout = setTimeout(() => controller.abort(), 10000)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const response = await fetch(buildUrl(path), {

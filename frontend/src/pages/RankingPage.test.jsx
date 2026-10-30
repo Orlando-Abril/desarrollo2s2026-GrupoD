@@ -3,8 +3,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const useRankingMock = vi.fn()
+const recalculateButtonMock = vi.fn(({ onRecalculated }) => (
+  <button type="button" onClick={onRecalculated}>Mock recalcular</button>
+))
 
 vi.mock('../features/ranking/useRanking.js', () => ({ default: useRankingMock }))
+vi.mock('../features/ranking/RecalculateButton.jsx', () => ({ default: recalculateButtonMock }))
 
 const { default: RankingPage } = await import('./RankingPage.jsx')
 
@@ -46,6 +50,7 @@ function rankingState(overrides = {}) {
     status: 'ready',
     error: null,
     retry: vi.fn(),
+    reload: vi.fn(),
     page: 1,
     setPage: vi.fn(),
     items,
@@ -85,6 +90,14 @@ describe('RankingPage', () => {
     expect(within(rows[1]).getByRole('img', { name: 'Bajó 1,25 %' })).toBeTruthy()
     expect(within(rows[2]).getByRole('img', { name: 'Sin cambios' })).toBeTruthy()
     expect(within(rows[3]).getByRole('img', { name: 'Sin variación disponible' })).toBeTruthy()
+  })
+
+  it.each(['loading', 'error', 'ready'])('mounts recalculation independently in %s and connects reload', (status) => {
+    const state = rankingState({ status })
+    useRankingMock.mockReturnValue(state)
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Mock recalcular' }))
+    expect(state.reload).toHaveBeenCalledTimes(1)
   })
 
   it('links each player name to its detail', () => {

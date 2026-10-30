@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import EstadoPanel from '../components/EstadoPanel.jsx'
 import Pager from '../features/album/Pager.jsx'
 import RankingFilters from '../features/ranking/RankingFilters.jsx'
+import RecalculateButton from '../features/ranking/RecalculateButton.jsx'
 import RankingTable from '../features/ranking/RankingTable.jsx'
 import useRanking from '../features/ranking/useRanking.js'
 import './RankingPage.css'
@@ -42,9 +43,12 @@ export default function RankingPage() {
 
   return (
     <div className="page-content ranking-page">
-      <header className="page-heading">
-        <h1>Ranking</h1>
-        <p>Jugadores ordenados por su cotización actual</p>
+      <header className="page-heading ranking-page__heading">
+        <div>
+          <h1>Ranking</h1>
+          <p>Jugadores ordenados por su cotización actual</p>
+        </div>
+        <RecalculateButton onRecalculated={ranking.reload} />
       </header>
       <RankingFilters
         value={ranking.filters}

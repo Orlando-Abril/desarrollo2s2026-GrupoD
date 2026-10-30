@@ -4,7 +4,7 @@ const requestMock = vi.fn()
 
 vi.mock('./httpClient.js', () => ({ request: requestMock }))
 
-const { getPlayerQuotes, getRanking } = await import('./quotesApi.js')
+const { getPlayerQuotes, getRanking, recalculateQuotes } = await import('./quotesApi.js')
 
 function query(path) {
   return Object.fromEntries(new URL(path, 'http://x').searchParams)
@@ -105,6 +105,41 @@ describe('quotesApi', () => {
       requestMock.mockResolvedValue(quote)
       await expect(getPlayerQuotes('42', { at: '2026-10-10' }, { signal: controller.signal })).resolves.toBe(quote)
       expect(requestMock.mock.calls[0][1]).toEqual({ signal: controller.signal })
+    })
+  })
+
+  describe('recalculateQuotes', () => {
+    beforeEach(() => requestMock.mockReset())
+
+    it.each([undefined, null])('omits the body when strategy is %s', async (strategy) => {
+      const payload = { runId: 'run-1' }
+      requestMock.mockResolvedValue(payload)
+
+      await expect(recalculateQuotes(strategy === undefined ? undefined : { strategy })).resolves.toBe(payload)
+
+      expect(requestMock).toHaveBeenCalledWith('/quotes/recalculate', {
+        method: 'POST',
+        signal: undefined,
+        timeoutMs: 70_000,
+      })
+    })
+
+    it('forwards an exact strategy and signal', async () => {
+      const controller = new AbortController()
+      await recalculateQuotes({ strategy: 'OFFICIAL' }, { signal: controller.signal })
+
+      expect(requestMock).toHaveBeenCalledWith('/quotes/recalculate', {
+        method: 'POST',
+        body: { strategy: 'OFFICIAL' },
+        signal: controller.signal,
+        timeoutMs: 70_000,
+      })
+    })
+
+    it('propagates the original error', () => {
+      const error = new Error('contractual')
+      requestMock.mockImplementationOnce(() => { throw error })
+      expect(() => recalculateQuotes()).toThrow(error)
     })
   })
 })
