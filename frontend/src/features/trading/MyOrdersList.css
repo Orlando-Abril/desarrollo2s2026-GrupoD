@@ -1,0 +1,67 @@
+.my-orders { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.my-orders__caption {
+  margin-bottom: var(--esp-2);
+  color: var(--tinta-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: left;
+  text-transform: uppercase;
+}
+.my-orders__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.my-orders thead { display: none; }
+.my-orders__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--esp-2) var(--esp-3);
+  margin-bottom: var(--esp-4);
+  border: var(--borde-grueso);
+  border-left-width: 8px;
+  padding: var(--esp-3);
+  background: #fff;
+  box-shadow: var(--sombra-sm);
+}
+.my-orders__row--sell { border-left-color: var(--rojo); }
+.my-orders__row--buy { border-left-color: var(--verde); }
+.my-orders__row td { display: grid; gap: 2px; min-width: 0; padding: 0; overflow-wrap: anywhere; }
+.my-orders__row td::before {
+  content: attr(data-label);
+  color: var(--tinta-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.my-orders__row td:first-child { grid-column: 1 / -1; font-family: var(--font-display); font-size: 22px; }
+.my-orders__row td.my-orders__action { grid-column: 1 / -1; justify-items: end; }
+.my-orders__row td.my-orders__action::before { content: none; }
+.my-orders .button:disabled { cursor: not-allowed; opacity: .6; }
+
+@media (min-width: 900px) {
+  .my-orders thead { display: table-header-group; }
+  .my-orders thead th {
+    border-bottom: var(--borde);
+    padding: var(--esp-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-align: left;
+    text-transform: uppercase;
+  }
+  .my-orders__row { display: table-row; margin: 0; border: 0; box-shadow: none; }
+  .my-orders__row td {
+    display: table-cell;
+    border-bottom: 1px solid var(--papel-2);
+    padding: var(--esp-2);
+    vertical-align: middle;
+  }
+  .my-orders__row td::before { content: none; }
+  .my-orders__row td:first-child { border-left: 6px solid transparent; font-family: var(--font-texto); font-size: inherit; font-weight: 700; }
+  .my-orders__row--sell td:first-child { border-left-color: var(--rojo); }
+  .my-orders__row--buy td:first-child { border-left-color: var(--verde); }
+  .my-orders__row td.my-orders__action { text-align: right; }
+}

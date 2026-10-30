@@ -7,6 +7,7 @@ import QuoteAtDate from '../features/player-detail/QuoteAtDate.jsx'
 import QuoteChart from '../features/player-detail/QuoteChart.jsx'
 import StatsPanel from '../features/player-detail/StatsPanel.jsx'
 import usePlayerDetail from '../features/player-detail/usePlayerDetail.js'
+import TradingSection from '../features/trading/TradingSection.jsx'
 import './PlayerDetailPage.css'
 
 function PlayerDetail({ id }) {
@@ -41,6 +42,7 @@ function PlayerDetail({ id }) {
     content = (
       <>
         <PlayerHeader player={player} quote={quote} variation={page.variation} />
+        <TradingSection player={player} />
         <QuoteChart
           points={page.history.points}
           status={page.history.status}

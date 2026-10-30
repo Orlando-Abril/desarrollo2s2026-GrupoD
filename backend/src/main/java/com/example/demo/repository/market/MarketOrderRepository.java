@@ -78,6 +78,11 @@ public interface MarketOrderRepository extends Repository<MarketOrder, Long> {
         return lockActiveByUserAndPlayerAndSide(userId, playerId, OrderSide.SELL, OrderStatus.ACTIVE);
     }
 
+    /** Órdenes activas del usuario con su jugador, de la más nueva a la más vieja (spec 029, research R10). */
+    default List<MarketOrder> findActiveByUserWithPlayer(Long userId) {
+        return findActiveByUserWithPlayer(userId, OrderStatus.ACTIVE);
+    }
+
     /** Créditos reservados por las compras LIMIT activas del usuario, con escala 4; 0 si no tiene. */
     default BigDecimal sumReservedCredits(Long userId) {
         return sumPendingBuyLimitCredits(userId, OrderStatus.ACTIVE).setScale(4, RoundingMode.HALF_EVEN);
@@ -115,6 +120,11 @@ public interface MarketOrderRepository extends Repository<MarketOrder, Long> {
     List<MarketOrder> lockActiveByUserAndPlayerAndSide(@Param("userId") Long userId, @Param("playerId") Long playerId,
                                                        @Param("side") OrderSide side,
                                                        @Param("active") Collection<OrderStatus> active);
+
+    @Query("select o from MarketOrder o join fetch o.player where o.user.id = :userId and o.status in :active"
+            + " order by o.createdAt desc, o.id desc")
+    List<MarketOrder> findActiveByUserWithPlayer(@Param("userId") Long userId,
+                                                 @Param("active") Collection<OrderStatus> active);
 
     @Query("select coalesce(sum((o.quantity - o.filledQuantity) * o.limitPrice), 0) from MarketOrder o"
             + " where o.user.id = :userId and o.side = com.example.demo.model.market.OrderSide.BUY"

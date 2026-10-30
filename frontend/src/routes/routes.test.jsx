@@ -6,6 +6,7 @@ import ProtectedRoute from './ProtectedRoute.jsx'
 import PublicOnlyRoute from './PublicOnlyRoute.jsx'
 
 vi.mock('../pages/RankingPage.jsx', () => ({ default: () => <div>ranking page</div> }))
+vi.mock('../pages/MarketPage.jsx', () => ({ default: () => <div>market page</div> }))
 
 let authenticated = false
 vi.mock('../session/SessionContext.jsx', () => ({
@@ -90,6 +91,28 @@ describe('route guards', () => {
     renderApp(initial)
     expect(screen.getByTestId('location').textContent).toBe(expected)
     expect(screen.getByTestId('location').dataset.navigation).toBe('REPLACE')
+  })
+})
+
+describe('market route', () => {
+  it('links Mercado in desktop and mobile navigation and keeps Mi portfolio disabled', () => {
+    authenticated = true
+    renderApp('/mercado')
+
+    expect(screen.getByText('market page')).toBeTruthy()
+    for (const name of ['Navegación principal', 'Navegación móvil']) {
+      const nav = screen.getByRole('navigation', { name })
+      const market = within(nav).getByRole('link', { name: /Mercado/ })
+      expect(market.getAttribute('href')).toBe('/mercado')
+      expect(market.getAttribute('aria-current')).toBe('page')
+      expect(within(nav).queryByRole('link', { name: /Mi portfolio/ })).toBeNull()
+    }
+  })
+
+  it('redirects unauthenticated market access to login', () => {
+    authenticated = false
+    renderApp('/mercado')
+    expect(screen.getByTestId('location').textContent).toBe('/ingresar')
   })
 })
 

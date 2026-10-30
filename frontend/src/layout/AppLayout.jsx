@@ -7,7 +7,7 @@ import './AppLayout.css'
 export const NAV_ITEMS = [
   { id: 'album', label: 'Álbum', numero: '01', ruta: '/album', habilitado: true },
   { id: 'ranking', label: 'Ranking', numero: '02', ruta: '/ranking', habilitado: true },
-  { id: 'mercado', label: 'Mercado', numero: '03', ruta: null, habilitado: false },
+  { id: 'mercado', label: 'Mercado', numero: '03', ruta: '/mercado', habilitado: true },
   { id: 'portfolio', label: 'Mi portfolio', numero: '04', ruta: null, habilitado: false },
 ]
 

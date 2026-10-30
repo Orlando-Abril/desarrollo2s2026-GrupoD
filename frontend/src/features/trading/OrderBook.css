@@ -1,0 +1,39 @@
+.order-book {
+  min-width: 0;
+  border: var(--borde-grueso);
+  padding: var(--esp-4);
+  background: #fff;
+  box-shadow: var(--sombra-sm);
+}
+.order-book h3 {
+  margin: 0 0 var(--esp-3);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+.order-book__value { margin: 0 0 var(--esp-3); font-variant-numeric: tabular-nums; }
+.order-book__loading { margin: 0; font-family: var(--font-mono); font-size: 13px; }
+.order-book__scroll { overflow-x: auto; }
+.order-book__table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.order-book__table caption {
+  margin-bottom: var(--esp-2);
+  color: var(--tinta-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: left;
+  text-transform: uppercase;
+}
+.order-book__table th,
+.order-book__table td { border-bottom: 1px solid var(--papel-2); padding: var(--esp-2); text-align: right; }
+.order-book__table thead th {
+  border-bottom: var(--borde);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.order-book__table th:first-child { text-align: left; }
+.order-book__row th { border-left: 6px solid transparent; font-weight: 700; }
+.order-book__row--sell th { border-left-color: var(--rojo); color: var(--rojo); }
+.order-book__row--buy th { border-left-color: var(--verde); color: var(--verde); }
+.order-book__empty td { color: var(--tinta-2); font-style: italic; text-align: left; }

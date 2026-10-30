@@ -1,0 +1,7 @@
+.trading { display: grid; gap: var(--esp-3); min-width: 0; }
+.trading h2 { margin: 0; font-family: var(--font-display); font-size: 30px; font-weight: 400; text-transform: uppercase; }
+.trading__grid { display: grid; gap: var(--esp-4); align-items: start; }
+
+@media (min-width: 900px) {
+  .trading__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
