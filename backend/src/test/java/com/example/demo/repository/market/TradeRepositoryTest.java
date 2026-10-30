@@ -112,6 +112,40 @@ class TradeRepositoryTest {
     }
 
     @Test
+    void projectsAStablePageWithPlayerAndBothSides() {
+        User user = MarketFixtures.user(entityManager);
+        User other = MarketFixtures.user(entityManager);
+        Player player = MarketFixtures.player(entityManager);
+        Trade older = trade(user, other, player, T0);
+        Trade newer = trade(other, user, player, T0.plusSeconds(60));
+
+        var page = repository.findTransactionRows(user.getId(), PageRequest.of(0, 1));
+
+        assertThat(page.getTotalElements()).isEqualTo(2);
+        assertThat(page.getTotalPages()).isEqualTo(2);
+        assertThat(page.getContent()).singleElement().satisfies(row -> {
+            assertThat(row.id()).isEqualTo(newer.getId());
+            assertThat(row.playerName()).isEqualTo(player.getFullName());
+            assertThat(row.sellerId()).isEqualTo(user.getId());
+        });
+        assertThat(repository.findTransactionRows(user.getId(), PageRequest.of(1, 1)).getContent())
+                .extracting(UserTradeRow::id).containsExactly(older.getId());
+    }
+
+    @Test
+    void transactionProjectionBreaksTimestampTiesByDescendingId() {
+        User user = MarketFixtures.user(entityManager);
+        User other = MarketFixtures.user(entityManager);
+        Player player = MarketFixtures.player(entityManager);
+        Trade firstInserted = trade(user, other, player, T0);
+        Trade secondInserted = trade(other, user, player, T0);
+
+        assertThat(repository.findTransactionRows(user.getId(), PageRequest.of(0, 10)).getContent())
+                .extracting(UserTradeRow::id)
+                .containsExactly(secondInserted.getId(), firstInserted.getId());
+    }
+
+    @Test
     void theDatabaseRejectsATradeWithTheSameBuyerAndSeller() {
         Trade saved = trade();
 

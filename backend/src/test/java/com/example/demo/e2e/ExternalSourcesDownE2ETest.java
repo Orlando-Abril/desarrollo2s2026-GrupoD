@@ -7,6 +7,9 @@ import com.example.demo.dto.auth.LoginRequest;
 import com.example.demo.dto.auth.LoginResponse;
 import com.example.demo.dto.auth.RegisterRequest;
 import com.example.demo.dto.auth.RegisterResponse;
+import com.example.demo.dto.auth.MeResponse;
+import com.example.demo.dto.market.PortfolioResponse;
+import com.example.demo.dto.market.TransactionPageResponse;
 import com.example.demo.dto.player.PlayerResponse;
 import com.example.demo.dto.player.PlayerSyncResponse;
 import com.example.demo.model.League;
@@ -72,6 +75,7 @@ class ExternalSourcesDownE2ETest {
 
     private RestClient client;
     private String bearerToken;
+    private Long userId;
 
     @BeforeEach
     void authenticate() {
@@ -83,6 +87,8 @@ class ExternalSourcesDownE2ETest {
                 .retrieve()
                 .toEntity(RegisterResponse.class);
         assertThat(register.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(register.getBody()).isNotNull();
+        userId = register.getBody().id();
 
         ResponseEntity<LoginResponse> login = client.post()
                 .uri("/auth/login")
@@ -176,6 +182,26 @@ class ExternalSourcesDownE2ETest {
                         PlayerResponse::league, PlayerResponse::positions, PlayerResponse::nationality,
                         PlayerResponse::age, PlayerResponse::marketValue)
                 .containsExactlyInAnyOrderElementsOf(cachedExpectedFields());
+    }
+
+    @Test
+    void portfolioTransactionsAndMeUseOnlyPersistedDataWhenSourcesAreDown() {
+        reset(footballDataAdapter);
+
+        MeResponse me = client.get().uri("/auth/me").header(HttpHeaders.AUTHORIZATION, authorization())
+                .retrieve().body(MeResponse.class);
+        PortfolioResponse portfolio = client.get().uri("/users/" + userId + "/portfolio")
+                .header(HttpHeaders.AUTHORIZATION, authorization()).retrieve().body(PortfolioResponse.class);
+        TransactionPageResponse transactions = client.get().uri("/users/" + userId + "/transactions")
+                .header(HttpHeaders.AUTHORIZATION, authorization()).retrieve().body(TransactionPageResponse.class);
+
+        assertThat(me).isNotNull();
+        assertThat(me.id()).isEqualTo(userId);
+        assertThat(portfolio).isNotNull();
+        assertThat(portfolio.positions()).isEmpty();
+        assertThat(transactions).isNotNull();
+        assertThat(transactions.items()).isEmpty();
+        verifyNoInteractions(footballDataAdapter);
     }
 
     private List<PlayerResponse> getPlayers() {

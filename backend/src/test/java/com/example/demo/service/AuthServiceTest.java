@@ -6,6 +6,8 @@ import com.example.demo.dto.auth.RegisterRequest;
 import com.example.demo.dto.auth.RegisterResponse;
 import com.example.demo.exception.DuplicateUserException;
 import com.example.demo.exception.InvalidCredentialsException;
+import com.example.demo.exception.AuthenticatedUserNotFoundException;
+import com.example.demo.model.Role;
 import com.example.demo.model.ApiKey;
 import com.example.demo.model.User;
 import com.example.demo.repository.UserRepository;
@@ -184,5 +186,27 @@ class AuthServiceTest {
 
         assertThat(user.getApiKey().getKeyHash()).isEqualTo("hash-apikey-original");
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void meMapsTheCurrentUserWithoutWriting() {
+        User user = User.builder().id(9L).username("abril").email("abril@example.com").role(Role.USER)
+                .balance(new java.math.BigDecimal("123.45")).build();
+        when(userRepository.findByUsername("abril")).thenReturn(Optional.of(user));
+
+        var response = authService().me("abril");
+
+        assertThat(response.id()).isEqualTo(9L);
+        assertThat(response.role()).isEqualTo(Role.USER);
+        assertThat(response.balance()).isEqualByComparingTo("123.4500");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void meRejectsAServicePrincipalWithoutOwner() {
+        when(userRepository.findByUsername("svc_key")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService().me("svc_key"))
+                .isInstanceOf(AuthenticatedUserNotFoundException.class);
     }
 }

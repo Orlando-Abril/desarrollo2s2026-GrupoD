@@ -4,6 +4,8 @@ import com.example.demo.dto.auth.LoginRequest;
 import com.example.demo.dto.auth.LoginResponse;
 import com.example.demo.dto.auth.RegisterRequest;
 import com.example.demo.dto.auth.RegisterResponse;
+import com.example.demo.dto.auth.MeResponse;
+import com.example.demo.exception.AuthenticatedUserNotFoundException;
 import com.example.demo.exception.DuplicateUserException;
 import com.example.demo.exception.InvalidCredentialsException;
 import com.example.demo.model.ApiKey;
@@ -99,6 +101,12 @@ public class AuthService {
         }
 
         return new LoginResponse(jwtUtil.generateToken(username));
+    }
+
+    public MeResponse me(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(AuthenticatedUserNotFoundException::new);
+        return new MeResponse(user.getId(), user.getUsername(), user.getEmail(), user.getRole(), user.getBalance());
     }
 
     private String generateRawApiKey() {
