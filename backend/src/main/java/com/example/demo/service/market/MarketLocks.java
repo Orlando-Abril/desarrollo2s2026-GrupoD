@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Único punto para tomar los locks del mercado (spec 027, research D3). Todo trabajo sobre el libro de un jugador
+ * Único punto para tomar los locks del mercado (spec 027, research D3). Cualquier trabajo sobre el libro de un jugador
  * los toma en este orden: jugador → órdenes → usuarios por id ascendente → tenencias. Ninguna entidad se carga
  * antes de su lock: si ya está en el contexto de persistencia, una consulta {@code PESSIMISTIC_WRITE} bloquea la
  * fila pero Hibernate devuelve la instancia que tenía, con los datos leídos antes del lock.

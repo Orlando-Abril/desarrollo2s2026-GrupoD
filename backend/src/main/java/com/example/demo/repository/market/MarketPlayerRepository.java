@@ -11,7 +11,7 @@ import java.util.Optional;
 
 /**
  * Lock del jugador para el mercado. Existe para no modificar {@code PlayerRepository}, archivo protegido de
- * Entrega 1. Es el primer lock de todo trabajo sobre el libro de un jugador (spec 027, research D3).
+ * Entrega 1. Es el primer lock de cualquier trabajo sobre el libro de un jugador (spec 027, research D3).
  */
 public interface MarketPlayerRepository extends Repository<Player, Long> {
 
