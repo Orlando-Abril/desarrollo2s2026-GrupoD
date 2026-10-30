@@ -133,6 +133,19 @@ class TradeRepositoryTest {
     }
 
     @Test
+    void transactionProjectionBreaksTimestampTiesByDescendingId() {
+        User user = MarketFixtures.user(entityManager);
+        User other = MarketFixtures.user(entityManager);
+        Player player = MarketFixtures.player(entityManager);
+        Trade firstInserted = trade(user, other, player, T0);
+        Trade secondInserted = trade(other, user, player, T0);
+
+        assertThat(repository.findTransactionRows(user.getId(), PageRequest.of(0, 10)).getContent())
+                .extracting(UserTradeRow::id)
+                .containsExactly(secondInserted.getId(), firstInserted.getId());
+    }
+
+    @Test
     void theDatabaseRejectsATradeWithTheSameBuyerAndSeller() {
         Trade saved = trade();
 

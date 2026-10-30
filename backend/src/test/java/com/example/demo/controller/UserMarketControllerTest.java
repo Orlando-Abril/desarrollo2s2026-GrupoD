@@ -57,10 +57,23 @@ class UserMarketControllerTest {
         mvc.perform(get("/users/7/portfolio").principal(authentication))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(7))
+                .andExpect(jsonPath("$.balance").value(900.0000))
+                .andExpect(jsonPath("$.reservedCredits").value(12.0000))
+                .andExpect(jsonPath("$.availableBalance").value(888.0000))
+                .andExpect(jsonPath("$.positions[0].playerId").value(10))
+                .andExpect(jsonPath("$.positions[0].playerName").value("Jugador"))
                 .andExpect(jsonPath("$.positions[0].quantity").value(3))
+                .andExpect(jsonPath("$.positions[0].reservedQuantity").value(1))
                 .andExpect(jsonPath("$.positions[0].availableQuantity").value(2))
                 .andExpect(jsonPath("$.positions[0].averagePurchasePrice").value(1.1000))
-                .andExpect(jsonPath("$.totalProfitLoss").value(0.6000));
+                .andExpect(jsonPath("$.positions[0].costBasis").value(3.3000))
+                .andExpect(jsonPath("$.positions[0].marketValue").value(1.3000))
+                .andExpect(jsonPath("$.positions[0].currentValue").value(3.9000))
+                .andExpect(jsonPath("$.positions[0].profitLoss").value(0.6000))
+                .andExpect(jsonPath("$.totalCost").value(3.3000))
+                .andExpect(jsonPath("$.totalCurrentValue").value(3.9000))
+                .andExpect(jsonPath("$.totalProfitLoss").value(0.6000))
+                .andExpect(jsonPath("$.totalEquity").value(903.9000));
     }
 
     @Test
@@ -116,10 +129,44 @@ class UserMarketControllerTest {
     void invalidPaginationUsesTheCommonErrorShape() throws Exception {
         when(service.transactions(7L, authentication, -1, 20))
                 .thenThrow(new IllegalArgumentException("invalid pagination"));
+        when(service.transactions(7L, authentication, 0, 0))
+                .thenThrow(new IllegalArgumentException("invalid pagination"));
+        when(service.transactions(7L, authentication, 0, 101))
+                .thenThrow(new IllegalArgumentException("invalid pagination"));
 
         mvc.perform(get("/users/7/transactions?page=-1").principal(authentication))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("validation_error"));
+        mvc.perform(get("/users/7/transactions?size=0").principal(authentication))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("validation_error"));
+        mvc.perform(get("/users/7/transactions?size=101").principal(authentication))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("validation_error"));
+    }
+
+    @Test
+    void returnsTwentyThenFiveOfTwentyFiveTradesAndAnEmptyLaterPage() throws Exception {
+        List<TransactionResponse> first = IntStream.iterate(25, id -> id >= 6, id -> id - 1)
+                .mapToObj(id -> transaction(id, TransactionType.COMPRA)).toList();
+        List<TransactionResponse> second = IntStream.iterate(5, id -> id >= 1, id -> id - 1)
+                .mapToObj(id -> transaction(id, TransactionType.VENTA)).toList();
+        when(service.transactions(7L, authentication, 0, 20)).thenReturn(
+                new TransactionPageResponse(first, 0, 20, 20, 25, 2, true, false));
+        when(service.transactions(7L, authentication, 1, 20)).thenReturn(
+                new TransactionPageResponse(second, 1, 20, 5, 25, 2, false, true));
+        when(service.transactions(7L, authentication, 2, 20)).thenReturn(
+                new TransactionPageResponse(List.of(), 2, 20, 0, 25, 2, false, true));
+
+        mvc.perform(get("/users/7/transactions?page=0&size=20").principal(authentication))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(20))
+                .andExpect(jsonPath("$.totalElements").value(25))
+                .andExpect(jsonPath("$.totalPages").value(2));
+        mvc.perform(get("/users/7/transactions?page=1&size=20").principal(authentication))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(5));
+        mvc.perform(get("/users/7/transactions?page=2&size=20").principal(authentication))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.totalElements").value(25));
     }
 
     @Test

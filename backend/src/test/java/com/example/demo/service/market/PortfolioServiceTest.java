@@ -22,8 +22,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -87,6 +90,13 @@ class PortfolioServiceTest {
         });
         assertThat(result.availableBalance()).isEqualByComparingTo("888.0000");
         assertThat(result.totalEquity()).isEqualByComparingTo("916.9000");
+    }
+
+    @Test
+    void portfolioReadsUseARepeatableReadSnapshot() throws Exception {
+        assertRepeatableRead(PortfolioService.class.getMethod("portfolio", Long.class, Authentication.class));
+        assertRepeatableRead(PortfolioService.class.getMethod(
+                "transactions", Long.class, Authentication.class, int.class, int.class));
     }
 
     @Test
@@ -213,5 +223,12 @@ class PortfolioServiceTest {
         BigDecimal value = new BigDecimal(price);
         return new UserTradeRow(id, playerId, "Jugador", buyerId, sellerId, quantity, value,
                 value.multiply(BigDecimal.valueOf(quantity)), Instant.parse("2026-01-01T00:00:00Z").plusSeconds(id));
+    }
+
+    private static void assertRepeatableRead(Method method) {
+        Transactional transactional = method.getAnnotation(Transactional.class);
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.readOnly()).isTrue();
+        assertThat(transactional.isolation()).isEqualTo(Isolation.REPEATABLE_READ);
     }
 }

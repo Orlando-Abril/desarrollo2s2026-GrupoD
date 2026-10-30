@@ -34,7 +34,7 @@ class PortfolioReadOnlyE2ETest {
         User user = AuthFixtures.user(users, "readonly-" + UUID.randomUUID(), Role.USER);
         user.setBalance(new BigDecimal("777.00"));
         users.save(user);
-        Map<String, Long> before = counts();
+        Map<String, List<Map<String, Object>>> before = snapshot();
         var authentication = new UsernamePasswordAuthenticationToken(user.getUsername(), null,
                 List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
@@ -42,14 +42,14 @@ class PortfolioReadOnlyE2ETest {
         portfolioService.transactions(user.getId(), authentication, 0, 20);
         authService.me(user.getUsername());
 
-        assertThat(counts()).isEqualTo(before);
+        assertThat(snapshot()).isEqualTo(before);
         assertThat(users.findById(user.getId()).orElseThrow().getBalance()).isEqualByComparingTo("777.00");
     }
 
-    private Map<String, Long> counts() {
-        Map<String, Long> result = new LinkedHashMap<>();
+    private Map<String, List<Map<String, Object>>> snapshot() {
+        Map<String, List<Map<String, Object>>> result = new LinkedHashMap<>();
         for (String table : List.of("users", "holdings", "orders", "trades", "audit_logs")) {
-            result.put(table, jdbc.queryForObject("select count(*) from " + table, Long.class));
+            result.put(table, jdbc.queryForList("select * from " + table + " order by id"));
         }
         return result;
     }

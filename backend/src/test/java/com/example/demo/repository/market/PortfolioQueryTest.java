@@ -65,9 +65,23 @@ class PortfolioQueryTest {
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(trades.findCostBasisRows(target.getId()))
-                .extracting(UserTradeRow::buyerId)
-                .containsExactly(target.getId(), other.getId());
+        SessionFactory factory = entityManager.getEntityManager().getEntityManagerFactory().unwrap(SessionFactory.class);
+        factory.getStatistics().clear();
+        assertThat(trades.findCostBasisRows(target.getId())).satisfiesExactly(
+                first -> {
+                    assertThat(first.playerId()).isEqualTo(player.getId());
+                    assertThat(first.playerName()).isEqualTo("Jugador");
+                    assertThat(first.buyerId()).isEqualTo(target.getId());
+                    assertThat(first.sellerId()).isEqualTo(other.getId());
+                    assertThat(first.quantity()).isEqualTo(2);
+                    assertThat(first.price()).isEqualByComparingTo("1.1000");
+                    assertThat(first.total()).isEqualByComparingTo("2.2000");
+                },
+                second -> {
+                    assertThat(second.buyerId()).isEqualTo(other.getId());
+                    assertThat(second.sellerId()).isEqualTo(target.getId());
+                });
+        assertThat(factory.getStatistics().getPrepareStatementCount()).isEqualTo(1);
     }
 
     private Player player(String name, String value) {

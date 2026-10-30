@@ -75,19 +75,23 @@ class PortfolioScenarioE2ETest {
         trade(participants.get(3), superuser, assets.get(2), 3, "1.1000", 6);
         trade(participants.get(2), superuser, assets.get(3), 1, "1.5000", 7);
         trade(participants.get(3), superuser, assets.get(4), 1, "2.0000", 8);
+        trade(one, participants.get(2), assets.get(1), 2, "1.0000", 9);
+        trade(participants.get(2), superuser, assets.get(1), 1, "1.4000", 10);
 
         Holding oneHolding = Holding.issue(one, assets.get(0), 13, T0.plusSeconds(10));
         oneHolding.reserve(2, T0.plusSeconds(11));
         holdings.save(oneHolding);
+        holdings.save(Holding.issue(one, assets.get(1), 2, T0.plusSeconds(10)));
         holdings.save(Holding.issue(two, assets.get(0), 6, T0.plusSeconds(10)));
-        holdings.save(Holding.issue(participants.get(2), assets.get(1), 2, T0.plusSeconds(10)));
+        holdings.save(Holding.issue(participants.get(2), assets.get(1), 1, T0.plusSeconds(10)));
         holdings.save(Holding.issue(participants.get(2), assets.get(3), 1, T0.plusSeconds(10)));
         holdings.save(Holding.issue(participants.get(3), assets.get(2), 3, T0.plusSeconds(10)));
         holdings.save(Holding.issue(participants.get(3), assets.get(4), 1, T0.plusSeconds(10)));
 
         PortfolioResponse response = portfolioService.portfolio(one.getId(), admin());
 
-        assertThat(response.positions()).singleElement().satisfies(position -> {
+        assertThat(response.positions()).filteredOn(position -> position.playerId().equals(assets.get(0).getId()))
+                .singleElement().satisfies(position -> {
             assertThat(position.quantity()).isEqualTo(13);
             assertThat(position.reservedQuantity()).isEqualTo(2);
             assertThat(position.averagePurchasePrice()).isEqualByComparingTo("1.0769");
@@ -95,7 +99,15 @@ class PortfolioScenarioE2ETest {
             assertThat(position.currentValue()).isEqualByComparingTo("16.9000");
             assertThat(position.profitLoss()).isEqualByComparingTo("2.9000");
         });
-        assertThat(portfolioService.portfolio(participants.get(2).getId(), admin()).positions()).hasSize(2);
+        assertThat(portfolioService.portfolio(participants.get(2).getId(), admin()).positions())
+                .hasSize(2)
+                .filteredOn(position -> position.playerId().equals(assets.get(1).getId()))
+                .singleElement()
+                .satisfies(position -> {
+                    assertThat(position.quantity()).isEqualTo(1);
+                    assertThat(position.averagePurchasePrice()).isEqualByComparingTo("1.4000");
+                    assertThat(position.costBasis()).isEqualByComparingTo("1.4000");
+                });
         assertThat(portfolioService.portfolio(participants.get(3).getId(), admin()).positions()).hasSize(2);
     }
 

@@ -12,6 +12,7 @@ import com.example.demo.repository.PlayerRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.market.HoldingRepository;
 import com.example.demo.repository.market.MarketOrderRepository;
+import com.example.demo.repository.market.PortfolioHoldingRow;
 import com.example.demo.repository.market.TradeRepository;
 import com.example.demo.service.market.PortfolioService;
 import com.example.demo.service.market.SuperuserAccount;
@@ -27,6 +28,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionTemplate;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -51,6 +54,7 @@ class PortfolioConsistencyE2ETest {
     @Autowired UserRepository users;
     @Autowired PlayerRepository players;
     @MockitoSpyBean HoldingRepository holdings;
+    @PersistenceContext EntityManager entityManager;
     @Autowired MarketOrderRepository orders;
     @Autowired TradeRepository trades;
     @Autowired PortfolioService portfolioService;
@@ -79,7 +83,15 @@ class PortfolioConsistencyE2ETest {
         CountDownLatch holdingRead = new CountDownLatch(1);
         CountDownLatch writerCommitted = new CountDownLatch(1);
         doAnswer(invocation -> {
-            Object rows = invocation.callRealMethod();
+            List<PortfolioHoldingRow> rows = entityManager.createQuery(
+                            "select new com.example.demo.repository.market.PortfolioHoldingRow("
+                                    + "h.id, p.id, p.fullName, p.marketValue, h.quantity, h.reservedQuantity) "
+                                    + "from Holding h join h.player p "
+                                    + "where h.user.id = :userId and h.quantity > 0 "
+                                    + "order by p.fullName asc, p.id asc",
+                            PortfolioHoldingRow.class)
+                    .setParameter("userId", buyer.getId())
+                    .getResultList();
             holdingRead.countDown();
             assertThat(writerCommitted.await(10, TimeUnit.SECONDS)).isTrue();
             return rows;
@@ -92,6 +104,11 @@ class PortfolioConsistencyE2ETest {
                 holding.credit(5, T0.plusSeconds(2));
                 holdings.save(holding);
                 trade(5, "1.2000", T0.plusSeconds(2));
+                User updatedBuyer = users.findById(buyer.getId()).orElseThrow();
+                updatedBuyer.setBalance(new BigDecimal("995.00"));
+                users.save(updatedBuyer);
+                orders.save(MarketOrder.limit(updatedBuyer, player, OrderSide.BUY, 2,
+                        new BigDecimal("1.0000"), T0.plusSeconds(3)));
             });
             writerCommitted.countDown();
         });
@@ -106,8 +123,14 @@ class PortfolioConsistencyE2ETest {
             assertThat(position.costBasis()).isEqualByComparingTo("10.0000");
             assertThat(position.averagePurchasePrice()).isEqualByComparingTo("1.0000");
         });
-        assertThat(portfolioService.portfolio(buyer.getId(), authentication).positions().get(0).quantity())
-                .isEqualTo(15);
+        assertThat(response.balance()).isEqualByComparingTo("1000.0000");
+        assertThat(response.reservedCredits()).isEqualByComparingTo("10.0000");
+
+        var after = portfolioService.portfolio(buyer.getId(), authentication);
+        assertThat(after.positions().get(0).quantity()).isEqualTo(15);
+        assertThat(after.positions().get(0).costBasis()).isEqualByComparingTo("16.0000");
+        assertThat(after.balance()).isEqualByComparingTo("995.0000");
+        assertThat(after.reservedCredits()).isEqualByComparingTo("18.0000");
     }
 
     private void trade(int quantity, String price, Instant time) {

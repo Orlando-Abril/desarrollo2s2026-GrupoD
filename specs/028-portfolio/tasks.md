@@ -167,8 +167,8 @@ description: "Dependency-ordered implementation tasks for portfolio and user tra
 - [X] T040 [P] Crear un E2E que compare saldo, holdings, órdenes, trades y auditorías antes y después de los tres GET y demuestre cero cambios en `backend/src/test/java/com/example/demo/e2e/PortfolioReadOnlyE2ETest.java`
 - [X] T041 [P] Crear `PortfolioConsistencyE2ETest` sobre PostgreSQL real: coordinar con barreras una lectura y un calce concurrente que confirme entre las consultas del portfolio, y verificar que saldo, holdings, reservas y trades corresponden todos al estado anterior o todos al posterior, nunca a una mezcla, en `backend/src/test/java/com/example/demo/e2e/PortfolioConsistencyE2ETest.java`
 - [X] T042 Ejecutar la suite focalizada indicada en `specs/028-portfolio/quickstart.md` y corregir redondeos, orden o metadatos sin relajar assertions
-- [ ] T043 Ejecutar la suite completa `backend/mvnw.cmd test` desde `backend/pom.xml`, confirmar que `UserMarketPerformanceTest` fue ejecutado, revisar `backend/target/site/jacoco/jacoco.xml` y resolver regresiones o issues nuevos de calidad
-- [ ] T044 Validar los escenarios restantes siguiendo `specs/028-portfolio/quickstart.md`, confirmar que `AuthController` sólo recibió `/me` y que no hay dependencias, tablas, caché ni endpoints fuera de alcance
+- [X] T043 Ejecutar la suite completa `backend/mvnw.cmd test` desde `backend/pom.xml`, confirmar que `UserMarketPerformanceTest` fue ejecutado, revisar `backend/target/site/jacoco/jacoco.xml` y resolver regresiones o issues nuevos de calidad
+- [X] T044 Validar los escenarios restantes siguiendo `specs/028-portfolio/quickstart.md`, confirmar que `AuthController` sólo recibió `/me` y que no hay dependencias, tablas, caché ni endpoints fuera de alcance
 
 ---
 
