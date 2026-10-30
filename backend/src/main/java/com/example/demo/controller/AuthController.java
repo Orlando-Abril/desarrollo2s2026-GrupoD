@@ -4,6 +4,7 @@ import com.example.demo.dto.auth.LoginRequest;
 import com.example.demo.dto.auth.LoginResponse;
 import com.example.demo.dto.auth.RegisterRequest;
 import com.example.demo.dto.auth.RegisterResponse;
+import com.example.demo.dto.auth.MeResponse;
 import com.example.demo.exception.GlobalExceptionHandler.ErrorResponse;
 import com.example.demo.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,10 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.security.core.Authentication;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.headers.Header;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -72,5 +77,18 @@ public class AuthController {
                             + "\"message\":\"Username o password inválidos\"}")))
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Consultar la cuenta autenticada",
+            description = "Devuelve id, username, email, rol y saldo vigente de la cuenta representada por la credencial.",
+            security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
+    @ApiResponse(responseCode = "200", description = "Cuenta autenticada",
+            headers = @Header(name = "X-Correlation-ID", ref = "#/components/headers/CorrelationId"),
+            content = @Content(schema = @Schema(implementation = MeResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Credencial ausente, inválida o sin cuenta asociada",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public ResponseEntity<MeResponse> me(Authentication authentication) {
+        return ResponseEntity.ok(authService.me(authentication.getName()));
     }
 }

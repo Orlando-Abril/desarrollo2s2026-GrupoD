@@ -38,3 +38,10 @@ build/
 !.env.example
 *.log
 backend/target/
+*.class
+*.jar
+.gradle/
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp

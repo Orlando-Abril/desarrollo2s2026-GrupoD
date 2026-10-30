@@ -26,5 +26,18 @@ public interface TradeRepository extends Repository<Trade, Long> {
             countQuery = "select count(t) from Trade t where t.buyer.id = :userId or t.seller.id = :userId")
     Page<Trade> findByUser(@Param("userId") Long userId, Pageable pageable);
 
+    @Query("select new com.example.demo.repository.market.UserTradeRow("
+            + "t.id, p.id, p.fullName, t.buyer.id, t.seller.id, t.quantity, t.price, t.total, t.executedAt) "
+            + "from Trade t join t.player p where t.buyer.id = :userId or t.seller.id = :userId "
+            + "order by t.executedAt asc, t.id asc")
+    List<UserTradeRow> findCostBasisRows(@Param("userId") Long userId);
+
+    @Query(value = "select new com.example.demo.repository.market.UserTradeRow("
+            + "t.id, p.id, p.fullName, t.buyer.id, t.seller.id, t.quantity, t.price, t.total, t.executedAt) "
+            + "from Trade t join t.player p where t.buyer.id = :userId or t.seller.id = :userId "
+            + "order by t.executedAt desc, t.id desc",
+            countQuery = "select count(t) from Trade t where t.buyer.id = :userId or t.seller.id = :userId")
+    Page<UserTradeRow> findTransactionRows(@Param("userId") Long userId, Pageable pageable);
+
     List<Trade> findByPlayerIdOrderByExecutedAtDescIdDesc(Long playerId);
 }

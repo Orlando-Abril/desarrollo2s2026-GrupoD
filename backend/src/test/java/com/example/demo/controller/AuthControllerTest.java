@@ -9,10 +9,19 @@ import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.demo.model.Role;
+import com.example.demo.model.User;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.repository.ApiKeyRepository;
+import com.example.demo.security.JwtUtil;
+import com.example.demo.security.ApiKeyHasher;
+import com.example.demo.model.ApiKey;
+import org.springframework.http.HttpHeaders;
 
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +33,10 @@ class AuthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired private UserRepository userRepository;
+    @Autowired private JwtUtil jwtUtil;
+    @Autowired private ApiKeyRepository apiKeyRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -154,6 +167,51 @@ class AuthControllerTest {
                         .content(loginPayload("", "")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("validation_error"));
+    }
+
+    @Test
+    void meReturnsTheAuthenticatedAccount() throws Exception {
+        User user = userRepository.save(User.builder().username("current-user").email("current@example.com")
+                .passwordHash("hash").role(Role.ADMIN).build());
+        String token = jwtUtil.generateToken(user.getUsername());
+
+        mockMvc.perform(get("/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(user.getId()))
+                .andExpect(jsonPath("$.username").value("current-user"))
+                .andExpect(jsonPath("$.email").value("current@example.com"))
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.balance").value(1000.0000));
+    }
+
+    @Test
+    void meWithoutCredentialsReturns401() throws Exception {
+        mockMvc.perform(get("/auth/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void meAcceptsAnApiKeyOwnedByAUser() throws Exception {
+        String registration = mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPayload("api-owner", "api-owner@example.com", "unPasswordSeguro123")))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String rawApiKey = objectMapper.readTree(registration).get("apiKey").asText();
+
+        mockMvc.perform(get("/auth/me").header("X-API-KEY", rawApiKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("api-owner"));
+    }
+
+    @Test
+    void meRejectsAServiceApiKeyWithoutOwner() throws Exception {
+        String rawApiKey = "sk_service_portfolio_test";
+        apiKeyRepository.save(ApiKey.builder().keyHash(ApiKeyHasher.sha256Hex(rawApiKey))
+                .keyPrefix("svc_portfolio").build());
+
+        mockMvc.perform(get("/auth/me").header("X-API-KEY", rawApiKey))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("authenticated_user_not_found"));
     }
 
     private record RegisterPayload(String username, String email, String password) {
