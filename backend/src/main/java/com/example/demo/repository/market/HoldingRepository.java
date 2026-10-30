@@ -27,7 +27,7 @@ public interface HoldingRepository extends Repository<Holding, Long> {
     List<Holding> findByUserIdOrderByPlayerIdAsc(Long userId);
 
     @Query("select new com.example.demo.repository.market.PortfolioHoldingRow("
-            + "h.id, p.id, p.fullName, p.marketValue, h.quantity, h.reservedQuantity) "
+            + "h.id, p.id, p.fullName, p.team, p.marketValue, h.quantity, h.reservedQuantity) "
             + "from Holding h join h.player p where h.user.id = :userId and h.quantity > 0 "
             + "order by p.fullName asc, p.id asc")
     List<PortfolioHoldingRow> findPortfolioRows(@Param("userId") Long userId);

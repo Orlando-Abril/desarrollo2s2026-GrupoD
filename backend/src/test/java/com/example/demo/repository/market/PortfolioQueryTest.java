@@ -40,6 +40,7 @@ class PortfolioQueryTest {
         factory.getStatistics().clear();
         assertThat(holdings.findPortfolioRows(user.getId())).singleElement().satisfies(row -> {
             assertThat(row.playerName()).isEqualTo("Zeta");
+            assertThat(row.playerTeam()).isEqualTo("Equipo");
             assertThat(row.marketValue()).isEqualByComparingTo("2.5000");
         });
         long onePositionStatements = factory.getStatistics().getPrepareStatementCount();

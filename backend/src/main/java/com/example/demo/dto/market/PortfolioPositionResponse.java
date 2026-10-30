@@ -10,6 +10,7 @@ import java.util.Objects;
 public record PortfolioPositionResponse(
         @Schema(example = "42", requiredMode = Schema.RequiredMode.REQUIRED) Long playerId,
         @Schema(example = "Lionel Messi", requiredMode = Schema.RequiredMode.REQUIRED) String playerName,
+        @Schema(example = "Inter Miami CF", requiredMode = Schema.RequiredMode.REQUIRED) String playerTeam,
         @Schema(example = "15", minimum = "1", requiredMode = Schema.RequiredMode.REQUIRED) int quantity,
         @Schema(example = "2", minimum = "0", requiredMode = Schema.RequiredMode.REQUIRED) int reservedQuantity,
         @Schema(example = "13", minimum = "0", requiredMode = Schema.RequiredMode.REQUIRED) int availableQuantity,
@@ -22,6 +23,7 @@ public record PortfolioPositionResponse(
     public PortfolioPositionResponse {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(playerName, "playerName");
+        Objects.requireNonNull(playerTeam, "playerTeam");
         if (quantity <= 0 || reservedQuantity < 0 || reservedQuantity > quantity
                 || availableQuantity != quantity - reservedQuantity) {
             throw new IllegalArgumentException("invalid portfolio position quantities");

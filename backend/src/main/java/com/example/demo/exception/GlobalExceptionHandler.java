@@ -69,12 +69,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("forbidden", "No tenés permisos para esta operación"));
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse(VALIDATION_ERROR, "Uno o más parámetros son inválidos"));
-    }
-
     @ExceptionHandler({MethodArgumentTypeMismatchException.class, ConstraintViolationException.class,
             HandlerMethodValidationException.class})
     public ResponseEntity<ErrorResponse> handleQueryValidation(Exception ex) {

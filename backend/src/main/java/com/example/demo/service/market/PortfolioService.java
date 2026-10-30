@@ -132,16 +132,14 @@ public class PortfolioService {
         BigDecimal marketValue = money(row.marketValue());
         BigDecimal current = money(marketValue.multiply(BigDecimal.valueOf(row.quantity())));
         BigDecimal profit = money(current.subtract(cost));
-        return new PortfolioPositionResponse(row.playerId(), row.playerName(), row.quantity(), row.reservedQuantity(),
-                row.quantity() - row.reservedQuantity(), average, cost, marketValue, current, profit);
+        return new PortfolioPositionResponse(row.playerId(), row.playerName(), row.playerTeam(), row.quantity(),
+                row.reservedQuantity(), row.quantity() - row.reservedQuantity(), average, cost, marketValue, current,
+                profit);
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public TransactionPageResponse transactions(Long targetUserId, Authentication authentication, int page, int size) {
         authorizeAndLoad(targetUserId, authentication);
-        if (page < 0 || size < 1 || size > 100) {
-            throw new IllegalArgumentException("invalid pagination");
-        }
         Page<UserTradeRow> rows = tradeRepository.findTransactionRows(targetUserId, PageRequest.of(page, size));
         List<TransactionResponse> items = rows.getContent().stream().map(row -> new TransactionResponse(
                 row.id(), targetUserId.equals(row.buyerId()) ? TransactionType.COMPRA : TransactionType.VENTA,

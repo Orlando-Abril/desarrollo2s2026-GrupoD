@@ -71,7 +71,7 @@ class PortfolioServiceTest {
     void weightedAverageSurvivesPartialSaleAndLaterPurchase() {
         when(orders.sumReservedCredits(7L)).thenReturn(new BigDecimal("12.0000"));
         when(holdings.findPortfolioRows(7L)).thenReturn(List.of(
-                new PortfolioHoldingRow(1L, 10L, "Jugador", new BigDecimal("1.3000"), 13, 2)));
+                new PortfolioHoldingRow(1L, 10L, "Jugador", "Equipo", new BigDecimal("1.3000"), 13, 2)));
         when(trades.findCostBasisRows(7L)).thenReturn(List.of(
                 row(1, 10, 7, 99, 10, "1.0000"),
                 row(2, 10, 7, 99, 5, "1.2000"),
@@ -102,7 +102,7 @@ class PortfolioServiceTest {
     @Test
     void rejectsAReconstructedQuantityDifferentFromHolding() {
         when(holdings.findPortfolioRows(7L)).thenReturn(List.of(
-                new PortfolioHoldingRow(1L, 10L, "Jugador", new BigDecimal("1.3000"), 9, 0)));
+                new PortfolioHoldingRow(1L, 10L, "Jugador", "Equipo", new BigDecimal("1.3000"), 9, 0)));
         when(trades.findCostBasisRows(7L)).thenReturn(List.of(row(1, 10, 7, 99, 10, "1.0000")));
 
         assertThatThrownBy(() -> service.portfolio(7L, authentication))
@@ -122,7 +122,7 @@ class PortfolioServiceTest {
     void aClosedPositionStartsANewAverageWhenBoughtAgain() {
         when(orders.sumReservedCredits(7L)).thenReturn(BigDecimal.ZERO);
         when(holdings.findPortfolioRows(7L)).thenReturn(List.of(
-                new PortfolioHoldingRow(1L, 10L, "Jugador", new BigDecimal("1.0000"), 2, 0)));
+                new PortfolioHoldingRow(1L, 10L, "Jugador", "Equipo", new BigDecimal("1.0000"), 2, 0)));
         when(trades.findCostBasisRows(7L)).thenReturn(List.of(
                 row(1, 10, 7, 99, 5, "1.0000"), row(2, 10, 99, 7, 5, "1.2000"),
                 row(3, 10, 7, 99, 2, "2.0000")));
@@ -150,7 +150,7 @@ class PortfolioServiceTest {
         user.setUsername("superuser");
         when(orders.sumReservedCredits(7L)).thenReturn(BigDecimal.ZERO);
         when(holdings.findPortfolioRows(7L)).thenReturn(List.of(
-                new PortfolioHoldingRow(1L, 10L, "Jugador", new BigDecimal("1.5000"), 90, 0)));
+                new PortfolioHoldingRow(1L, 10L, "Jugador", "Equipo", new BigDecimal("1.5000"), 90, 0)));
         when(trades.findCostBasisRows(7L)).thenReturn(List.of(row(1, 10, 99, 7, 10, "1.2000")));
 
         PortfolioResponse result = service.portfolio(7L, authentication);
@@ -162,7 +162,7 @@ class PortfolioServiceTest {
     @Test
     void missingMarketValueFailsExplicitly() {
         when(holdings.findPortfolioRows(7L)).thenReturn(List.of(
-                new PortfolioHoldingRow(1L, 10L, "Jugador", null, 1, 0)));
+                new PortfolioHoldingRow(1L, 10L, "Jugador", "Equipo", null, 1, 0)));
         when(trades.findCostBasisRows(7L)).thenReturn(List.of(row(1, 10, 7, 99, 1, "1.0000")));
 
         assertThatThrownBy(() -> service.portfolio(7L, authentication))

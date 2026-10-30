@@ -33,6 +33,7 @@ paths:
                 positions:
                   - playerId: 44
                     playerName: Lionel Example
+                    playerTeam: Inter Miami CF
                     quantity: 15
                     reservedQuantity: 3
                     availableQuantity: 12
@@ -236,6 +237,7 @@ components:
       required:
         - playerId
         - playerName
+        - playerTeam
         - quantity
         - reservedQuantity
         - availableQuantity
@@ -250,6 +252,9 @@ components:
           format: int64
         playerName:
           type: string
+        playerTeam:
+          type: string
+          example: Inter Miami CF
         quantity:
           type: integer
           minimum: 1

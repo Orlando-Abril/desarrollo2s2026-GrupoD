@@ -36,7 +36,8 @@ class UserMarketOpenApiTest {
                 .andExpect(jsonPath(PORTFOLIO + ".responses['404']").exists())
                 .andExpect(jsonPath(PORTFOLIO + ".responses['500']").exists())
                 .andExpect(jsonPath("$.components.schemas.PortfolioResponse.required").isArray())
-                .andExpect(jsonPath("$.components.schemas.PortfolioPositionResponse.required").isArray());
+                .andExpect(jsonPath("$.components.schemas.PortfolioPositionResponse.required").isArray())
+                .andExpect(jsonPath("$.components.schemas.PortfolioPositionResponse.properties.playerTeam").exists());
     }
 
     @Test

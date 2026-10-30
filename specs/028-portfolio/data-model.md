@@ -43,7 +43,7 @@ Campos consumidos: `id`, `player.id`, `buyer.id`, `seller.id`, `quantity`, `pric
 
 ### Player
 
-Campos consumidos: `id`, `fullName`, `marketValue`.
+Campos consumidos: `id`, `fullName`, `team`, `marketValue`.
 
 - `marketValue` es obligatorio y tiene escala 4.
 - `currentValue = quantity × marketValue`.
@@ -63,6 +63,7 @@ Proyección escalar de una consulta JPQL sobre `Holding` y `Player`.
 | holdingId | Long | `Holding.id` | sólo diagnóstico/test; no se expone |
 | playerId | Long | `Player.id` | obligatorio |
 | playerName | String | `Player.fullName` | obligatorio |
+| playerTeam | String | `Player.team` | obligatorio |
 | marketValue | BigDecimal | `Player.marketValue` | escala 4, obligatorio |
 | quantity | int | `Holding.quantity` | > 0 en la consulta |
 | reservedQuantity | int | `Holding.reservedQuantity` | 0..quantity |
@@ -120,6 +121,7 @@ Una venta con `q > Q` o una cantidad final distinta del holding indica inconsist
 |------------|------|-------|
 | playerId | integer(int64) | requerido |
 | playerName | string | requerido |
+| playerTeam | string | requerido; equipo vigente de `Player.team` |
 | quantity | integer | > 0 |
 | reservedQuantity | integer | 0..quantity |
 | availableQuantity | integer | quantity − reservedQuantity |

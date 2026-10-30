@@ -9,13 +9,17 @@ import com.example.demo.exception.GlobalExceptionHandler;
 import com.example.demo.exception.PortfolioInconsistentException;
 import com.example.demo.exception.UserNotFoundException;
 import com.example.demo.service.market.PortfolioService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.validation.beanvalidation.MethodValidationInterceptor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -39,17 +43,27 @@ class UserMarketControllerTest {
     @Mock PortfolioService service;
     private MockMvc mvc;
     private Authentication authentication;
+    private LocalValidatorFactoryBean validator;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new UserMarketController(service))
+        validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        ProxyFactory controllerProxy = new ProxyFactory(new UserMarketController(service));
+        controllerProxy.addAdvice(new MethodValidationInterceptor((jakarta.validation.Validator) validator));
+        mvc = MockMvcBuilders.standaloneSetup(controllerProxy.getProxy())
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         authentication = new UsernamePasswordAuthenticationToken("abril", null, List.of());
     }
 
+    @AfterEach
+    void tearDown() {
+        validator.close();
+    }
+
     @Test
     void returnsACompletePortfolioWithFourDecimalValues() throws Exception {
-        PortfolioPositionResponse position = new PortfolioPositionResponse(10L, "Jugador", 3, 1, 2,
+        PortfolioPositionResponse position = new PortfolioPositionResponse(10L, "Jugador", "Equipo", 3, 1, 2,
                 bd("1.1000"), bd("3.3000"), bd("1.3000"), bd("3.9000"), bd("0.6000"));
         when(service.portfolio(7L, authentication)).thenReturn(new PortfolioResponse(7L, bd("900"), bd("12"),
                 bd("888"), List.of(position), bd("3.3"), bd("3.9"), bd("0.6"), bd("903.9")));
@@ -62,6 +76,7 @@ class UserMarketControllerTest {
                 .andExpect(jsonPath("$.availableBalance").value(888.0000))
                 .andExpect(jsonPath("$.positions[0].playerId").value(10))
                 .andExpect(jsonPath("$.positions[0].playerName").value("Jugador"))
+                .andExpect(jsonPath("$.positions[0].playerTeam").value("Equipo"))
                 .andExpect(jsonPath("$.positions[0].quantity").value(3))
                 .andExpect(jsonPath("$.positions[0].reservedQuantity").value(1))
                 .andExpect(jsonPath("$.positions[0].availableQuantity").value(2))
@@ -127,13 +142,6 @@ class UserMarketControllerTest {
 
     @Test
     void invalidPaginationUsesTheCommonErrorShape() throws Exception {
-        when(service.transactions(7L, authentication, -1, 20))
-                .thenThrow(new IllegalArgumentException("invalid pagination"));
-        when(service.transactions(7L, authentication, 0, 0))
-                .thenThrow(new IllegalArgumentException("invalid pagination"));
-        when(service.transactions(7L, authentication, 0, 101))
-                .thenThrow(new IllegalArgumentException("invalid pagination"));
-
         mvc.perform(get("/users/7/transactions?page=-1").principal(authentication))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("validation_error"));

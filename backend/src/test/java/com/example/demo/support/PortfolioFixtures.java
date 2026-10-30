@@ -31,10 +31,14 @@ public final class PortfolioFixtures {
     }
 
     public static Player player(long id, String name, String marketValue) {
+        return player(id, name, "Test FC", marketValue);
+    }
+
+    public static Player player(long id, String name, String team, String marketValue) {
         return Player.builder()
                 .id(id)
                 .fullName(name)
-                .team("Test FC")
+                .team(team)
                 .league(League.PREMIER_LEAGUE)
                 .marketValue(new BigDecimal(marketValue))
                 .build();
