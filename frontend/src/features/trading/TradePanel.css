@@ -1,0 +1,71 @@
+.trade-panel {
+  min-width: 0;
+  border: var(--borde-grueso);
+  padding: var(--esp-4);
+  background: #fff;
+  box-shadow: var(--sombra-sm);
+}
+.trade-panel h3 {
+  margin: 0 0 var(--esp-3);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+.trade-panel__fields {
+  display: grid;
+  gap: var(--esp-4);
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.trade-panel__fields:disabled { opacity: .55; }
+.trade-panel__sides { display: grid; grid-template-columns: 1fr 1fr; min-width: 0; margin: 0; border: var(--borde); padding: 0; }
+.trade-panel__side {
+  border: 0;
+  padding: 10px;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--font-display);
+  font-size: 20px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.trade-panel__side + .trade-panel__side { border-left: var(--borde); }
+.trade-panel__side--buy[aria-pressed="true"] { background: var(--verde); color: var(--blanco); }
+.trade-panel__side--sell[aria-pressed="true"] { background: var(--rojo); color: var(--blanco); }
+.trade-panel__side[aria-pressed="true"]::before { content: '✓ '; }
+.trade-panel__types { display: grid; gap: var(--esp-2); margin: 0; border: 0; padding: 0; }
+.trade-panel__types legend {
+  margin-bottom: var(--esp-1);
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.trade-panel__types label { display: flex; gap: var(--esp-2); align-items: center; font-weight: 600; }
+.trade-panel__types input { width: 18px; height: 18px; margin: 0; accent-color: var(--tinta); }
+.trade-panel__estimate {
+  display: grid;
+  gap: var(--esp-1);
+  margin: 0;
+  border: var(--borde);
+  padding: var(--esp-3);
+  background: var(--papel);
+  font-variant-numeric: tabular-nums;
+}
+.trade-panel__notice { color: var(--tinta-2); font-size: 14px; }
+.trade-panel__disabled,
+.trade-panel__error,
+.trade-panel__result:not(:empty) {
+  margin: var(--esp-3) 0 0;
+  border: var(--borde);
+  padding: var(--esp-2) var(--esp-3);
+  font-weight: 700;
+}
+.trade-panel__disabled { margin: 0 0 var(--esp-3); background: var(--papel-2); }
+.trade-panel__error { border-color: var(--rojo); background: #fbe4df; color: var(--rojo); }
+.trade-panel__result:empty { margin: 0; }
+.trade-panel__result:not(:empty) { background: var(--amarillo); }

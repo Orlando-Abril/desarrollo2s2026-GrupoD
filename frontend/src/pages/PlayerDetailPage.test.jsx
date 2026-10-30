@@ -65,11 +65,14 @@ function response(status, body) {
   }
 }
 
+const emptyBook = (url) => [200, { playerId: Number(url.searchParams.get('playerId')), marketValue: 1.245, sells: [], buys: [] }]
+
 // Responde según la ruta pedida; cada handler recibe la URL parseada y devuelve [status, body].
-function routeFetch(handler) {
+// El libro de la consola de trading (spec 029) responde vacío salvo que el test pase otro handler.
+function routeFetch(handler, bookHandler = emptyBook) {
   const fetchMock = vi.fn((url, options) => {
     const parsed = new URL(url)
-    const result = handler(parsed, options)
+    const result = parsed.pathname === '/orders/book' ? bookHandler(parsed) : handler(parsed, options)
     if (result instanceof Promise) return result
     return Promise.resolve(response(...result))
   })
@@ -87,8 +90,11 @@ function historyFor(url) {
   return url.searchParams.get('strategy') === 'MOMENTUM' ? MOMENTUM_HISTORY : OFFICIAL_HISTORY
 }
 
+// La ficha tiene también la tabla del libro: la del gráfico se identifica por su caption.
+const CHART_TABLE = { name: /cotizaciones/ }
+
 function chartRows() {
-  const table = screen.getByRole('table')
+  const table = screen.getByRole('table', CHART_TABLE)
   return within(table).getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell').map((cell) => plain(cell.textContent)))
 }
 
@@ -218,6 +224,28 @@ describe('PlayerDetailPage', () => {
       expect(within(header).getAllByText('—').length).toBeGreaterThanOrEqual(2)
     })
 
+    it('shows the trading section with the book of the player', async () => {
+      const fetchMock = routeFetch(defaultHandler)
+      renderDetail()
+
+      const trading = await screen.findByRole('region', { name: 'Operar' })
+      expect(await within(trading).findByRole('table', { name: 'Libro de órdenes de Bukayo Saka' })).toBeTruthy()
+      expect(within(trading).getByRole('button', { name: 'Revisar compra' })).toBeTruthy()
+      const bookCalls = fetchMock.mock.calls.map(([url]) => new URL(url)).filter((url) => url.pathname === '/orders/book')
+      expect(bookCalls.map((url) => url.searchParams.get('playerId'))).toEqual(['42'])
+    })
+
+    it('keeps the header, chart and stats when the book fails', async () => {
+      routeFetch(defaultHandler, () => [500, { error: 'unexpected_error', message: 'falló' }])
+      renderDetail()
+
+      const trading = await screen.findByRole('region', { name: 'Operar' })
+      expect(await within(trading).findByRole('button', { name: 'Reintentar' })).toBeTruthy()
+      expect(screen.getByRole('heading', { level: 1, name: 'Bukayo Saka' })).toBeTruthy()
+      expect(await screen.findByRole('table', CHART_TABLE)).toBeTruthy()
+      expect(screen.getByRole('region', { name: 'Estadísticas de la temporada' })).toBeTruthy()
+    })
+
     it('does not keep data from the previous player when the id changes', async () => {
       routeFetch(defaultHandler)
       renderDetail()
@@ -231,7 +259,7 @@ describe('PlayerDetailPage', () => {
     it('shows the last month of the current quote strategy as an accessible table', async () => {
       const fetchMock = routeFetch((url) => (url.pathname.endsWith('/quotes') ? [200, historyFor(url)] : [200, detail()]))
       renderDetail()
-      expect(await screen.findByRole('table')).toBeTruthy()
+      expect(await screen.findByRole('table', CHART_TABLE)).toBeTruthy()
       expect(chartRows().map((row) => row[1])).toEqual(['1,10 cr', '1,15 cr', '1,25 cr'])
       expect(quoteCalls(fetchMock)).toContainEqual({ strategy: 'OFFICIAL', from: '2026-09-28', to: '2026-10-27' })
     })
@@ -239,7 +267,7 @@ describe('PlayerDetailPage', () => {
     it('requests and shows the selected strategy and range', async () => {
       const fetchMock = routeFetch((url) => (url.pathname.endsWith('/quotes') ? [200, historyFor(url)] : [200, detail()]))
       renderDetail()
-      await screen.findByRole('table')
+      await screen.findByRole('table', CHART_TABLE)
       fireEvent.click(screen.getByRole('radio', { name: 'Momentum' }))
       await waitFor(() => expect(chartRows().map((row) => row[2])).toEqual(['Momentum', 'Momentum']))
       expect(quoteCalls(fetchMock)).toContainEqual({ strategy: 'MOMENTUM', from: '2026-09-28', to: '2026-10-27' })
@@ -369,7 +397,7 @@ describe('PlayerDetailPage', () => {
       fail = false
       fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
       expect(await screen.findByRole('heading', { level: 1, name: 'Bukayo Saka' })).toBeTruthy()
-      expect(await screen.findByRole('table')).toBeTruthy()
+      expect(await screen.findByRole('table', CHART_TABLE)).toBeTruthy()
     })
 
     it.each([

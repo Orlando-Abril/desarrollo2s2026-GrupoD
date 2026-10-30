@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.market.MyOrderResponse;
 import com.example.demo.dto.market.OrderBookResponse;
 import com.example.demo.dto.market.OrderRequest;
 import com.example.demo.dto.market.OrderResponse;
@@ -10,6 +11,7 @@ import com.example.demo.service.market.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -111,6 +113,22 @@ public class OrderController {
     public OrderBookResponse book(@Parameter(description = "Id del jugador", example = "42")
                                   @RequestParam Long playerId) {
         return orderService.book(playerId);
+    }
+
+    @GetMapping("/mine")
+    @Operation(summary = "Ver mis órdenes activas",
+            description = "Órdenes abiertas o parcialmente ejecutadas del usuario autenticado, de la más nueva a la más "
+                    + "vieja, sin paginar. Cada una con el formato de la respuesta de POST /orders/buy más el nombre del "
+                    + "jugador; trades va vacío y averagePrice resume lo ya ejecutado.")
+    @ApiResponse(responseCode = "200", description = "Órdenes activas propias; [] si no tiene",
+            headers = @Header(name = CorrelationIdFilter.HEADER, description = "UUID de trazabilidad"),
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = MyOrderResponse.class))))
+    @ApiResponse(responseCode = "401", description = "Credenciales ausentes o inválidas",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "superuser_not_allowed o user_required",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public List<MyOrderResponse> mine(Authentication authentication) {
+        return orderService.myOrders(authentication.getName());
     }
 
     @DeleteMapping("/{id}")

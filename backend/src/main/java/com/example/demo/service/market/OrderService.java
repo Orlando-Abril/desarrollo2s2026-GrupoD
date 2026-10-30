@@ -1,7 +1,9 @@
 package com.example.demo.service.market;
 
+import com.example.demo.dto.market.MyOrderResponse;
 import com.example.demo.dto.market.OrderBookResponse;
 import com.example.demo.dto.market.OrderRequest;
+import com.example.demo.dto.market.OrderResponse;
 import com.example.demo.exception.InsufficientBalanceException;
 import com.example.demo.exception.InsufficientTokensException;
 import com.example.demo.exception.InvalidOrderException;
@@ -92,6 +94,26 @@ public class OrderService {
         Player player = playerRepository.findById(playerId).orElseThrow(() -> new PlayerNotFoundException(playerId));
         return new OrderBookResponse(player.getId(), player.getMarketValue(), orderRepository.findSellLevels(playerId),
                 orderRepository.findBuyLevels(playerId));
+    }
+
+    /**
+     * Órdenes activas del usuario, de la más nueva a la más vieja. El precio promedio sale de sus operaciones, que sólo
+     * se consultan si la orden ejecutó algo; la respuesta no las muestra (spec 029, research R10).
+     */
+    @Transactional(readOnly = true)
+    public List<MyOrderResponse> myOrders(String principalName) {
+        MarketPrincipal principal = userResolver.resolve(principalName);
+        return orderRepository.findActiveByUserWithPlayer(principal.id()).stream()
+                .map(order -> MyOrderResponse.of(OrderResponse.of(order, executedTrades(order), List.of()),
+                        order.getPlayer().getFullName()))
+                .toList();
+    }
+
+    private List<Trade> executedTrades(MarketOrder order) {
+        if (order.getFilledQuantity() == 0) {
+            return List.of();
+        }
+        return tradeRepository.findByBuyOrderIdOrSellOrderIdOrderByIdAsc(order.getId(), order.getId());
     }
 
     /**

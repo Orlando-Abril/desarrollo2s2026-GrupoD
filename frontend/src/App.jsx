@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './layout/AppLayout.jsx'
 import AlbumPage from './pages/AlbumPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
+import MarketPage from './pages/MarketPage.jsx'
 import NotFound from './pages/NotFound.jsx'
 import PlayerDetailPage from './pages/PlayerDetailPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/album" element={<AlbumPage />} />
           <Route path="/ranking" element={<RankingPage />} />
           <Route path="/jugadores/:id" element={<PlayerDetailPage />} />
+          <Route path="/mercado" element={<MarketPage />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

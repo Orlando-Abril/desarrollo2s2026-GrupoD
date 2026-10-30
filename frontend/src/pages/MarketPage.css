@@ -1,0 +1,12 @@
+.market-page { display: grid; gap: var(--esp-4); overflow-x: hidden; }
+.market-page > * { min-width: 0; }
+.market-page__loading { margin: 0; font-family: var(--font-mono); font-size: 13px; }
+.market-page__error {
+  margin: 0;
+  border: var(--borde);
+  border-color: var(--rojo);
+  padding: var(--esp-2) var(--esp-3);
+  background: #fbe4df;
+  color: var(--rojo);
+  font-weight: 700;
+}
