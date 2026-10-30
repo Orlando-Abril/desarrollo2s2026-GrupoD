@@ -22,13 +22,15 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final String VALIDATION_ERROR = "validation_error";
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining("; "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("validation_error", message));
+                .body(new ErrorResponse(VALIDATION_ERROR, message));
     }
 
     @ExceptionHandler(DuplicateUserException.class)
@@ -70,19 +72,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("validation_error", "Uno o más parámetros son inválidos"));
+                .body(new ErrorResponse(VALIDATION_ERROR, "Uno o más parámetros son inválidos"));
     }
 
     @ExceptionHandler({MethodArgumentTypeMismatchException.class, ConstraintViolationException.class,
             HandlerMethodValidationException.class})
     public ResponseEntity<ErrorResponse> handleQueryValidation(Exception ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse("validation_error", "Uno o más filtros son inválidos"));
+                .body(new ErrorResponse(VALIDATION_ERROR, "Uno o más filtros son inválidos"));
     }
 
     @io.swagger.v3.oas.annotations.media.Schema(name = "ErrorResponse")
     public record ErrorResponse(
-            @io.swagger.v3.oas.annotations.media.Schema(example = "validation_error") String error,
+            @io.swagger.v3.oas.annotations.media.Schema(example = VALIDATION_ERROR) String error,
             @io.swagger.v3.oas.annotations.media.Schema(example = "Uno o más filtros son inválidos") String message) {
     }
 }
