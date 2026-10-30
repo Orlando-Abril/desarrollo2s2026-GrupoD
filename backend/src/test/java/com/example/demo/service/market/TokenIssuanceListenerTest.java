@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.core.annotation.Order;
 
 import java.util.UUID;
 
@@ -44,5 +45,18 @@ class TokenIssuanceListenerTest {
         assertThat(output.getOut())
                 .contains("market_issuance_skipped reason=superuser_missing")
                 .doesNotContain("market_issuance_after_quote_run_failed");
+    }
+
+    /** La emisión corre antes del reprecio del creador de mercado (spec 027, research D7). */
+    @Test
+    void runsBeforeTheMarketMaker() throws NoSuchMethodException {
+        Order issuance = TokenIssuanceListener.class
+                .getMethod("onQuoteRunCompleted", QuoteRunCompletedEvent.class).getAnnotation(Order.class);
+        Order marketMaker = MarketMakerService.class
+                .getMethod("onQuoteRunCompleted", QuoteRunCompletedEvent.class).getAnnotation(Order.class);
+
+        assertThat(issuance.value()).isEqualTo(MarketListenerOrder.TOKEN_ISSUANCE);
+        assertThat(marketMaker.value()).isEqualTo(MarketListenerOrder.MARKET_MAKER);
+        assertThat(issuance.value()).isLessThan(marketMaker.value());
     }
 }

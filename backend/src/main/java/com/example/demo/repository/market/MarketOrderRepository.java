@@ -1,5 +1,6 @@
 package com.example.demo.repository.market;
 
+import com.example.demo.dto.market.BookLevelResponse;
 import com.example.demo.model.market.MarketOrder;
 import com.example.demo.model.market.OrderSide;
 import com.example.demo.model.market.OrderStatus;
@@ -26,9 +27,19 @@ public interface MarketOrderRepository extends Repository<MarketOrder, Long> {
     String BOOK_FILTER = "select o from MarketOrder o where o.player.id = :playerId and o.side = :side"
             + " and o.type = com.example.demo.model.market.OrderType.LIMIT and o.status in :active";
 
+    /** El libro de un jugador y lado agregado por precio (spec 027, research D10); nunca expone dueños ni ids. */
+    String LEVELS = "select new com.example.demo.dto.market.BookLevelResponse(o.limitPrice,"
+            + " sum(o.quantity - o.filledQuantity)) from MarketOrder o where o.player.id = :playerId"
+            + " and o.side = :side and o.type = com.example.demo.model.market.OrderType.LIMIT"
+            + " and o.status in :active group by o.limitPrice";
+
     MarketOrder save(MarketOrder order);
 
     Optional<MarketOrder> findById(Long id);
+
+    /** Jugador de la orden sin cargarla: la orden se carga recién con su lock (spec 027, research D3). */
+    @Query("select o.player.id from MarketOrder o where o.id = :id")
+    Optional<Long> findPlayerIdById(@Param("id") Long id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from MarketOrder o where o.id = :id")
@@ -50,6 +61,21 @@ public interface MarketOrderRepository extends Repository<MarketOrder, Long> {
 
     default List<MarketOrder> findOpenSellsForUpdate(Long playerId) {
         return lockBookByPriceAsc(playerId, OrderSide.SELL, OrderStatus.ACTIVE);
+    }
+
+    /** Ventas del libro agregadas por precio, de menor a mayor, con lo pendiente a cada precio. */
+    default List<BookLevelResponse> findSellLevels(Long playerId) {
+        return findLevelsByPriceAsc(playerId, OrderSide.SELL, OrderStatus.ACTIVE);
+    }
+
+    /** Compras del libro agregadas por precio, de mayor a menor, con lo pendiente a cada precio. */
+    default List<BookLevelResponse> findBuyLevels(Long playerId) {
+        return findLevelsByPriceDesc(playerId, OrderSide.BUY, OrderStatus.ACTIVE);
+    }
+
+    /** Ventas activas del usuario para un jugador, bloqueadas; para el superusuario, su orden de creador de mercado. */
+    default List<MarketOrder> findActiveSellsForUpdate(Long userId, Long playerId) {
+        return lockActiveByUserAndPlayerAndSide(userId, playerId, OrderSide.SELL, OrderStatus.ACTIVE);
     }
 
     /** Créditos reservados por las compras LIMIT activas del usuario, con escala 4; 0 si no tiene. */
@@ -74,6 +100,21 @@ public interface MarketOrderRepository extends Repository<MarketOrder, Long> {
     @Query(BOOK_FILTER + " order by o.limitPrice asc, o.createdAt asc, o.id asc")
     List<MarketOrder> lockBookByPriceAsc(@Param("playerId") Long playerId, @Param("side") OrderSide side,
                                          @Param("active") Collection<OrderStatus> active);
+
+    @Query(LEVELS + " order by o.limitPrice asc")
+    List<BookLevelResponse> findLevelsByPriceAsc(@Param("playerId") Long playerId, @Param("side") OrderSide side,
+                                                 @Param("active") Collection<OrderStatus> active);
+
+    @Query(LEVELS + " order by o.limitPrice desc")
+    List<BookLevelResponse> findLevelsByPriceDesc(@Param("playerId") Long playerId, @Param("side") OrderSide side,
+                                                  @Param("active") Collection<OrderStatus> active);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from MarketOrder o where o.user.id = :userId and o.player.id = :playerId and o.side = :side"
+            + " and o.status in :active order by o.id")
+    List<MarketOrder> lockActiveByUserAndPlayerAndSide(@Param("userId") Long userId, @Param("playerId") Long playerId,
+                                                       @Param("side") OrderSide side,
+                                                       @Param("active") Collection<OrderStatus> active);
 
     @Query("select coalesce(sum((o.quantity - o.filledQuantity) * o.limitPrice), 0) from MarketOrder o"
             + " where o.user.id = :userId and o.side = com.example.demo.model.market.OrderSide.BUY"

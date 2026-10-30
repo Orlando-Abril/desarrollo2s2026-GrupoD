@@ -27,4 +27,7 @@ public interface TradeRepository extends Repository<Trade, Long> {
     Page<Trade> findByUser(@Param("userId") Long userId, Pageable pageable);
 
     List<Trade> findByPlayerIdOrderByExecutedAtDescIdDesc(Long playerId);
+
+    /** Operaciones de una orden, como compradora o como vendedora; para su precio promedio. */
+    List<Trade> findByBuyOrderIdOrSellOrderIdOrderByIdAsc(Long buyOrderId, Long sellOrderId);
 }

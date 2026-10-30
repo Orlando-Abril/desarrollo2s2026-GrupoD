@@ -43,6 +43,7 @@ public class User {
     private Role role = Role.USER;
 
     @Builder.Default
+    @Column(precision = 38, scale = 4)
     private BigDecimal balance = new BigDecimal("1000.00");
 
     @Column(name = "created_at", nullable = false, updatable = false)
