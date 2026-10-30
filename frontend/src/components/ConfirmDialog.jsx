@@ -52,10 +52,10 @@ export default function ConfirmDialog({
 
   return (
     <div className="confirm-dialog">
-      <div
+      <dialog
+        open
         ref={panelRef}
         className="confirm-dialog__panel"
-        role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={bodyId}
@@ -67,7 +67,7 @@ export default function ConfirmDialog({
           <Button variant="secondary" type="button" onClick={onCancel} disabled={busy}>{cancelLabel}</Button>
           <Button ref={confirmRef} type="button" onClick={onConfirm} disabled={busy}>{confirmLabel}</Button>
         </div>
-      </div>
+      </dialog>
     </div>
   )
 }

@@ -27,9 +27,9 @@ function marketNotice(estimate, side) {
 }
 
 function EstimateText({ estimate, side }) {
-  if (!estimate) return 'Completá la cantidad para ver el total estimado.'
+  if (!estimate) return <>Completá la cantidad para ver el total estimado.</>
   const notice = estimate.kind === 'market' ? marketNotice(estimate, side) : null
-  if (notice && estimate.fillable === 0) return notice
+  if (notice && estimate.fillable === 0) return <>{notice}</>
   return (
     <>
       <span>Total estimado: <strong>{formatPrice(estimate.total)}</strong></span>
@@ -73,7 +73,7 @@ export default function TradePanel({ player, bookStatus, book, onExecuted, onSta
       {reason ? <p className="trade-panel__disabled">{reason}</p> : null}
       <form noValidate onSubmit={handleSubmit}>
         <fieldset className="trade-panel__fields" disabled={Boolean(reason) || phase === 'sending'}>
-          <div className="trade-panel__sides" role="group" aria-label="Lado de la orden">
+          <fieldset className="trade-panel__sides" aria-label="Lado de la orden">
             {['BUY', 'SELL'].map((side) => (
               <button
                 key={side}
@@ -85,7 +85,7 @@ export default function TradePanel({ player, bookStatus, book, onExecuted, onSta
                 {side === 'BUY' ? 'Comprar' : 'Vender'}
               </button>
             ))}
-          </div>
+          </fieldset>
           <fieldset className="trade-panel__types">
             <legend>Tipo de orden</legend>
             {[['MARKET', 'Al mercado (MARKET)'], ['LIMIT', 'Con precio límite (LIMIT)']].map(([value, label]) => (

@@ -8,12 +8,15 @@
   background: rgb(27 26 23 / 55%);
 }
 .confirm-dialog__panel {
+  position: static;
   width: min(100%, 440px);
+  margin: 0;
   max-height: calc(100vh - 32px);
   overflow-y: auto;
   border: var(--borde-grueso);
   padding: var(--esp-5);
   background: var(--blanco);
+  color: inherit;
   box-shadow: var(--sombra-md);
 }
 .confirm-dialog__title {
