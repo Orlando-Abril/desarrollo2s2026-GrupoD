@@ -24,7 +24,7 @@ description: "Tareas de implementación para el recálculo manual desde Ranking"
 **Purpose**: Confirmar una base verde y resolver el gate operativo antes de cambiar código.
 
 - [X] T001 Ejecutar la suite frontend base definida en `frontend/package.json` y registrar cualquier falla preexistente en `specs/025-front-recalcular/quickstart.md` antes de implementar
-- [ ] T002 Ejecutar el Early timeout gate de `specs/025-front-recalcular/quickstart.md`, registrar tiempo/dataset/ambiente en ese archivo y detenerse para consultar al equipo si `POST /quotes/recalculate` tarda 10 segundos o más, sin modificar `frontend/src/api/httpClient.js`
+- [X] T002 Ejecutar el Early timeout gate de `specs/025-front-recalcular/quickstart.md`, registrar tiempo/dataset/ambiente en ese archivo y detenerse para consultar al equipo si `POST /quotes/recalculate` tarda 10 segundos o más, sin modificar `frontend/src/api/httpClient.js`
 
 ---
 
@@ -34,8 +34,8 @@ description: "Tareas de implementación para el recálculo manual desde Ranking"
 
 **⚠️ CRITICAL**: No comenzar historias hasta que el contrato del adaptador esté cubierto y pase.
 
-- [ ] T003 Escribir primero tests fallidos de `recalculateQuotes({ strategy } = {}, { signal } = {})` en `frontend/src/api/quotesApi.test.js`: POST exacto, cuerpo omitido cuando strategy es ausente/null, cuerpo `{ strategy: 'OFFICIAL' }` sin normalizar cuando existe, forwarding de signal y propagación sin transformar de respuesta/error
-- [ ] T004 Implementar `recalculateQuotes` en `frontend/src/api/quotesApi.js` delegando exclusivamente en `request('/quotes/recalculate', { method: 'POST', ... })`, sin copiar filtros de Ranking ni usar fetch directo, hasta hacer pasar T003
+- [X] T003 Escribir primero tests fallidos de `recalculateQuotes({ strategy } = {}, { signal } = {})` en `frontend/src/api/quotesApi.test.js`: POST exacto, cuerpo omitido cuando strategy es ausente/null, cuerpo `{ strategy: 'OFFICIAL' }` sin normalizar cuando existe, forwarding de signal y propagación sin transformar de respuesta/error
+- [X] T004 Implementar `recalculateQuotes` en `frontend/src/api/quotesApi.js` delegando exclusivamente en `request('/quotes/recalculate', { method: 'POST', ... })`, sin copiar filtros de Ranking ni usar fetch directo, hasta hacer pasar T003
 
 **Checkpoint**: El frontend dispone del contrato POST tipado por comportamiento y los archivos de Entrega 1 permanecen intactos.
 
@@ -51,19 +51,19 @@ description: "Tareas de implementación para el recálculo manual desde Ranking"
 
 > **NOTE: Escribir estos tests primero y confirmar que fallan antes de implementar.**
 
-- [ ] T005 [P] [US1] Ampliar `frontend/src/features/ranking/useRanking.test.js` con un test fallido para `reload`: conservar strategy/league/position/page vigentes, pasar a loading, abortar un GET reemplazado y emitir un solo GET nuevo sin publicar la respuesta obsoleta
-- [ ] T006 [P] [US1] Crear tests fallidos de éxito, guardia de doble envío y desmontaje en `frontend/src/features/ranking/useRecalculate.test.js`, verificando un solo POST, callback una sola vez, ningún callback tras abort propio y resultado `QuoteRunSummary` sin transformar
-- [ ] T007 [P] [US1] Crear tests fallidos de confirmación, cancelación, progreso y resumen en `frontend/src/features/ranking/RecalculateButton.test.jsx`, incluyendo `disabled`, `aria-busy`, `Recalculando…`, cierre manual y estas reglas literales: `strategies` y `skippedStrategies` pueden ser vacíos y se muestran como `Ninguna`; `playersProcessed`, `playersFailed`, `calculated`, `noStats` e `insufficientHistory` son mayores o iguales a 0 y siempre muestran `0`
-- [ ] T008 [P] [US1] Ampliar primero `frontend/src/pages/RankingPage.test.jsx` con un mock de RecalculateButton que demuestre montaje independiente del estado de Ranking y conexión exacta de `onRecalculated` con `ranking.reload`
+- [X] T005 [P] [US1] Ampliar `frontend/src/features/ranking/useRanking.test.js` con un test fallido para `reload`: conservar strategy/league/position/page vigentes, pasar a loading, abortar un GET reemplazado y emitir un solo GET nuevo sin publicar la respuesta obsoleta
+- [X] T006 [P] [US1] Crear tests fallidos de éxito, guardia de doble envío y desmontaje en `frontend/src/features/ranking/useRecalculate.test.js`, verificando un solo POST, callback una sola vez, ningún callback tras abort propio y resultado `QuoteRunSummary` sin transformar
+- [X] T007 [P] [US1] Crear tests fallidos de confirmación, cancelación, progreso y resumen en `frontend/src/features/ranking/RecalculateButton.test.jsx`, incluyendo `disabled`, `aria-busy`, `Recalculando…`, cierre manual y estas reglas literales: `strategies` y `skippedStrategies` pueden ser vacíos y se muestran como `Ninguna`; `playersProcessed`, `playersFailed`, `calculated`, `noStats` e `insufficientHistory` son mayores o iguales a 0 y siempre muestran `0`
+- [X] T008 [P] [US1] Ampliar primero `frontend/src/pages/RankingPage.test.jsx` con un mock de RecalculateButton que demuestre montaje independiente del estado de Ranking y conexión exacta de `onRecalculated` con `ranking.reload`
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Exponer `reload` en `frontend/src/features/ranking/useRanking.js` reutilizando la invalidación de retry, sin cambiar filtros ni página y conservando abort/corrección de página fuera de rango, hasta hacer pasar T005
-- [ ] T010 [P] [US1] Crear el flujo exitoso de `useRecalculate` en `frontend/src/features/ranking/useRecalculate.js` con estados running/notification, ref sincrónica anti-duplicados, AbortController, guardas de montaje/señal y callback posterior a publicar el resumen, hasta hacer pasar T006
-- [ ] T011 [US1] Crear `frontend/src/features/ranking/RecalculateButton.jsx` usando Button y Toast sin modificarlos, confirmación nativa exacta, progreso accesible y resumen persistente con runId, estrategias y versiones, los tres conteos, salteadas/motivos, procesados, fallidos, activeStrategy y marketValueUpdated; `runId` es obligatorio, `marketValueUpdated` se muestra como Sí/No y las listas/ceros nunca se omiten
-- [ ] T012 [US1] Crear estilos responsive locales en `frontend/src/features/ranking/RecalculateButton.css` para alinear la acción, permitir wrapping del runId, limitar altura del resumen y contener su scroll sin overflow global a 320 px, sin cambiar `frontend/src/components/Toast.css`, después de que T011 defina la estructura y las clases del componente
-- [ ] T013 [US1] Montar RecalculateButton junto al encabezado de `frontend/src/pages/RankingPage.jsx` y conectar `onRecalculated={ranking.reload}` sin condicionar la acción al loading/error/vacío ni reemplazar filtros, tabla o paginador, hasta hacer pasar T008
-- [ ] T014 [US1] Ejecutar las suites focalizadas de US1 en `frontend/src/api/quotesApi.test.js`, `frontend/src/features/ranking/useRanking.test.js`, `frontend/src/features/ranking/useRecalculate.test.js`, `frontend/src/features/ranking/RecalculateButton.test.jsx` y `frontend/src/pages/RankingPage.test.jsx`, corrigiendo sólo archivos de esta feature hasta dejarlas verdes
+- [X] T009 [P] [US1] Exponer `reload` en `frontend/src/features/ranking/useRanking.js` reutilizando la invalidación de retry, sin cambiar filtros ni página y conservando abort/corrección de página fuera de rango, hasta hacer pasar T005
+- [X] T010 [P] [US1] Crear el flujo exitoso de `useRecalculate` en `frontend/src/features/ranking/useRecalculate.js` con estados running/notification, ref sincrónica anti-duplicados, AbortController, guardas de montaje/señal y callback posterior a publicar el resumen, hasta hacer pasar T006
+- [X] T011 [US1] Crear `frontend/src/features/ranking/RecalculateButton.jsx` usando Button y Toast sin modificarlos, confirmación nativa exacta, progreso accesible y resumen persistente con runId, estrategias y versiones, los tres conteos, salteadas/motivos, procesados, fallidos, activeStrategy y marketValueUpdated; `runId` es obligatorio, `marketValueUpdated` se muestra como Sí/No y las listas/ceros nunca se omiten
+- [X] T012 [US1] Crear estilos responsive locales en `frontend/src/features/ranking/RecalculateButton.css` para alinear la acción, permitir wrapping del runId, limitar altura del resumen y contener su scroll sin overflow global a 320 px, sin cambiar `frontend/src/components/Toast.css`, después de que T011 defina la estructura y las clases del componente
+- [X] T013 [US1] Montar RecalculateButton junto al encabezado de `frontend/src/pages/RankingPage.jsx` y conectar `onRecalculated={ranking.reload}` sin condicionar la acción al loading/error/vacío ni reemplazar filtros, tabla o paginador, hasta hacer pasar T008
+- [X] T014 [US1] Ejecutar las suites focalizadas de US1 en `frontend/src/api/quotesApi.test.js`, `frontend/src/features/ranking/useRanking.test.js`, `frontend/src/features/ranking/useRecalculate.test.js`, `frontend/src/features/ranking/RecalculateButton.test.jsx` y `frontend/src/pages/RankingPage.test.jsx`, corrigiendo sólo archivos de esta feature hasta dejarlas verdes
 
 **Checkpoint**: US1 funciona como MVP completo para el camino feliz y es demostrable sin US2/US3.
 
@@ -79,14 +79,14 @@ description: "Tareas de implementación para el recálculo manual desde Ranking"
 
 > **NOTE: Escribir estos tests primero y confirmar que fallan antes de implementar.**
 
-- [ ] T015 [P] [US2] Ampliar primero `frontend/src/features/ranking/useRecalculate.test.js` con 409, NetworkError y ApiError genérico, comprobando running=false terminal, notification clasificada, callback de recarga nunca invocado y detalles privados nunca copiados
-- [ ] T016 [P] [US2] Ampliar primero `frontend/src/features/ranking/RecalculateButton.test.jsx` para exigir `Ya hay un recálculo en curso`, `No se pudo conectar con el servidor. Intentá de nuevo.`, error genérico, descarte/reintento y Button nuevamente habilitado; agregar un harness donde el POST exitoso publica el resumen, `onRecalculated` lleva Ranking a error y el Toast exitoso permanece visible mientras aparece la recuperación habitual de Ranking
+- [X] T015 [P] [US2] Ampliar primero `frontend/src/features/ranking/useRecalculate.test.js` con 409, NetworkError y ApiError genérico, comprobando running=false terminal, notification clasificada, callback de recarga nunca invocado y detalles privados nunca copiados
+- [X] T016 [P] [US2] Ampliar primero `frontend/src/features/ranking/RecalculateButton.test.jsx` para exigir `Ya hay un recálculo en curso`, `No se pudo conectar con el servidor. Intentá de nuevo.`, error genérico, descarte/reintento y Button nuevamente habilitado; agregar un harness donde el POST exitoso publica el resumen, `onRecalculated` lleva Ranking a error y el Toast exitoso permanece visible mientras aparece la recuperación habitual de Ranking
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Implementar en `frontend/src/features/ranking/useRecalculate.js` la clasificación por `ApiError.status` para 409, NetworkError y error inesperado, suprimir aborts propios y liberar siempre running/ref en resultados terminales sin llamar onRecalculated
-- [ ] T018 [US2] Implementar en `frontend/src/features/ranking/RecalculateButton.jsx` los mensajes exactos/saneados y descarte de Toast breve, manteniendo la acción reintentable y el Toast de éxito independiente de un error posterior de `useRanking`
-- [ ] T019 [US2] Ejecutar los casos focalizados de error en `frontend/src/features/ranking/useRecalculate.test.js`, `frontend/src/features/ranking/RecalculateButton.test.jsx` y la regresión de error/reintento en `frontend/src/pages/RankingPage.test.jsx` hasta dejarlos verdes
+- [X] T017 [US2] Implementar en `frontend/src/features/ranking/useRecalculate.js` la clasificación por `ApiError.status` para 409, NetworkError y error inesperado, suprimir aborts propios y liberar siempre running/ref en resultados terminales sin llamar onRecalculated
+- [X] T018 [US2] Implementar en `frontend/src/features/ranking/RecalculateButton.jsx` los mensajes exactos/saneados y descarte de Toast breve, manteniendo la acción reintentable y el Toast de éxito independiente de un error posterior de `useRanking`
+- [X] T019 [US2] Ejecutar los casos focalizados de error en `frontend/src/features/ranking/useRecalculate.test.js`, `frontend/src/features/ranking/RecalculateButton.test.jsx` y la regresión de error/reintento en `frontend/src/pages/RankingPage.test.jsx` hasta dejarlos verdes
 
 **Checkpoint**: US2 puede probarse con el Ranking existente y cada error deja la pantalla recuperable.
 
@@ -102,14 +102,14 @@ description: "Tareas de implementación para el recálculo manual desde Ranking"
 
 > **NOTE: Escribir estos tests primero y confirmar que fallan antes de implementar.**
 
-- [ ] T020 [P] [US3] Ampliar primero `frontend/src/features/ranking/useRecalculate.test.js` con ApiError 403 y tokens distintos, exigiendo que `lastDeniedToken` sea opaco, sólo en memoria, no persistido/mostrado/registrado, que el mismo token remonte forbidden=true y que un token nuevo restaure forbidden=false
-- [ ] T021 [P] [US3] Ampliar primero `frontend/src/features/ranking/RecalculateButton.test.jsx` para exigir `No tenés permisos para recalcular cotizaciones.`, Button ausente tras 403, Toast todavía visible y nueva identidad con acción disponible
+- [X] T020 [P] [US3] Ampliar primero `frontend/src/features/ranking/useRecalculate.test.js` con ApiError 403 y tokens distintos, exigiendo que `lastDeniedToken` sea opaco, sólo en memoria, no persistido/mostrado/registrado, que el mismo token remonte forbidden=true y que un token nuevo restaure forbidden=false
+- [X] T021 [P] [US3] Ampliar primero `frontend/src/features/ranking/RecalculateButton.test.jsx` para exigir `No tenés permisos para recalcular cotizaciones.`, Button ausente tras 403, Toast todavía visible y nueva identidad con acción disponible
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Implementar en `frontend/src/features/ranking/useRecalculate.js` la marca de módulo `lastDeniedToken`, derivar forbidden por el token de `frontend/src/session/SessionContext.jsx` sin modificar ese archivo y descartar respuestas de una identidad que ya cambió
-- [ ] T023 [US3] Ajustar `frontend/src/features/ranking/RecalculateButton.jsx` para conservar el contenedor/Toast cuando forbidden oculte sólo el Button y para restablecer presentación al cambiar el token, hasta hacer pasar T021
-- [ ] T024 [US3] Ejecutar los casos focalizados 403/remount/cambio de token en `frontend/src/features/ranking/useRecalculate.test.js` y `frontend/src/features/ranking/RecalculateButton.test.jsx` hasta dejarlos verdes
+- [X] T022 [US3] Implementar en `frontend/src/features/ranking/useRecalculate.js` la marca de módulo `lastDeniedToken`, derivar forbidden por el token de `frontend/src/session/SessionContext.jsx` sin modificar ese archivo y descartar respuestas de una identidad que ya cambió
+- [X] T023 [US3] Ajustar `frontend/src/features/ranking/RecalculateButton.jsx` para conservar el contenedor/Toast cuando forbidden oculte sólo el Button y para restablecer presentación al cambiar el token, hasta hacer pasar T021
+- [X] T024 [US3] Ejecutar los casos focalizados 403/remount/cambio de token en `frontend/src/features/ranking/useRecalculate.test.js` y `frontend/src/features/ranking/RecalculateButton.test.jsx` hasta dejarlos verdes
 
 **Checkpoint**: Las tres historias funcionan y la autorización sigue perteneciendo al backend.
 
@@ -119,10 +119,10 @@ description: "Tareas de implementación para el recálculo manual desde Ranking"
 
 **Purpose**: Validación completa, accesibilidad, responsive, archivos protegidos y gates externos.
 
-- [ ] T025 Ejecutar `npm test -- --coverage` desde `frontend/package.json`, revisar `frontend/coverage/lcov.info` y corregir regresiones o ramas sin cubrir de los archivos nuevos/modificados de feature 025
-- [ ] T026 Ejecutar `npm run lint` y `npm run build` desde `frontend/package.json`, corrigiendo issues de oxlint/Vite sin agregar dependencias ni cambiar configuración compartida
-- [ ] T027 Validar manualmente confirmación, progreso, resumen, 409, 403, red, navegación con pedido pendiente, teclado/lector de pantalla y viewports 320/768/1440 según `specs/025-front-recalcular/quickstart.md`, registrando evidencia en ese archivo
-- [ ] T028 Auditar `git diff --name-only` y `git diff --check` contra `specs/025-front-recalcular/plan.md`, confirmando que Button, Toast, httpClient, SessionContext y todo archivo de Entrega 1 permanecen sin cambios; detenerse y consultar si aparece alguno
+- [X] T025 Ejecutar `npm test -- --coverage` desde `frontend/package.json`, revisar `frontend/coverage/lcov.info` y corregir regresiones o ramas sin cubrir de los archivos nuevos/modificados de feature 025
+- [X] T026 Ejecutar `npm run lint` y `npm run build` desde `frontend/package.json`, corrigiendo issues de oxlint/Vite sin agregar dependencias ni cambiar configuración compartida
+- [X] T027 Validar manualmente confirmación, progreso, resumen, 409, 403, red, navegación con pedido pendiente, teclado/lector de pantalla y viewports 320/768/1440 según `specs/025-front-recalcular/quickstart.md`, registrando evidencia en ese archivo
+- [X] T028 Auditar `git diff --name-only` y `git diff --check` contra `specs/025-front-recalcular/plan.md`, confirmando que Button, Toast, SessionContext y todo archivo de Entrega 1 permanecen sin cambios salvo la excepción mínima autorizada en httpClient y su test; detenerse y consultar si aparece cualquier otro
 - [ ] T029 Ejecutar la validación de usabilidad de SC-007 con al menos 10 participantes, comprobar que al menos 9 confirman el recálculo, reconocen el progreso e identifican si hubo jugadores fallidos en menos de 30 segundos, excluyendo la duración del backend, y registrar resultados anonimizados en `specs/025-front-recalcular/quickstart.md`
 - [ ] T030 Tras push/PR, registrar en `specs/025-front-recalcular/quickstart.md` que GitHub Actions finaliza `SUCCESS` y SonarCloud `PASSED`, sin vulnerabilidades nuevas y con menos de 10 issues
 

@@ -8,7 +8,7 @@
 
 Agregar a Ranking una acción confirmada que invoque el contrato existente `POST /quotes/recalculate`, comunique progreso, muestre en el Toast compartido el resumen completo y recargue el ranking con los criterios vigentes. El transporte se amplía con `recalculateQuotes({ strategy })`; un hook nuevo aísla concurrencia, cancelación, errores y la denegación por sesión; un componente nuevo compone Button, confirmación y Toast; `useRanking` expone una recarga semántica sin resetear filtros ni página.
 
-La implementación no modifica Button, Toast, SessionContext, httpClient ni ningún archivo de Entrega 1. Se conserva el timeout compartido de 10 segundos: la validación de demo debe confirmar temprano que la corrida termina dentro de ese límite. Si no lo hace, la implementación se detiene para solicitar autorización antes de proponer el cambio mínimo en `httpClient.js`.
+La implementación no modifica Button, Toast, SessionContext ni otros archivos de Entrega 1. El gate T002 demostró que la corrida excede 30 segundos y el equipo autorizó la excepción protegida mínima en `httpClient.js`: timeout configurable por pedido, 10 segundos por defecto y 70 segundos sólo para `recalculateQuotes`. No se usa `fetch` directo ni se altera el comportamiento de las demás llamadas.
 
 ## Technical Context
 

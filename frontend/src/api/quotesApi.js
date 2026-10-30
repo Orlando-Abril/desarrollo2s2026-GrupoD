@@ -25,3 +25,13 @@ export function getPlayerQuotes(id, { strategy = '', from = '', to = '', at = ''
   const suffix = query.size ? `?${query.toString()}` : ''
   return request(`/players/${encodeURIComponent(id)}/quotes${suffix}`, { signal })
 }
+
+export function recalculateQuotes({ strategy } = {}, { signal } = {}) {
+  const body = strategy === undefined || strategy === null ? {} : { body: { strategy } }
+  return request('/quotes/recalculate', {
+    method: 'POST',
+    ...body,
+    signal,
+    timeoutMs: 70_000,
+  })
+}

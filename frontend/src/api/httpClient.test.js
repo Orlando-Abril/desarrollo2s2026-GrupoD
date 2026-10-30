@@ -69,6 +69,20 @@ describe('httpClient', () => {
     expect(clearSpy).toHaveBeenCalled()
   })
 
+  it('uses a request-specific timeout without changing the default', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn((_, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+    })))
+
+    const result = request('/slow-recalculation', { timeoutMs: 70_000 })
+    const rejection = expect(result).rejects.toBeInstanceOf(NetworkError)
+    await vi.advanceTimersByTimeAsync(69_999)
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await rejection
+  })
+
   it('forwards an already aborted external signal to fetch', async () => {
     const externalController = new AbortController()
     externalController.abort()

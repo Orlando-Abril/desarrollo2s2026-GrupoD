@@ -36,6 +36,17 @@ Registrar tiempo, volumen del dataset y ambiente como evidencia.
 - Dataset consultado antes de cualquier cambio: `players=0`, `player_stats=0`, `players_with_stats=0`.
 - Decisión: dataset vacío y no representativo. T002 permanece pendiente; no se creó ni promovió `t002-admin` y no se ejecutó ni midió `POST /quotes/recalculate`.
 
+### Intento local 2026-10-30
+
+- Ambiente: backend local en `localhost:8080`, PostgreSQL 17 en `localhost:5432` y Redis 7 en el contenedor local `desarrollo2-redis`; `/actuator/health` respondió `200 UP` antes de la prueba.
+- Dataset verificado mediante consultas agregadas de solo lectura: `players=2651`, `player_stats=1912`, `players_with_stats=1912`; la base contenía un ADMIN previo que no fue consultado ni modificado.
+- Autenticación de prueba: se crearon usuarios técnicos aislados para T002 y se promovieron exclusivamente esas cuentas; no se mostraron ni persistieron fuera del backend contraseñas, JWT o API keys. El ADMIN incluido en el dump permaneció intacto.
+- Corrida: se envió un solo `POST /quotes/recalculate` efectivo con cuerpo `{}`. La solicitud seguía ejecutándose después de 30 segundos, por lo que excede de forma concluyente el timeout compartido de 10 segundos.
+- Evidencia de finalización backend: sin enviar otro POST, el conteo de cotizaciones del nuevo `run_id` creció de 2994 a 4174, 4742, 5292 y finalmente 5302; el resultado abarcó 2651 jugadores y 2 estrategias. Esto también confirma que el backend continúa la corrida cuando el cliente deja de esperar.
+- Decisión: el gate de timeout no pasa. T002 permanece como bloqueo y no se inicia T003. Según el plan, se requiere autorización explícita para introducir un timeout configurable por pedido en `frontend/src/api/httpClient.js`; no se usará `fetch` directo ni se modificará el timeout global sin esa autorización.
+- Autorización posterior: el equipo autorizó el cambio protegido mínimo. `request` podrá aceptar un timeout por pedido, mantendrá 10 segundos por defecto y `recalculateQuotes` usará 70 segundos. T002 queda completa y T003 puede comenzar.
+- Limpieza local: antes de borrar se verificó que `t002-admin`, `t002-runner` y `t002-gate` no tuvieran holdings, órdenes, trades, asignaciones de tokens ni auditorías. Se eliminaron primero exclusivamente sus tres API keys y luego las tres cuentas; el ADMIN del dump permaneció intacto.
+
 ## Automated validation
 
 Desde `frontend/`:
@@ -55,6 +66,14 @@ Expected outcomes:
 - Ranking prueba que reload conserva los criterios actuales y que la página conecta el callback correcto.
 - La suite completa no introduce regresiones y genera `coverage/lcov.info`.
 - Oxlint y Vite terminan sin errores.
+
+### Resultado automatizado 2026-10-30
+
+- Suites focalizadas: 6 archivos y 66 tests aprobados, incluida la regresión de React Strict Mode.
+- Suite completa: 21 archivos y 228 tests aprobados. La ejecución de cobertura previa a la regresión adicional registró 96,13% statements, 92,05% branches, 95,14% functions y 97,97% lines.
+- `npm run lint`: finalizó sin warnings después de derivar el estado por identidad sin actualizaciones sincrónicas dentro de efectos.
+- `npm run build`: finalizó correctamente con Vite 8.3.0; se conserva el warning preexistente de tamaño de chunk, sin error de build.
+- Auditoría: `git diff --check` sin errores. Button, Toast y SessionContext permanecen intactos; `httpClient.js` y su test contienen exclusivamente el timeout por pedido autorizado, con 10 segundos por defecto.
 
 ## Manual validation
 
@@ -107,6 +126,17 @@ Expected outcomes:
 - Con lector de pantalla, confirmar nombre del Button, estado busy, contenido del output y acción de cierre.
 - Verificar que progreso, error y permiso no dependan sólo de color.
 - Confirmar contraste WCAG 2.2 AA con los estilos locales y tokens existentes.
+
+### Resultado de validación manual 2026-10-30
+
+- Resultado global: **PASS**.
+- Confirmación: cancelar no generó un POST y aceptar generó un único `POST /quotes/recalculate`.
+- Progreso y éxito: se verificaron Button deshabilitado, estado busy, texto de progreso, resumen completo y recarga posterior de Ranking con los criterios vigentes.
+- Recuperación: se verificaron los escenarios 409, 403, error de red y falla del GET posterior sin perder el resumen exitoso.
+- Navegación: finalizar o cancelar el pedido pendiente no produjo Toast ni recarga tardía fuera de Ranking.
+- Accesibilidad: el flujo completo fue operable con teclado y el lector de pantalla anunció control, progreso, resultado y cierre.
+- Responsive: la acción, el progreso y el resumen se validaron en 320 px, 768 px y 1440 px sin superposición ni overflow horizontal global.
+- Evidencia: confirmación manual del equipo responsable de que todos los escenarios de T027 fueron ejecutados y aprobados.
 
 ## External usability validation (SC-007)
 

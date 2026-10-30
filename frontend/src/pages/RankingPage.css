@@ -3,6 +3,18 @@
   overflow-x: hidden;
 }
 
+.ranking-page__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--esp-4);
+}
+
+@media (max-width: 640px) {
+  .ranking-page__heading { flex-direction: column; }
+  .ranking-page__heading .recalculate-control { width: 100%; }
+}
+
 .ranking-results {
   min-width: 0;
   scroll-margin-top: 84px;

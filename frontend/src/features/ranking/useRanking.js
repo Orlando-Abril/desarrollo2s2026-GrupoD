@@ -71,6 +71,7 @@ export default function useRanking() {
     setError(null)
     setRetryKey((key) => key + 1)
   }, [])
+  const reload = retry
 
   return {
     filters,
@@ -78,6 +79,7 @@ export default function useRanking() {
     status,
     error,
     retry,
+    reload,
     page: currentPage,
     setPage,
     items: data.items,
