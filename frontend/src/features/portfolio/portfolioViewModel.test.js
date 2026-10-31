@@ -17,4 +17,23 @@ describe('portfolioViewModel', () => {
     expect(toAllocationData(source, 0).every((row) => row.share === null && row.percentage === null)).toBe(true)
     expect(toAllocationData(source, Number.NaN).every((row) => row.share === null)).toBe(true)
   })
+  it('normalizes omitted, undefined and empty positions without changing the public argument order', () => {
+    expect(toAllocationData()).toEqual([])
+    expect(toAllocationData(undefined, 10)).toEqual([])
+    expect(toAllocationData([], 10)).toEqual([])
+  })
+  it('preserves order and colors while distributing rounded tenths to exactly 100%', () => {
+    const source = [
+      position({ playerId: 3, currentValue: 1 }),
+      position({ playerId: 1, currentValue: 1 }),
+      position({ playerId: 2, currentValue: 1 }),
+    ]
+    const data = toAllocationData(source, 3)
+    expect(data.map((row) => row.playerId)).toEqual([3, 1, 2])
+    expect(data.map((row) => row.color)).toEqual(['#1f4fd1', '#e2412f', '#12805c'])
+    expect(data.map((row) => row.fill)).toEqual(data.map((row) => row.color))
+    expect(data.map((row) => row.share)).toEqual([1 / 3, 1 / 3, 1 / 3])
+    expect(data.map((row) => row.percentage)).toEqual([33.4, 33.3, 33.3])
+    expect(data.reduce((sum, row) => sum + row.percentage, 0)).toBeCloseTo(100, 10)
+  })
 })

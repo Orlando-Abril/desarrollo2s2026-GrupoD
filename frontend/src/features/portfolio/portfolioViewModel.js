@@ -23,17 +23,22 @@ export function toPerformanceData(positions = []) {
   }))
 }
 
-export function toAllocationData(positions = [], totalCurrentValue) {
+export function toAllocationData(positions, totalCurrentValue) {
+  const safePositions = positions ?? []
   const total = Number(totalCurrentValue)
   const valid = Number.isFinite(total) && total > 0
-  const rows = positions.map((position, index) => ({
-    playerId: position.playerId,
-    playerName: position.playerName,
-    currentValue: position.currentValue,
-    share: valid ? Number(position.currentValue) / total : null,
-    percentage: null,
-    color: COLORS[index % COLORS.length],
-  }))
+  const rows = safePositions.map((position, index) => {
+    const color = COLORS[index % COLORS.length]
+    return {
+      playerId: position.playerId,
+      playerName: position.playerName,
+      currentValue: position.currentValue,
+      share: valid ? Number(position.currentValue) / total : null,
+      percentage: null,
+      color,
+      fill: color,
+    }
+  })
   if (!valid || !rows.length) return rows
 
   const raw = rows.map((row) => row.share * 1000)

@@ -12,7 +12,7 @@ export default function usePortfolio() {
   const [identity, setIdentity] = useState({ status: 'loading', account: null, retry: 0 })
   const [portfolioState, setPortfolioState] = useState({ status: 'idle', data: null, refreshing: false, retry: 0 })
   const [transactionsState, setTransactionsState] = useState({ status: 'idle', data: EMPTY_PAGE, refreshing: false, retry: 0 })
-  const [page, setPageState] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -36,11 +36,11 @@ export default function usePortfolio() {
   useEffect(() => {
     if (!identity.account?.id) return undefined
     const controller = new AbortController()
-    getUserTransactions(identity.account.id, { page: page - 1, size: 20 }, { signal: controller.signal }).then((data) => {
+    getUserTransactions(identity.account.id, { page: currentPage - 1, size: 20 }, { signal: controller.signal }).then((data) => {
       if (controller.signal.aborted) return
       const corrected = data.totalPages > 0 ? data.totalPages : 1
-      if (page > corrected) {
-        setPageState(corrected)
+      if (currentPage > corrected) {
+        setCurrentPage(corrected)
         return
       }
       setTransactionsState((current) => ({ ...current, data, status: data.items?.length ? 'ready' : 'empty', refreshing: false }))
@@ -48,14 +48,14 @@ export default function usePortfolio() {
       if (!controller.signal.aborted && error?.status !== 401) setTransactionsState((current) => ({ ...current, status: 'error', refreshing: false }))
     })
     return () => controller.abort()
-  }, [identity.account?.id, page, transactionsState.retry])
+  }, [currentPage, identity.account?.id, transactionsState.retry])
 
   const totalPages = transactionsState.data?.totalPages ?? 0
   const setPage = useCallback((next) => {
-    if (!Number.isInteger(next) || next < 1 || next === page || (totalPages > 0 && next > totalPages)) return
+    if (!Number.isInteger(next) || next < 1 || next === currentPage || (totalPages > 0 && next > totalPages)) return
     setTransactionsState((current) => ({ ...current, status: 'loading', refreshing: Boolean(current.data?.items?.length) }))
-    setPageState(next)
-  }, [page, totalPages])
+    setCurrentPage(next)
+  }, [currentPage, totalPages])
 
   return {
     identityStatus: identity.status,
@@ -70,7 +70,7 @@ export default function usePortfolio() {
     transactions: transactionsState.data,
     transactionsError: transactionsState.status === 'error',
     transactionsRefreshing: transactionsState.refreshing,
-    page,
+    page: currentPage,
     totalPages,
     totalElements: transactionsState.data?.totalElements ?? 0,
     setPage,

@@ -28,7 +28,22 @@ describe('PortfolioPage', () => {
   it('shows no false zero while loading', () => {
     hook.mockReturnValue({ ...base, identityStatus: 'loading' })
     render(<MemoryRouter><PortfolioPage/></MemoryRouter>)
-    expect(screen.getByText('Cargando tu portfolio…')).toBeTruthy(); expect(screen.queryByText('0,0000 cr')).toBeNull()
+    const status = screen.getByRole('status')
+    expect(status.tagName).toBe('OUTPUT'); expect(status.textContent).toBe('Cargando tu portfolio…')
+    expect(status.className).toBe('portfolio-loading-status'); expect(screen.queryByText('0,0000 cr')).toBeNull()
+  })
+  it('announces portfolio and transaction loading through implicit status roles', () => {
+    hook.mockReturnValue({
+      ...base,
+      portfolioStatus: 'loading',
+      portfolio: null,
+      transactionsStatus: 'loading',
+      transactions: transactionPage({ items: [], numberOfElements: 0, totalElements: 0, totalPages: 0 }),
+    })
+    render(<MemoryRouter><PortfolioPage/></MemoryRouter>)
+    const statuses = screen.getAllByRole('status')
+    expect(statuses.map((status) => status.textContent)).toEqual(['Cargando posición…', 'Cargando operaciones…'])
+    expect(statuses.every((status) => status.tagName === 'OUTPUT' && status.className === 'portfolio-loading-status')).toBe(true)
   })
   it('shows the exact empty message and keeps transaction history', () => {
     hook.mockReturnValue({ ...base, portfolioStatus: 'empty', portfolio: portfolio({ positions: [], totalCost: 0, totalCurrentValue: 0, totalProfitLoss: 0 }) })
