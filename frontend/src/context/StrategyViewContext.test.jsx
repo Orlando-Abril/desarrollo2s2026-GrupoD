@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { activeOfficial } from '../test/strategyFixtures.js'
+import { activeOfficial, marketMomentum } from '../test/strategyFixtures.js'
 
 const getActiveStrategy = vi.fn()
 vi.mock('../api/strategyApi.js', () => ({ getActiveStrategy }))
@@ -30,6 +30,18 @@ describe('StrategyViewContext', () => {
     store.setViewStrategy('MOMENTUM')
     store.setIdentity('token-b')
     expect(store.getSnapshot()).toMatchObject({ viewStrategy: 'MARKET_CURRENT', configStatus: 'idle', activeConfig: null })
+  })
+
+  it('expone la alternativa informada y la usa sólo en el modo alternativo', () => {
+    const store = createStrategyViewStore({ activeConfig: marketMomentum, configStatus: 'ready' })
+    function Probe() {
+      const { alternativeCode, comparisonStrategy } = useStrategyView()
+      return <span>{`${alternativeCode}|${comparisonStrategy}`}</span>
+    }
+    render(<StrategyViewProvider store={store}><Probe /></StrategyViewProvider>)
+    expect(screen.getByText('OFFICIAL|null')).toBeTruthy()
+    act(() => store.setViewStrategy('MOMENTUM'))
+    expect(screen.getByText('OFFICIAL|OFFICIAL')).toBeTruthy()
   })
 
   it('permite reintentar tras error', async () => {

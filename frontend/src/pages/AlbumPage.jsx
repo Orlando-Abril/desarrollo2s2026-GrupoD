@@ -10,8 +10,15 @@ import Pager from '../features/album/Pager.jsx'
 import useAlbum from '../features/album/useAlbum.js'
 import useLatestPageQuotes from '../features/album/useLatestPageQuotes.js'
 import { useStrategyView } from '../context/StrategyViewContext.jsx'
+import { strategyName } from '../utils/comparison.js'
 import { formatInteger } from '../utils/format.js'
 import './AlbumPage.css'
+
+function AlternativeQuotesNotice({ status, label, onRetry }) {
+  if (status === 'loading') return <p role="status">Cargando cotizaciones {label}…</p>
+  if (status === 'error') return <EstadoPanel title={`No pudimos cargar ${label}`} action={{ label: 'Reintentar', onClick: onRetry }}>El precio de mercado sigue disponible.</EstadoPanel>
+  return null
+}
 
 export default function AlbumPage() {
   const location = useLocation()
@@ -19,9 +26,10 @@ export default function AlbumPage() {
   const [toast, setToast] = useState(location.state?.toast ?? null)
   const resultsRef = useRef(null)
   const album = useAlbum()
-  const { viewStrategy } = useStrategyView()
-  const latest = useLatestPageQuotes(album.items ?? [], viewStrategy)
-  const alternativeQuotes = viewStrategy === 'MOMENTUM' && latest.status === 'ready' ? latest.quotes : null
+  const { comparisonStrategy } = useStrategyView()
+  const latest = useLatestPageQuotes(album.items ?? [], comparisonStrategy)
+  const alternativeQuotes = latest.status === 'ready' ? latest.quotes : null
+  const alternativeLabel = strategyName(comparisonStrategy)
   const dismissToast = useCallback(() => {
     setToast(null)
     void navigate(location.pathname, { replace: true, state: null })
@@ -69,8 +77,8 @@ export default function AlbumPage() {
     )
   } else {
     content = album.viewMode === 'cards'
-      ? <AlbumGrid players={album.items} alternativeQuotes={alternativeQuotes} />
-      : <AlbumTable players={album.items} alternativeQuotes={alternativeQuotes} />
+      ? <AlbumGrid players={album.items} alternativeQuotes={alternativeQuotes} alternativeLabel={alternativeLabel} />
+      : <AlbumTable players={album.items} alternativeQuotes={alternativeQuotes} alternativeLabel={alternativeLabel} />
   }
 
   return (
@@ -87,8 +95,7 @@ export default function AlbumPage() {
         onViewChange={album.setViewMode}
         onClear={album.clearFilters}
       />
-      {viewStrategy === 'MOMENTUM' && latest.status === 'loading' ? <p role="status">Cargando cotizaciones Momentum…</p> : null}
-      {viewStrategy === 'MOMENTUM' && latest.status === 'error' ? <EstadoPanel title="No pudimos cargar Momentum" action={{ label: 'Reintentar', onClick: latest.retry }}>El precio de mercado sigue disponible.</EstadoPanel> : null}
+      <AlternativeQuotesNotice status={latest.status} label={alternativeLabel} onRetry={latest.retry} />
       <div className="album-results" ref={resultsRef}>{content}</div>
       {album.status === 'ready' && album.total > 0 ? (
         <Pager

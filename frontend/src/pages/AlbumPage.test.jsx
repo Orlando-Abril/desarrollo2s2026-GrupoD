@@ -5,6 +5,8 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import AlbumPage from './AlbumPage.jsx'
 import { SessionProvider, useSession } from '../session/SessionContext.jsx'
 import { StrategyViewProvider, createStrategyViewStore } from '../context/StrategyViewContext.jsx'
+import { marketMomentum } from '../test/strategyFixtures.js'
+import { strategyStore } from '../test/strategyStore.js'
 
 function player(id, overrides = {}) {
   return {
@@ -61,9 +63,8 @@ function renderAlbum(store = createStrategyViewStore()) {
 }
 
 describe('AlbumPage', () => {
-  it('uses latest Momentum quotes for the visible cards only', async () => {
-    const store = createStrategyViewStore()
-    store.setViewStrategy('MOMENTUM')
+  it('uses latest alternative quotes for the visible cards only', async () => {
+    const store = strategyStore({ viewStrategy: 'MOMENTUM' })
     const fetchMock = vi.fn((url) => {
       const parsed = new URL(url)
       if (parsed.pathname === '/quotes/latest') return Promise.resolve(response(200, { items: [{ playerId: 1, quote: { value: 1.2, status: 'CALCULATED' } }] }))
@@ -71,10 +72,24 @@ describe('AlbumPage', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     renderAlbum(store)
-    await waitFor(() => expect(document.body.textContent).toContain('Momentum: 1,2000 cr'))
+    await waitFor(() => expect(document.body.textContent).toContain('Momentum1,20 cr'))
     const latestUrl = fetchMock.mock.calls.map(([url]) => new URL(url)).find((url) => url.pathname === '/quotes/latest')
     expect(latestUrl.searchParams.get('playerIds')).toBe('1')
     expect(latestUrl.searchParams.get('strategy')).toBe('MOMENTUM')
+  })
+  it('asks for the alternative returned by the active strategy when MOMENTUM fixed the market', async () => {
+    const store = strategyStore({ viewStrategy: 'MOMENTUM', activeConfig: marketMomentum })
+    const fetchMock = vi.fn((url) => {
+      const parsed = new URL(url)
+      if (parsed.pathname === '/quotes/latest') return Promise.reject(new TypeError('offline'))
+      return Promise.resolve(response(200, [player(1)]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderAlbum(store)
+    await waitFor(() => expect(document.body.textContent).toContain('No pudimos cargar Oficial'))
+    const latestUrl = fetchMock.mock.calls.map(([url]) => new URL(url)).find((url) => url.pathname === '/quotes/latest')
+    expect(latestUrl.searchParams.get('strategy')).toBe('OFFICIAL')
+    expect(document.body.textContent).not.toContain('Momentum')
   })
   beforeEach(() => {
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080')

@@ -24,7 +24,7 @@ function initialStrategy(quote) {
 }
 
 export default function usePlayerDetail(id, { now = new Date() } = {}) {
-  const { viewStrategy, activeConfig } = useStrategyView()
+  const { comparisonStrategy, activeConfig } = useStrategyView()
   const playerId = parsePlayerId(id)
   // Se trabaja con el día UTC y no con el Date: así el efecto no se repite en cada render.
   const today = todayUtc(now)
@@ -58,6 +58,9 @@ export default function usePlayerDetail(id, { now = new Date() } = {}) {
   const detailReady = state.status === 'ready'
   const strategy = selection.strategy ?? activeConfig?.marketStrategy?.code ?? initialStrategy(quote)
   const { range } = selection
+  // Compara el precio de mercado vigente con la alternativa informada por GET /strategies/active.
+  const marketCode = activeConfig?.marketStrategy?.code ?? quote?.strategy
+  const comparisonKey = comparisonStrategy ? [...new Set([marketCode, comparisonStrategy].filter(Boolean))].join(',') : ''
 
   // La variación es secundaria: si su historial falla, la cabecera muestra "—" sin error.
   useEffect(() => {
@@ -78,17 +81,18 @@ export default function usePlayerDetail(id, { now = new Date() } = {}) {
     const controller = new AbortController()
     const dates = rangeToDates(range, new Date(`${today}T00:00:00Z`))
 
-    if (viewStrategy === 'MOMENTUM') {
+    if (comparisonKey) {
+      const codes = comparisonKey.split(',')
       setHistory(LOADING_HISTORY)
-      Promise.allSettled(['OFFICIAL', 'MOMENTUM'].map((code) => getPlayerQuotes(playerId, { strategy: code, ...dates }, { signal: controller.signal })))
-        .then(([official, momentum]) => {
+      Promise.allSettled(codes.map((code) => getPlayerQuotes(playerId, { strategy: code, ...dates }, { signal: controller.signal })))
+        .then((results) => {
           if (controller.signal.aborted) return
-          if (official.status === 'rejected' && momentum.status === 'rejected') {
+          if (results.every((result) => result.status === 'rejected')) {
             setHistory({ status: 'error', points: [], comparisonPoints: [] })
             return
           }
-          const comparisonPoints = compareQuoteSeries(official.status === 'fulfilled' ? official.value : [], momentum.status === 'fulfilled' ? momentum.value : [])
-          setHistory({ status: comparisonPoints.length ? 'ready' : 'empty', points: [], comparisonPoints, partialError: official.status === 'rejected' || momentum.status === 'rejected' })
+          const comparisonPoints = compareQuoteSeries(codes.map((code, index) => [code, results[index].status === 'fulfilled' ? results[index].value : []]))
+          setHistory({ status: comparisonPoints.length ? 'ready' : 'empty', points: [], comparisonPoints, partialError: results.some((result) => result.status === 'rejected') })
         })
       return () => controller.abort()
     }
@@ -104,7 +108,7 @@ export default function usePlayerDetail(id, { now = new Date() } = {}) {
       })
 
     return () => controller.abort()
-  }, [detailReady, playerId, strategy, range, today, historyRetryKey, viewStrategy])
+  }, [detailReady, playerId, strategy, range, today, historyRetryKey, comparisonKey])
 
   useEffect(() => {
     if (!atRequest) return undefined
@@ -168,6 +172,7 @@ export default function usePlayerDetail(id, { now = new Date() } = {}) {
     variation: { current: quote?.value ?? null, previous: previousValue },
     retry,
     strategy,
+    comparisonCodes: comparisonKey ? comparisonKey.split(',') : null,
     range,
     setStrategy,
     setRange,

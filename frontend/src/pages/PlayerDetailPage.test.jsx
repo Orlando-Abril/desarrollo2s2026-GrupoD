@@ -5,7 +5,8 @@ import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom
 import PlayerDetailPage from './PlayerDetailPage.jsx'
 import { SessionProvider, useSession } from '../session/SessionContext.jsx'
 import { StrategyViewProvider, createStrategyViewStore } from '../context/StrategyViewContext.jsx'
-import { pendingMomentum } from '../test/strategyFixtures.js'
+import { marketMomentum, pendingMomentum } from '../test/strategyFixtures.js'
+import { strategyStore } from '../test/strategyStore.js'
 
 // jsdom mide 0×0 y no tiene ResizeObserver: se fija el tamaño del gráfico (research R2).
 vi.mock('recharts', async (importOriginal) => {
@@ -107,6 +108,10 @@ function quoteCalls(fetchMock) {
     .map((url) => Object.fromEntries(url.searchParams))
 }
 
+function requestedStrategy(fetchMock, strategy) {
+  return quoteCalls(fetchMock).some((query) => query.strategy === strategy)
+}
+
 function AutoLogin({ children }) {
   const { login } = useSession()
   useEffect(() => {
@@ -164,18 +169,24 @@ describe('PlayerDetailPage', () => {
       const header = await screen.findByRole('region', { name: 'Bukayo Saka' })
       expect(within(header).getByTestId('current-quote').textContent).toBe('1,25 cr')
       expect(within(header).getByText(/recálculo/i).textContent).toContain('OFFICIAL')
-      await waitFor(() => expect(quoteCalls(fetchMock).some((query) => query.strategy === 'OFFICIAL')).toBe(true))
+      await waitFor(() => expect(requestedStrategy(fetchMock, 'OFFICIAL')).toBe(true))
     })
-    it('loads both strategy histories when Momentum view is selected', async () => {
-      const store = createStrategyViewStore()
-      store.setViewStrategy('MOMENTUM')
+    it('loads market and alternative histories when the alternative view is selected', async () => {
+      const store = strategyStore({ viewStrategy: 'MOMENTUM' })
       const fetchMock = routeFetch((url) => url.pathname.endsWith('/quotes') ? [200, historyFor(url)] : [200, detail()])
       renderDetail('/jugadores/42', store)
       await screen.findByRole('heading', { name: 'Bukayo Saka' })
-      await waitFor(() => expect(screen.getByRole('table', { name: /OFFICIAL \/ MOMENTUM/ })).toBeTruthy())
-      const strategies = quoteCalls(fetchMock).map((query) => query.strategy)
-      expect(strategies).toContain('OFFICIAL')
-      expect(strategies).toContain('MOMENTUM')
+      await waitFor(() => expect(screen.getByRole('table', { name: /Oficial \/ Momentum/ })).toBeTruthy())
+      const strategies = quoteCalls(fetchMock).filter((query) => query.from).map((query) => query.strategy)
+      expect(strategies).toEqual(['OFFICIAL', 'MOMENTUM'])
+    })
+    it('compares MOMENTUM market against the OFFICIAL alternative once MOMENTUM fixed the price', async () => {
+      const store = strategyStore({ viewStrategy: 'MOMENTUM', activeConfig: marketMomentum })
+      const fetchMock = routeFetch((url) => url.pathname.endsWith('/quotes') ? [200, historyFor(url)] : [200, detail()])
+      renderDetail('/jugadores/42', store)
+      await waitFor(() => expect(screen.getByRole('table', { name: /Momentum \/ Oficial/ })).toBeTruthy())
+      const strategies = quoteCalls(fetchMock).filter((query) => query.from).map((query) => query.strategy)
+      expect(strategies).toEqual(['MOMENTUM', 'OFFICIAL'])
     })
     it('shows the player header, current quote, variation and season stats', async () => {
       routeFetch(defaultHandler)

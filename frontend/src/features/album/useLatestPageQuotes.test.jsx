@@ -7,15 +7,25 @@ const { default: useLatestPageQuotes } = await import('./useLatestPageQuotes.js'
 afterEach(() => { cleanup(); getLatestQuotes.mockReset() })
 
 describe('useLatestPageQuotes', () => {
-  it('consulta los ids visibles sólo en Momentum y distingue quote nula', async () => {
+  it('consulta los ids visibles sólo con una estrategia alternativa y distingue quote nula', async () => {
     getLatestQuotes.mockResolvedValue({ items: [{ playerId: 1, quote: null }] })
-    const { result, rerender } = renderHook(({ players, mode }) => useLatestPageQuotes(players, mode), { initialProps: { players: [{ id: 1 }], mode: 'MARKET_CURRENT' } })
+    const { result, rerender } = renderHook(({ players, strategy }) => useLatestPageQuotes(players, strategy), { initialProps: { players: [{ id: 1 }], strategy: null } })
     expect(getLatestQuotes).not.toHaveBeenCalled()
-    rerender({ players: [{ id: 1 }, { id: 1 }], mode: 'MOMENTUM' })
+    expect(result.current.status).toBe('idle')
+    rerender({ players: [{ id: 1 }, { id: 1 }], strategy: 'MOMENTUM' })
     await waitFor(() => expect(result.current.status).toBe('ready'))
     expect(getLatestQuotes.mock.calls[0][0]).toEqual([1])
     expect(getLatestQuotes.mock.calls[0][1]).toBe('MOMENTUM')
     expect(result.current.quotes[1]).toBeNull()
+  })
+  it('pide la estrategia alternativa recibida y vuelve a consultar si cambia', async () => {
+    getLatestQuotes.mockResolvedValue({ items: [] })
+    const { rerender } = renderHook(({ strategy }) => useLatestPageQuotes([{ id: 1 }], strategy), { initialProps: { strategy: 'OFFICIAL' } })
+    await waitFor(() => expect(getLatestQuotes).toHaveBeenCalledTimes(1))
+    expect(getLatestQuotes.mock.calls[0][1]).toBe('OFFICIAL')
+    rerender({ strategy: 'MOMENTUM' })
+    await waitFor(() => expect(getLatestQuotes).toHaveBeenCalledTimes(2))
+    expect(getLatestQuotes.mock.calls[1][1]).toBe('MOMENTUM')
   })
   it('descarta la respuesta de la página anterior', async () => {
     let resolveOld

@@ -1,8 +1,12 @@
-.strategy-selector { display: flex; flex: 1 1 380px; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; color: var(--papel); font-size: 12px; }
-.strategy-selector label { white-space: nowrap; font-weight: 800; }
-.strategy-selector select { max-width: 132px; padding: 5px; border: 1px solid var(--papel); background: var(--tinta); color: var(--papel); }
-.strategy-selector small { flex: 1 1 190px; min-width: 0; font-size: 10px; line-height: 1.2; overflow-wrap: anywhere; }
-.strategy-selector button { border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; }
+.strategy-selector { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 0; color: var(--papel); font-size: 12px; white-space: nowrap; }
+.strategy-selector label { font-weight: 800; }
+.strategy-selector select { flex: 0 0 auto; padding: 5px; border: 1px solid var(--papel); background: var(--tinta); color: var(--papel); font: inherit; }
+.strategy-selector small { font-family: var(--font-mono); font-size: 10px; }
+.strategy-selector__pending { border: 1px solid var(--amarillo); padding: 2px 4px; color: var(--amarillo); cursor: help; }
+.strategy-selector button { border: 1px solid currentColor; padding: 4px 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .strategy-selector select:focus-visible, .strategy-selector button:focus-visible { outline: 3px solid var(--amarillo); outline-offset: 2px; }
-@media (max-width: 1250px) { .site-header__inner { gap: 8px; } .site-header .nav-item { padding: 0 5px; font-size: 12px; } }
-@media (max-width: 600px) { .strategy-selector { flex-basis: 100%; gap: 4px; } .strategy-selector select { max-width: min(100%, 132px); } .strategy-selector small { flex-basis: 100%; } }
+@media (max-width: 900px) {
+  .strategy-selector { gap: 4px; font-size: 11px; }
+  .strategy-selector label, .strategy-selector__pending-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .strategy-selector select { padding: 4px; }
+}

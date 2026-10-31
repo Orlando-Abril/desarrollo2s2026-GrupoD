@@ -61,7 +61,7 @@ export default function RankingPage() {
           <p>Jugadores ordenados por su cotización actual</p>
         </div>
         <div className="ranking-page__admin-actions">
-          <ActiveStrategyControl onChanged={refreshOpportunities} onFocusRecalculate={() => recalculateRef.current?.focus()} />
+          <ActiveStrategyControl onChanged={refreshOpportunities} onRecalculate={() => recalculateRef.current?.click()} />
           <RecalculateButton buttonRef={recalculateRef} onRecalculated={afterRecalculate} />
         </div>
       </header>

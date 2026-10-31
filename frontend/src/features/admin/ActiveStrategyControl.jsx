@@ -5,7 +5,7 @@ import Toast from '../../components/Toast.jsx'
 import { useStrategyView } from '../../context/StrategyViewContext.jsx'
 import './ActiveStrategyControl.css'
 
-export default function ActiveStrategyControl({ onChanged, onFocusRecalculate }) {
+export default function ActiveStrategyControl({ onChanged, onRecalculate }) {
   const { activeConfig, configStatus, ensureConfig, refreshConfig } = useStrategyView()
   const [role, setRole] = useState(null)
   const [requested, setRequested] = useState(null)
@@ -22,6 +22,7 @@ export default function ActiveStrategyControl({ onChanged, onFocusRecalculate })
   }, [])
   useEffect(() => { if (role === 'ADMIN') void ensureConfig() }, [role, ensureConfig])
   const selected = requested ?? activeConfig?.active?.code ?? ''
+  const unchanged = selected === activeConfig?.active?.code
 
   if (role !== 'ADMIN') return notice ? <Toast onDismiss={() => setNotice(null)}>{notice}</Toast> : null
 
@@ -59,9 +60,10 @@ export default function ActiveStrategyControl({ onChanged, onFocusRecalculate })
     <select id="active-strategy" value={selected} disabled={busy || configStatus !== 'ready'} onChange={(event) => setRequested(event.target.value)}>
       {[activeConfig?.active, activeConfig?.alternative].filter(Boolean).map((strategy) => <option key={strategy.code} value={strategy.code}>{strategy.label ?? strategy.code}</option>)}
     </select>
-    <button type="button" disabled={busy || configStatus !== 'ready' || selected === activeConfig?.active?.code} onClick={() => { void change() }}>Cambiar estrategia activa</button>
+    <button type="button" disabled={busy || configStatus !== 'ready' || unchanged} onClick={() => { void change() }}>Cambiar estrategia activa</button>
+    {configStatus === 'ready' && unchanged ? <span className="active-strategy-control__hint">Elegí otra estrategia para cambiarla</span> : null}
     {configStatus === 'error' ? <button type="button" onClick={() => { void refreshConfig() }}>Reintentar carga</button> : null}
     {activeConfig?.pendingRecalculation ? <small>Mercado actual: {activeConfig.marketStrategy?.code}. Recálculo pendiente.</small> : null}
-    {notice ? <Toast onDismiss={() => setNotice(null)}><span>{notice}</span>{notice.includes('próximo recálculo') && onFocusRecalculate ? <button type="button" onClick={onFocusRecalculate}>Ir a Recalcular cotizaciones</button> : null}</Toast> : null}
+    {notice ? <Toast onDismiss={() => setNotice(null)}><span>{notice}</span>{notice.includes('próximo recálculo') && onRecalculate ? <button type="button" onClick={onRecalculate}>Recalcular ahora</button> : null}</Toast> : null}
   </div>
 }

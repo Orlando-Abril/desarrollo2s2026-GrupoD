@@ -25,6 +25,15 @@ const POINTS = toQuotePoints([
   quote('2026-10-08T18:00:00Z', 1.2, { status: 'NO_STATS' }),
 ])
 
+const COMPARISON_POINTS = [
+  { t: Date.parse('2026-10-01T00:00:00Z'), calculatedAt: '2026-10-01T00:00:00Z', OFFICIAL: 1, MOMENTUM: null, details: { OFFICIAL: { version: 1, status: 'CALCULATED' } } },
+  { t: Date.parse('2026-10-02T00:00:00Z'), calculatedAt: '2026-10-02T00:00:00Z', OFFICIAL: null, MOMENTUM: 1.2, details: { MOMENTUM: { version: 1, status: 'NO_STATS' } } },
+]
+
+function renderChartWithContainer(props = {}) {
+  return render(<QuoteChart points={POINTS} status="ready" strategy="OFFICIAL" range="month" league="PREMIER_LEAGUE" onStrategyChange={vi.fn()} onRangeChange={vi.fn()} onRetry={vi.fn()} {...props} />)
+}
+
 function renderChart(props = {}) {
   const handlers = { onStrategyChange: vi.fn(), onRangeChange: vi.fn(), onRetry: vi.fn() }
   render(
@@ -49,18 +58,26 @@ function tableRows() {
 afterEach(cleanup)
 
 describe('QuoteChart', () => {
-  it('compares OFFICIAL and MOMENTUM with absent points preserved', () => {
-    renderChart({ comparison: true, comparisonPoints: [
-      { t: Date.parse('2026-10-01T00:00:00Z'), calculatedAt: '2026-10-01T00:00:00Z', OFFICIAL: 1, MOMENTUM: null, officialVersion: 1, officialStatus: 'CALCULATED' },
-      { t: Date.parse('2026-10-02T00:00:00Z'), calculatedAt: '2026-10-02T00:00:00Z', OFFICIAL: null, MOMENTUM: 1.2, momentumVersion: 1, momentumStatus: 'NO_STATS' },
-    ] })
-    expect(within(screen.getByRole('table')).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Fecha', 'OFFICIAL', 'MOMENTUM'])
-    expect(document.body.textContent).toContain('Sin cotización')
-    expect(document.body.textContent).toContain('NO_STATS')
+  it('compares market and alternative with legible names, Spanish statuses and absent points preserved', () => {
+    const { container } = renderChartWithContainer({ comparisonCodes: ['OFFICIAL', 'MOMENTUM'], comparisonPoints: COMPARISON_POINTS })
+    const table = screen.getByRole('table')
+    expect(table.className).toBe('quote-chart__table')
+    expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Fecha', 'Oficial', 'Momentum'])
+    expect(tableRows().map((row) => row.slice(1))).toEqual([['1,00 cr · Calculada', 'Sin cotización'], ['Sin cotización', '1,20 cr · Sin estadísticas']])
+    expect(table.textContent).not.toMatch(/NO_STATS|v1 ·/)
+    expect(screen.getByRole('img', { name: 'Oficial / Momentum · Último mes · 2 fechas' })).toBeTruthy()
     expect(screen.queryByRole('group', { name: 'Estrategia' })).toBeNull()
+    expect(container.querySelector('.quote-chart__series--market .recharts-line-curve')).toBeTruthy()
+    expect(container.querySelector('.quote-chart__series--alternative .recharts-line-curve')).toBeTruthy()
+  })
+  it('shows a legend with a color sample for each line', () => {
+    renderChart({ comparisonCodes: ['MOMENTUM', 'OFFICIAL'], comparisonPoints: COMPARISON_POINTS })
+    const items = within(screen.getByRole('list')).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual(['Momentum', 'Oficial'])
+    expect(items.map((item) => item.querySelector('i').className)).toEqual(['quote-chart__swatch quote-chart__series--market', 'quote-chart__swatch quote-chart__series--alternative'])
   })
   it('offers retry when one comparison curve fails', () => {
-    const handlers = renderChart({ comparison: true, comparisonPoints: [{ t: Date.parse('2026-10-01T00:00:00Z'), calculatedAt: '2026-10-01T00:00:00Z', OFFICIAL: 1, MOMENTUM: null }], partialError: true })
+    const handlers = renderChart({ comparisonCodes: ['OFFICIAL', 'MOMENTUM'], comparisonPoints: COMPARISON_POINTS.slice(0, 1), partialError: true })
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(handlers.onRetry).toHaveBeenCalledTimes(1)
   })

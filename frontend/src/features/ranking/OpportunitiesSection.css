@@ -1,10 +1,15 @@
-.opportunities { margin: 32px 0; }
-.opportunities-filters { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
-.opportunities-filters label { display: grid; gap: 4px; }
-.opportunities-filters select { padding: 8px; }
-.opportunities-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.opportunities-list { list-style: none; padding: 0; margin: 0; }
-.opportunities-list li { display: grid; gap: 5px; padding: 12px; margin-bottom: 8px; border: 1px solid var(--tinta-2); overflow-wrap: anywhere; }
-.opportunities-list a { justify-self: start; padding: 6px 10px; background: var(--tinta); color: var(--papel); }
-.opportunities-list a:focus-visible { outline: 3px solid var(--rojo); outline-offset: 3px; }
+.opportunities { margin: var(--esp-6) 0; }
+.opportunities h2 { margin: 0 0 var(--esp-2); font-family: var(--font-display); font-size: 26px; font-weight: 400; text-transform: uppercase; }
+.opportunities__note { margin: 0 0 var(--esp-3); color: var(--tinta-2); font-family: var(--font-mono); font-size: 12px; }
+.opportunities-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-5); }
+.opportunities-group h3 { margin: 0 0 var(--esp-3); font-family: var(--font-display); font-size: 20px; font-weight: 400; text-transform: uppercase; }
+.opportunities-list { display: grid; gap: var(--esp-4); margin: 0; padding: 0; list-style: none; }
+.opportunity-card { display: grid; gap: var(--esp-1); border: var(--borde); padding: var(--esp-3); background: var(--blanco); box-shadow: var(--sombra-sm); font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.opportunity-card strong { font-family: var(--font-texto); font-size: 15px; }
+.opportunity-card__difference { font-weight: 700; }
+.opportunity-card__difference span { white-space: nowrap; }
+.opportunity-card__difference--gain { color: color-mix(in srgb, var(--verde) 88%, var(--tinta)); }
+.opportunity-card__difference--loss { color: color-mix(in srgb, var(--rojo) 78%, var(--tinta)); }
+.opportunity-card a { justify-self: start; margin-top: var(--esp-2); padding: 6px 10px; background: var(--tinta); color: var(--papel); font-weight: 700; text-decoration: none; text-transform: uppercase; }
+.opportunity-card a:focus-visible { outline: 3px solid var(--azul); outline-offset: 3px; }
 @media (max-width: 700px) { .opportunities-columns { grid-template-columns: 1fr; } }

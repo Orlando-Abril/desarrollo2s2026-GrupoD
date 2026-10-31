@@ -1,10 +1,13 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
 import { getActiveStrategy } from '../api/strategyApi.js'
 
+// El valor interno del modo se conserva; la estrategia que viaja al back es la alternativa de GET /strategies/active.
+export const ALTERNATIVE_VIEW = 'MOMENTUM'
+
 const initial = { viewStrategy: 'MARKET_CURRENT', activeConfig: null, configStatus: 'idle', configError: null }
 
-export function createStrategyViewStore() {
-  let state = { ...initial }
+export function createStrategyViewStore(seed = {}) {
+  let state = { ...initial, ...seed }
   let identity = null
   let generation = 0
   let pending = null
@@ -17,7 +20,7 @@ export function createStrategyViewStore() {
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
     getSnapshot() { return state },
     setViewStrategy(value) {
-      if (!['MARKET_CURRENT', 'MOMENTUM'].includes(value)) throw new TypeError('Modo de vista inválido')
+      if (!['MARKET_CURRENT', ALTERNATIVE_VIEW].includes(value)) throw new TypeError('Modo de vista inválido')
       if (state.viewStrategy !== value) emit({ viewStrategy: value })
     },
     setIdentity(value) {
@@ -55,5 +58,7 @@ export function StrategyViewProvider({ store = defaultStore, children }) {
 export function useStrategyView() {
   const store = useContext(StrategyViewContext)
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
-  return { ...state, setViewStrategy: store.setViewStrategy, setIdentity: store.setIdentity, ensureConfig: store.ensureConfig, refreshConfig: store.refreshConfig }
+  const alternativeCode = state.activeConfig?.alternative?.code ?? null
+  const comparisonStrategy = state.viewStrategy === ALTERNATIVE_VIEW ? alternativeCode : null
+  return { ...state, alternativeCode, comparisonStrategy, setViewStrategy: store.setViewStrategy, setIdentity: store.setIdentity, ensureConfig: store.ensureConfig, refreshConfig: store.refreshConfig }
 }

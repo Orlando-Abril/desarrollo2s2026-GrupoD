@@ -3,6 +3,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import Casillero from '../../components/Casillero.jsx'
 import EstadoPanel from '../../components/EstadoPanel.jsx'
 import { LEAGUES } from '../../domain/catalogo.js'
+import { quoteStatusLabel } from '../../utils/comparison.js'
 import { formatCredits } from '../../utils/format.js'
 import { QUOTE_RANGES, STRATEGIES } from './quoteCatalog.js'
 import { formatDate, formatDateTime } from './quoteFormat.js'
@@ -83,7 +84,16 @@ function ChartFigure({ points, caption, league }) {
   )
 }
 
-function ComparisonFigure({ points, caption, partialError, onRetry }) {
+// El trazo lo pinta el CSS por clase; el color también se pasa al Tooltip, que lo usa como estilo HTML.
+const SERIES_TONES = [{ tone: 'market', color: 'var(--azul)' }, { tone: 'alternative', color: 'var(--amarillo)' }]
+
+function comparisonCell(point, code) {
+  if (point[code] === null) return 'Sin cotización'
+  return `${formatCredits(point[code])} · ${quoteStatusLabel(point.details[code]?.status)}`
+}
+
+function ComparisonFigure({ points, codes, caption, partialError, onRetry }) {
+  const series = codes.map((code, index) => ({ code, label: strategyLabel(code), ...SERIES_TONES[index] }))
   return <figure className="quote-chart__figure quote-chart__figure--comparison">
     <figcaption>{caption}</figcaption>
     {partialError ? <p role="status">Una de las curvas no está disponible. <button type="button" onClick={onRetry}>Reintentar</button></p> : null}
@@ -94,28 +104,29 @@ function ComparisonFigure({ points, caption, partialError, onRetry }) {
           <XAxis dataKey="t" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={(t) => formatDate(t)} minTickGap={24} />
           <YAxis tickFormatter={formatCredits} width={76} domain={['auto', 'auto']} />
           <Tooltip labelFormatter={(t) => formatDateTime(t)} formatter={(value, name) => [formatCredits(value), name]} />
-          <Line name="OFFICIAL" type="monotone" dataKey="OFFICIAL" stroke="#1683ad" strokeWidth={3} connectNulls={false} isAnimationActive={!prefersReducedMotion()} />
-          <Line name="MOMENTUM" type="monotone" dataKey="MOMENTUM" stroke="#e4932a" strokeWidth={3} connectNulls={false} isAnimationActive={!prefersReducedMotion()} />
+          {series.map(({ code, label, tone, color }) => <Line key={code} name={label} className={`quote-chart__series--${tone}`} stroke={color} type="monotone" dataKey={code} strokeWidth={3} connectNulls={false} isAnimationActive={!prefersReducedMotion()} />)}
         </LineChart>
       </ResponsiveContainer>
     </div>
-    <p className="quote-chart__legend">OFFICIAL · MOMENTUM</p>
+    <ul className="quote-chart__legend">
+      {series.map(({ code, label, tone }) => <li key={code}><i className={`quote-chart__swatch quote-chart__series--${tone}`} aria-hidden="true" />{label}</li>)}
+    </ul>
     <table className="quote-chart__table">
       <caption>{caption}</caption>
-      <thead><tr><th scope="col">Fecha</th><th scope="col">OFFICIAL</th><th scope="col">MOMENTUM</th></tr></thead>
-      <tbody>{points.map((point) => <tr key={point.calculatedAt}>
+      <thead><tr><th scope="col">Fecha</th>{series.map(({ code, label }) => <th key={code} scope="col">{label}</th>)}</tr></thead>
+      <tbody>{points.map((point) => <tr key={point.t}>
         <td>{formatDateTime(point.calculatedAt)}</td>
-        <td>{point.OFFICIAL === null ? 'Sin cotización' : `${formatCredits(point.OFFICIAL)} · v${point.officialVersion} · ${point.officialStatus ?? 'Sin estado'}`}</td>
-        <td>{point.MOMENTUM === null ? 'Sin cotización' : `${formatCredits(point.MOMENTUM)} · v${point.momentumVersion} · ${point.momentumStatus ?? 'Sin estado'}`}</td>
+        {series.map(({ code }) => <td key={code}>{comparisonCell(point, code)}</td>)}
       </tr>)}</tbody>
     </table>
   </figure>
 }
 
-export default function QuoteChart({ points, status, strategy, range, league, onStrategyChange, onRangeChange, onRetry, comparison = false, comparisonPoints = [], partialError = false }) {
+export default function QuoteChart({ points, status, strategy, range, league, onStrategyChange, onRangeChange, onRetry, comparisonCodes = null, comparisonPoints = [], partialError = false }) {
   const titleId = useId()
   const groupName = useId()
-  const caption = comparison ? `OFFICIAL / MOMENTUM · ${QUOTE_RANGES[range].label} · ${comparisonPoints.length} fechas` : `${strategyLabel(strategy)} · ${QUOTE_RANGES[range].label} · ${points.length} cotizaciones`
+  const comparison = Boolean(comparisonCodes?.length)
+  const caption = comparison ? `${comparisonCodes.map(strategyLabel).join(' / ')} · ${QUOTE_RANGES[range].label} · ${comparisonPoints.length} fechas` : `${strategyLabel(strategy)} · ${QUOTE_RANGES[range].label} · ${points.length} cotizaciones`
 
   let content
   if (status === 'loading') {
@@ -137,7 +148,7 @@ export default function QuoteChart({ points, status, strategy, range, league, on
       </EstadoPanel>
     )
   } else {
-    content = comparison ? <ComparisonFigure points={comparisonPoints} caption={caption} partialError={partialError} onRetry={onRetry} /> : <ChartFigure points={points} caption={caption} league={league} />
+    content = comparison ? <ComparisonFigure points={comparisonPoints} codes={comparisonCodes} caption={caption} partialError={partialError} onRetry={onRetry} /> : <ChartFigure points={points} caption={caption} league={league} />
   }
 
   return (

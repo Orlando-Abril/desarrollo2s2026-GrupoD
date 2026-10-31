@@ -10,9 +10,9 @@ function publishError(error, signal, setter) {
 }
 
 export default function usePortfolio() {
-  const { viewStrategy } = useStrategyView()
+  const { comparisonStrategy } = useStrategyView()
   const [identity, setIdentity] = useState({ status: 'loading', account: null, retry: 0 })
-  const [portfolioState, setPortfolioState] = useState({ status: 'idle', data: null, refreshing: false, retry: 0 })
+  const [portfolioState, setPortfolioState] = useState({ status: 'idle', data: null, strategy: null, refreshing: false, retry: 0 })
   const [transactionsState, setTransactionsState] = useState({ status: 'idle', data: EMPTY_PAGE, refreshing: false, retry: 0 })
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -27,14 +27,13 @@ export default function usePortfolio() {
   useEffect(() => {
     if (!identity.account?.id) return undefined
     const controller = new AbortController()
-    setPortfolioState((current) => ({ ...current, status: 'loading', data: null }))
-    getUserPortfolio(identity.account.id, { signal: controller.signal, strategy: viewStrategy === 'MOMENTUM' ? 'MOMENTUM' : undefined }).then((data) => {
-      if (!controller.signal.aborted) setPortfolioState((current) => ({ ...current, data, status: data.positions?.length ? 'ready' : 'empty', refreshing: false }))
+    getUserPortfolio(identity.account.id, { signal: controller.signal, strategy: comparisonStrategy ?? undefined }).then((data) => {
+      if (!controller.signal.aborted) setPortfolioState((current) => ({ ...current, data, strategy: comparisonStrategy, status: data.positions?.length ? 'ready' : 'empty', refreshing: false }))
     }).catch((error) => {
       if (!controller.signal.aborted && error?.status !== 401) setPortfolioState((current) => ({ ...current, status: 'error', refreshing: false }))
     })
     return () => controller.abort()
-  }, [identity.account?.id, portfolioState.retry, viewStrategy])
+  }, [identity.account?.id, portfolioState.retry, comparisonStrategy])
 
   useEffect(() => {
     if (!identity.account?.id) return undefined
@@ -53,6 +52,8 @@ export default function usePortfolio() {
     return () => controller.abort()
   }, [currentPage, identity.account?.id, transactionsState.retry])
 
+  // Al cambiar la estrategia se conservan los datos anteriores y se marca la actualización, igual que en el reintento.
+  const switchingStrategy = Boolean(portfolioState.data) && portfolioState.strategy !== comparisonStrategy && portfolioState.status !== 'error'
   const totalPages = transactionsState.data?.totalPages ?? 0
   const setPage = useCallback((next) => {
     if (!Number.isInteger(next) || next < 1 || next === currentPage || (totalPages > 0 && next > totalPages)) return
@@ -66,8 +67,9 @@ export default function usePortfolio() {
     retryIdentity: () => setIdentity((current) => ({ ...current, status: 'loading', retry: current.retry + 1 })),
     portfolioStatus: identity.status === 'ready' && portfolioState.status === 'idle' ? 'loading' : portfolioState.status,
     portfolio: portfolioState.data,
+    portfolioStrategy: portfolioState.strategy,
     portfolioError: portfolioState.status === 'error',
-    portfolioRefreshing: portfolioState.refreshing,
+    portfolioRefreshing: portfolioState.refreshing || switchingStrategy,
     retryPortfolio: () => setPortfolioState((current) => ({ ...current, status: current.data ? current.status : 'loading', refreshing: Boolean(current.data), retry: current.retry + 1 })),
     transactionsStatus: identity.status === 'ready' && transactionsState.status === 'idle' ? 'loading' : transactionsState.status,
     transactions: transactionsState.data,

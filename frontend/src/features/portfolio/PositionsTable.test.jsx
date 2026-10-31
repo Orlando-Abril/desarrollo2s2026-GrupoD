@@ -21,8 +21,11 @@ describe('PositionsTable', () => {
   it('shows Momentum value and result, with missing quotes distinct from zero', () => {
     const rows = portfolioPositions.map((fixture) => position({ ...fixture, playerName: `Jugador ${fixture.playerId}` }))
     rows.push(position({ playerId: 4, strategyValuation: { quotePrice: null, quoteStatus: null, quoteCalculatedAt: null, value: null, profitLoss: null } }))
-    render(<MemoryRouter><PositionsTable positions={rows} comparison /></MemoryRouter>)
+    render(<MemoryRouter><PositionsTable positions={rows} comparisonLabel="Momentum" /></MemoryRouter>)
     expect(screen.getAllByRole('columnheader')).toHaveLength(7)
+    expect(screen.getAllByRole('columnheader')[6].textContent).toBe('Momentum · valor y resultado')
+    expect(document.body.textContent).toContain('Sin estadísticas')
+    expect(document.body.textContent).not.toContain('NO_STATS')
     expect(document.body.textContent).toContain('12,0000 cr')
     expect(document.body.textContent).toContain('+3,0000 cr')
     expect(document.body.textContent).toContain('No disponible · sin cotización')

@@ -1,9 +1,9 @@
 import { LEAGUES, POSITIONS } from '../../domain/catalogo.js'
 import { formatCredits, formatInteger } from '../../utils/format.js'
-import AlternativeQuote from './AlternativeQuote.jsx'
+import AlternativeQuote from '../../components/AlternativeQuote.jsx'
 import './AlbumTable.css'
 
-export default function AlbumTable({ players, alternativeQuotes }) {
+export default function AlbumTable({ players, alternativeQuotes, alternativeLabel }) {
   return (
     <div className="album-table-panel">
       <table className="album-table">
@@ -22,7 +22,7 @@ export default function AlbumTable({ players, alternativeQuotes }) {
                 <td>{player.positions.length ? <span className="album-table__positions">{player.positions.map((position) => <span key={position}>{POSITIONS[position].label}</span>)}</span> : '—'}</td>
                 <td>{player.nationality ?? '—'}</td>
                 <td className="album-table__number">{player.age === null ? '—' : formatInteger(player.age)}</td>
-                <td className="album-table__number">{formatCredits(player.marketValue)}{alternativeQuotes ? <AlternativeQuote marketValue={player.marketValue} quote={alternativeQuotes[player.id] ?? null} /> : null}</td>
+                <td className="album-table__number">{formatCredits(player.marketValue)}{alternativeQuotes ? <AlternativeQuote marketValue={player.marketValue} quote={alternativeQuotes[player.id] ?? null} label={alternativeLabel} /> : null}</td>
               </tr>
             )
           })}

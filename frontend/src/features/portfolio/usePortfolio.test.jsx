@@ -2,7 +2,9 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../api/httpClient.js'
 import { account, portfolio, transaction, transactionPage } from './portfolioTestData.js'
-import { StrategyViewProvider, createStrategyViewStore } from '../../context/StrategyViewContext.jsx'
+import { StrategyViewProvider } from '../../context/StrategyViewContext.jsx'
+import { marketMomentum } from '../../test/strategyFixtures.js'
+import { strategyStore } from '../../test/strategyStore.js'
 
 const api = vi.hoisted(() => ({ getCurrentAccount: vi.fn(), getUserPortfolio: vi.fn(), getUserTransactions: vi.fn() }))
 vi.mock('../../api/portfolioApi.js', () => api)
@@ -26,7 +28,7 @@ describe('usePortfolio', () => {
     const signal = api.getUserPortfolio.mock.calls[0][1].signal; unmount(); expect(signal.aborted).toBe(true)
   })
   it('switches to Momentum without changing transactions and aborts the prior valuation', async () => {
-    const store = createStrategyViewStore()
+    const store = strategyStore()
     let resolveMarket
     api.getUserPortfolio.mockImplementationOnce(() => new Promise((resolve) => { resolveMarket = resolve })).mockResolvedValue(portfolio({ strategyValuation: { totalValue: 12 } }))
     const wrapper = ({ children }) => <StrategyViewProvider store={store}>{children}</StrategyViewProvider>
@@ -41,7 +43,28 @@ describe('usePortfolio', () => {
     await waitFor(() => expect(result.current.portfolio.strategyValuation.totalValue).toBe(12))
     await act(async () => resolveMarket(portfolio()))
     expect(result.current.portfolio.strategyValuation.totalValue).toBe(12)
+    expect(result.current.portfolioStrategy).toBe('MOMENTUM')
     expect(api.getUserTransactions).toHaveBeenCalledTimes(transactionCalls)
+  })
+  it('keeps the position visible and marks it as refreshing while the alternative valuation loads', async () => {
+    const store = strategyStore({ activeConfig: marketMomentum })
+    const wrapper = ({ children }) => <StrategyViewProvider store={store}>{children}</StrategyViewProvider>
+    const { result } = renderHook(() => usePortfolio(), { wrapper })
+    await waitFor(() => expect(result.current.portfolioStatus).toBe('ready'))
+    const marketData = result.current.portfolio
+    let resolveAlternative
+    api.getUserPortfolio.mockImplementationOnce(() => new Promise((resolve) => { resolveAlternative = resolve }))
+    act(() => store.setViewStrategy('MOMENTUM'))
+    await waitFor(() => expect(api.getUserPortfolio).toHaveBeenCalledTimes(2))
+    expect(api.getUserPortfolio.mock.calls[1][1].strategy).toBe('OFFICIAL')
+    expect(result.current.portfolio).toBe(marketData)
+    expect(result.current.portfolioStatus).toBe('ready')
+    expect(result.current.portfolioRefreshing).toBe(true)
+    expect(result.current.portfolioStrategy).toBeNull()
+    await act(async () => resolveAlternative(portfolio({ strategyValuation: { totalValue: 5 } })))
+    expect(result.current.portfolioRefreshing).toBe(false)
+    expect(result.current.portfolioStrategy).toBe('OFFICIAL')
+    expect(result.current.portfolio.strategyValuation.totalValue).toBe(5)
   })
   it('exposes human pages, requests zero-based pages and rejects invalid changes', async () => {
     api.getUserTransactions.mockImplementation((id, { page, size }) => Promise.resolve(transactionPage({

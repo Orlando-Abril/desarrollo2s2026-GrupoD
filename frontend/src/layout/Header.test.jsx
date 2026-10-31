@@ -22,7 +22,7 @@ describe('Header strategy selector', () => {
   it('appears on album, detail and portfolio, keeps choice, and does not PUT', async () => {
     const store = createStrategyViewStore()
     render(<MemoryRouter initialEntries={['/album']}><StrategyViewProvider store={store}><Header items={items} /><Routes><Route path="/album" element={<a href="/jugadores/7">Detalle</a>} /><Route path="/portfolio" element={<p>Portfolio</p>} /><Route path="/ranking" element={<p>Ranking</p>} /></Routes></StrategyViewProvider></MemoryRouter>)
-    await waitFor(() => expect(screen.getByRole('combobox', { name: /Ver con/i })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Momentum' }).disabled).toBe(false))
     fireEvent.change(screen.getByRole('combobox', { name: /Ver con/i }), { target: { value: 'MOMENTUM' } })
     fireEvent.click(screen.getByRole('link', { name: /Portfolio/i }))
     expect(screen.getByRole('combobox', { name: /Ver con/i }).value).toBe('MOMENTUM')

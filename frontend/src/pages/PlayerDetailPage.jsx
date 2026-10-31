@@ -15,7 +15,7 @@ function PlayerDetail({ id }) {
   const navigate = useNavigate()
   const location = useLocation()
   const page = usePlayerDetail(id)
-  const { viewStrategy, activeConfig } = useStrategyView()
+  const { activeConfig } = useStrategyView()
   const fullName = page.detail?.player.fullName
 
   useEffect(() => {
@@ -55,7 +55,7 @@ function PlayerDetail({ id }) {
           onStrategyChange={page.setStrategy}
           onRangeChange={page.setRange}
           onRetry={page.retryHistory}
-          comparison={viewStrategy === 'MOMENTUM'}
+          comparisonCodes={page.comparisonCodes}
           comparisonPoints={page.history.comparisonPoints ?? []}
           partialError={page.history.partialError}
         />
