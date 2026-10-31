@@ -1,5 +1,6 @@
 package com.example.demo.dto.market;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -18,7 +19,17 @@ public record PortfolioPositionResponse(
         @Schema(example = "16.0000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal costBasis,
         @Schema(example = "1.3000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal marketValue,
         @Schema(example = "19.5000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal currentValue,
-        @Schema(example = "3.5000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal profitLoss) {
+        @Schema(example = "3.5000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal profitLoss,
+        @Schema(description = "Sólo con ?strategy (spec 031)")
+        @JsonInclude(JsonInclude.Include.NON_NULL) PositionStrategyValuationResponse strategyValuation) {
+
+    public PortfolioPositionResponse(Long playerId, String playerName, String playerTeam, int quantity,
+                                     int reservedQuantity, int availableQuantity, BigDecimal averagePurchasePrice,
+                                     BigDecimal costBasis, BigDecimal marketValue, BigDecimal currentValue,
+                                     BigDecimal profitLoss) {
+        this(playerId, playerName, playerTeam, quantity, reservedQuantity, availableQuantity, averagePurchasePrice,
+                costBasis, marketValue, currentValue, profitLoss, null);
+    }
 
     public PortfolioPositionResponse {
         Objects.requireNonNull(playerId, "playerId");
@@ -36,6 +47,15 @@ public record PortfolioPositionResponse(
         if (profitLoss.compareTo(currentValue.subtract(costBasis).setScale(4, RoundingMode.HALF_EVEN)) != 0) {
             throw new IllegalArgumentException("profitLoss must equal currentValue - costBasis");
         }
+        if (strategyValuation != null && strategyValuation.quoted() && strategyValuation.profitLoss().compareTo(
+                strategyValuation.value().subtract(costBasis).setScale(4, RoundingMode.HALF_EVEN)) != 0) {
+            throw new IllegalArgumentException("strategy profitLoss must equal strategy value - costBasis");
+        }
+    }
+
+    public PortfolioPositionResponse withStrategyValuation(PositionStrategyValuationResponse valuation) {
+        return new PortfolioPositionResponse(playerId, playerName, playerTeam, quantity, reservedQuantity,
+                availableQuantity, averagePurchasePrice, costBasis, marketValue, currentValue, profitLoss, valuation);
     }
 
     private static BigDecimal scale(BigDecimal value) {

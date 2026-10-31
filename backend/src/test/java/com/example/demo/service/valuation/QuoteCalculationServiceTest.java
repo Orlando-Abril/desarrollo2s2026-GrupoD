@@ -34,7 +34,6 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionOperations;
 
 import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
@@ -702,9 +701,9 @@ class QuoteCalculationServiceTest {
     }
 
     private QuoteCalculationService service(ValuationStrategyCatalog catalog, ValuationAlgorithm... algorithms) {
-        return new QuoteCalculationService(catalog, List.of(algorithms), snapshotService, playerRepository,
-                statsRepository, quoteRepository, Clock.fixed(NOW, ZoneOffset.UTC),
-                TransactionOperations.withoutTransaction(), transactionManager, eventPublisher);
+        return new QuoteCalculationService(catalog, List.of(algorithms),
+                new QuoteRunData(snapshotService, playerRepository, statsRepository, quoteRepository),
+                Clock.fixed(NOW, ZoneOffset.UTC), transactionManager, eventPublisher, MarketStrategyRecorder.NONE);
     }
 
     private void doThrowOnSnapshot(RuntimeException exception) {
