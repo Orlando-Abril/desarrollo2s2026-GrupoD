@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { getPlayerDetail } from '../../api/playerDetailApi.js'
 import { ApiError } from '../../api/httpClient.js'
 import { getPlayerQuotes } from '../../api/quotesApi.js'
+import { useStrategyView } from '../../context/StrategyViewContext.jsx'
+import { compareQuoteSeries } from './compareQuoteSeries.js'
 import { STRATEGIES } from './quoteCatalog.js'
 import { findPrevious, parsePlayerId, rangeToDates, todayUtc, toQuotePoints } from './quoteUtils.js'
 
@@ -22,6 +24,7 @@ function initialStrategy(quote) {
 }
 
 export default function usePlayerDetail(id, { now = new Date() } = {}) {
+  const { viewStrategy, activeConfig } = useStrategyView()
   const playerId = parsePlayerId(id)
   // Se trabaja con el día UTC y no con el Date: así el efecto no se repite en cada render.
   const today = todayUtc(now)
@@ -53,7 +56,7 @@ export default function usePlayerDetail(id, { now = new Date() } = {}) {
 
   const quote = state.detail?.quote ?? null
   const detailReady = state.status === 'ready'
-  const strategy = selection.strategy ?? initialStrategy(quote)
+  const strategy = selection.strategy ?? activeConfig?.marketStrategy?.code ?? initialStrategy(quote)
   const { range } = selection
 
   // La variación es secundaria: si su historial falla, la cabecera muestra "—" sin error.
@@ -75,6 +78,21 @@ export default function usePlayerDetail(id, { now = new Date() } = {}) {
     const controller = new AbortController()
     const dates = rangeToDates(range, new Date(`${today}T00:00:00Z`))
 
+    if (viewStrategy === 'MOMENTUM') {
+      setHistory(LOADING_HISTORY)
+      Promise.allSettled(['OFFICIAL', 'MOMENTUM'].map((code) => getPlayerQuotes(playerId, { strategy: code, ...dates }, { signal: controller.signal })))
+        .then(([official, momentum]) => {
+          if (controller.signal.aborted) return
+          if (official.status === 'rejected' && momentum.status === 'rejected') {
+            setHistory({ status: 'error', points: [], comparisonPoints: [] })
+            return
+          }
+          const comparisonPoints = compareQuoteSeries(official.status === 'fulfilled' ? official.value : [], momentum.status === 'fulfilled' ? momentum.value : [])
+          setHistory({ status: comparisonPoints.length ? 'ready' : 'empty', points: [], comparisonPoints, partialError: official.status === 'rejected' || momentum.status === 'rejected' })
+        })
+      return () => controller.abort()
+    }
+
     getPlayerQuotes(playerId, { strategy, ...dates }, { signal: controller.signal })
       .then((quotes) => {
         if (controller.signal.aborted) return
@@ -86,7 +104,7 @@ export default function usePlayerDetail(id, { now = new Date() } = {}) {
       })
 
     return () => controller.abort()
-  }, [detailReady, playerId, strategy, range, today, historyRetryKey])
+  }, [detailReady, playerId, strategy, range, today, historyRetryKey, viewStrategy])
 
   useEffect(() => {
     if (!atRequest) return undefined

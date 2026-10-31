@@ -8,6 +8,8 @@ import AlbumGrid from '../features/album/AlbumGrid.jsx'
 import AlbumTable from '../features/album/AlbumTable.jsx'
 import Pager from '../features/album/Pager.jsx'
 import useAlbum from '../features/album/useAlbum.js'
+import useLatestPageQuotes from '../features/album/useLatestPageQuotes.js'
+import { useStrategyView } from '../context/StrategyViewContext.jsx'
 import { formatInteger } from '../utils/format.js'
 import './AlbumPage.css'
 
@@ -17,6 +19,9 @@ export default function AlbumPage() {
   const [toast, setToast] = useState(location.state?.toast ?? null)
   const resultsRef = useRef(null)
   const album = useAlbum()
+  const { viewStrategy } = useStrategyView()
+  const latest = useLatestPageQuotes(album.items ?? [], viewStrategy)
+  const alternativeQuotes = viewStrategy === 'MOMENTUM' && latest.status === 'ready' ? latest.quotes : null
   const dismissToast = useCallback(() => {
     setToast(null)
     void navigate(location.pathname, { replace: true, state: null })
@@ -64,8 +69,8 @@ export default function AlbumPage() {
     )
   } else {
     content = album.viewMode === 'cards'
-      ? <AlbumGrid players={album.items} />
-      : <AlbumTable players={album.items} />
+      ? <AlbumGrid players={album.items} alternativeQuotes={alternativeQuotes} />
+      : <AlbumTable players={album.items} alternativeQuotes={alternativeQuotes} />
   }
 
   return (
@@ -82,6 +87,8 @@ export default function AlbumPage() {
         onViewChange={album.setViewMode}
         onClear={album.clearFilters}
       />
+      {viewStrategy === 'MOMENTUM' && latest.status === 'loading' ? <p role="status">Cargando cotizaciones Momentum…</p> : null}
+      {viewStrategy === 'MOMENTUM' && latest.status === 'error' ? <EstadoPanel title="No pudimos cargar Momentum" action={{ label: 'Reintentar', onClick: latest.retry }}>El precio de mercado sigue disponible.</EstadoPanel> : null}
       <div className="album-results" ref={resultsRef}>{content}</div>
       {album.status === 'ready' && album.total > 0 ? (
         <Pager

@@ -49,6 +49,21 @@ function tableRows() {
 afterEach(cleanup)
 
 describe('QuoteChart', () => {
+  it('compares OFFICIAL and MOMENTUM with absent points preserved', () => {
+    renderChart({ comparison: true, comparisonPoints: [
+      { t: Date.parse('2026-10-01T00:00:00Z'), calculatedAt: '2026-10-01T00:00:00Z', OFFICIAL: 1, MOMENTUM: null, officialVersion: 1, officialStatus: 'CALCULATED' },
+      { t: Date.parse('2026-10-02T00:00:00Z'), calculatedAt: '2026-10-02T00:00:00Z', OFFICIAL: null, MOMENTUM: 1.2, momentumVersion: 1, momentumStatus: 'NO_STATS' },
+    ] })
+    expect(within(screen.getByRole('table')).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Fecha', 'OFFICIAL', 'MOMENTUM'])
+    expect(document.body.textContent).toContain('Sin cotización')
+    expect(document.body.textContent).toContain('NO_STATS')
+    expect(screen.queryByRole('group', { name: 'Estrategia' })).toBeNull()
+  })
+  it('offers retry when one comparison curve fails', () => {
+    const handlers = renderChart({ comparison: true, comparisonPoints: [{ t: Date.parse('2026-10-01T00:00:00Z'), calculatedAt: '2026-10-01T00:00:00Z', OFFICIAL: 1, MOMENTUM: null }], partialError: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    expect(handlers.onRetry).toHaveBeenCalledTimes(1)
+  })
   it('renders an accessible table with the same chronological points as the chart', () => {
     renderChart()
     expect(within(screen.getByRole('table')).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([

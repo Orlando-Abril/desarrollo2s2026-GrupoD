@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getCurrentAccount, getUserPortfolio, getUserTransactions } from '../../api/portfolioApi.js'
+import { useStrategyView } from '../../context/StrategyViewContext.jsx'
 
 const EMPTY_PAGE = { items: [], page: 0, size: 20, numberOfElements: 0, totalElements: 0, totalPages: 0, first: true, last: true }
 
@@ -9,6 +10,7 @@ function publishError(error, signal, setter) {
 }
 
 export default function usePortfolio() {
+  const { viewStrategy } = useStrategyView()
   const [identity, setIdentity] = useState({ status: 'loading', account: null, retry: 0 })
   const [portfolioState, setPortfolioState] = useState({ status: 'idle', data: null, refreshing: false, retry: 0 })
   const [transactionsState, setTransactionsState] = useState({ status: 'idle', data: EMPTY_PAGE, refreshing: false, retry: 0 })
@@ -25,13 +27,14 @@ export default function usePortfolio() {
   useEffect(() => {
     if (!identity.account?.id) return undefined
     const controller = new AbortController()
-    getUserPortfolio(identity.account.id, { signal: controller.signal }).then((data) => {
+    setPortfolioState((current) => ({ ...current, status: 'loading', data: null }))
+    getUserPortfolio(identity.account.id, { signal: controller.signal, strategy: viewStrategy === 'MOMENTUM' ? 'MOMENTUM' : undefined }).then((data) => {
       if (!controller.signal.aborted) setPortfolioState((current) => ({ ...current, data, status: data.positions?.length ? 'ready' : 'empty', refreshing: false }))
     }).catch((error) => {
       if (!controller.signal.aborted && error?.status !== 401) setPortfolioState((current) => ({ ...current, status: 'error', refreshing: false }))
     })
     return () => controller.abort()
-  }, [identity.account?.id, portfolioState.retry])
+  }, [identity.account?.id, portfolioState.retry, viewStrategy])
 
   useEffect(() => {
     if (!identity.account?.id) return undefined

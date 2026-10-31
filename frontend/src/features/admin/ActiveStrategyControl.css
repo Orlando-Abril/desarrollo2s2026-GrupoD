@@ -1,0 +1,6 @@
+.active-strategy-control { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.active-strategy-control label { font-weight: 700; }
+.active-strategy-control select, .active-strategy-control button { padding: 7px; }
+.active-strategy-control small { flex-basis: 100%; }
+.active-strategy-control button:focus-visible, .active-strategy-control select:focus-visible { outline: 3px solid var(--azul); outline-offset: 2px; }
+@media (max-width: 600px) { .active-strategy-control { width: 100%; } }

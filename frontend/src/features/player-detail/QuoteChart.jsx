@@ -83,10 +83,39 @@ function ChartFigure({ points, caption, league }) {
   )
 }
 
-export default function QuoteChart({ points, status, strategy, range, league, onStrategyChange, onRangeChange, onRetry }) {
+function ComparisonFigure({ points, caption, partialError, onRetry }) {
+  return <figure className="quote-chart__figure quote-chart__figure--comparison">
+    <figcaption>{caption}</figcaption>
+    {partialError ? <p role="status">Una de las curvas no está disponible. <button type="button" onClick={onRetry}>Reintentar</button></p> : null}
+    <div className="quote-chart__canvas">
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={points} role="img" aria-label={caption} margin={{ top: 12, right: 16, bottom: 8, left: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="t" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={(t) => formatDate(t)} minTickGap={24} />
+          <YAxis tickFormatter={formatCredits} width={76} domain={['auto', 'auto']} />
+          <Tooltip labelFormatter={(t) => formatDateTime(t)} formatter={(value, name) => [formatCredits(value), name]} />
+          <Line name="OFFICIAL" type="monotone" dataKey="OFFICIAL" stroke="#1683ad" strokeWidth={3} connectNulls={false} isAnimationActive={!prefersReducedMotion()} />
+          <Line name="MOMENTUM" type="monotone" dataKey="MOMENTUM" stroke="#e4932a" strokeWidth={3} connectNulls={false} isAnimationActive={!prefersReducedMotion()} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+    <p className="quote-chart__legend">OFFICIAL · MOMENTUM</p>
+    <table className="quote-chart__table">
+      <caption>{caption}</caption>
+      <thead><tr><th scope="col">Fecha</th><th scope="col">OFFICIAL</th><th scope="col">MOMENTUM</th></tr></thead>
+      <tbody>{points.map((point) => <tr key={point.calculatedAt}>
+        <td>{formatDateTime(point.calculatedAt)}</td>
+        <td>{point.OFFICIAL === null ? 'Sin cotización' : `${formatCredits(point.OFFICIAL)} · v${point.officialVersion} · ${point.officialStatus ?? 'Sin estado'}`}</td>
+        <td>{point.MOMENTUM === null ? 'Sin cotización' : `${formatCredits(point.MOMENTUM)} · v${point.momentumVersion} · ${point.momentumStatus ?? 'Sin estado'}`}</td>
+      </tr>)}</tbody>
+    </table>
+  </figure>
+}
+
+export default function QuoteChart({ points, status, strategy, range, league, onStrategyChange, onRangeChange, onRetry, comparison = false, comparisonPoints = [], partialError = false }) {
   const titleId = useId()
   const groupName = useId()
-  const caption = `${strategyLabel(strategy)} · ${QUOTE_RANGES[range].label} · ${points.length} cotizaciones`
+  const caption = comparison ? `OFFICIAL / MOMENTUM · ${QUOTE_RANGES[range].label} · ${comparisonPoints.length} fechas` : `${strategyLabel(strategy)} · ${QUOTE_RANGES[range].label} · ${points.length} cotizaciones`
 
   let content
   if (status === 'loading') {
@@ -108,14 +137,14 @@ export default function QuoteChart({ points, status, strategy, range, league, on
       </EstadoPanel>
     )
   } else {
-    content = <ChartFigure points={points} caption={caption} league={league} />
+    content = comparison ? <ComparisonFigure points={comparisonPoints} caption={caption} partialError={partialError} onRetry={onRetry} /> : <ChartFigure points={points} caption={caption} league={league} />
   }
 
   return (
     <section className="quote-chart" aria-labelledby={titleId}>
       <h2 id={titleId}>Evolución de la cotización</h2>
       <div className="quote-chart__controls">
-        <OptionGroup legend="Estrategia" name={`${groupName}-strategy`} options={STRATEGIES} value={strategy} onChange={onStrategyChange} />
+        {comparison ? null : <OptionGroup legend="Estrategia" name={`${groupName}-strategy`} options={STRATEGIES} value={strategy} onChange={onStrategyChange} />}
         <OptionGroup legend="Rango" name={`${groupName}-range`} options={QUOTE_RANGES} value={range} onChange={onRangeChange} />
       </div>
       {content}

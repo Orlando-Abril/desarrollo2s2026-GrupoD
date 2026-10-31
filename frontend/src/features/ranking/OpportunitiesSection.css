@@ -1,0 +1,10 @@
+.opportunities { margin: 32px 0; }
+.opportunities-filters { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.opportunities-filters label { display: grid; gap: 4px; }
+.opportunities-filters select { padding: 8px; }
+.opportunities-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.opportunities-list { list-style: none; padding: 0; margin: 0; }
+.opportunities-list li { display: grid; gap: 5px; padding: 12px; margin-bottom: 8px; border: 1px solid var(--tinta-2); overflow-wrap: anywhere; }
+.opportunities-list a { justify-self: start; padding: 6px 10px; background: var(--tinta); color: var(--papel); }
+.opportunities-list a:focus-visible { outline: 3px solid var(--rojo); outline-offset: 3px; }
+@media (max-width: 700px) { .opportunities-columns { grid-template-columns: 1fr; } }

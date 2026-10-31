@@ -1,0 +1,8 @@
+.strategy-selector { display: flex; flex: 1 1 380px; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; color: var(--papel); font-size: 12px; }
+.strategy-selector label { white-space: nowrap; font-weight: 800; }
+.strategy-selector select { max-width: 132px; padding: 5px; border: 1px solid var(--papel); background: var(--tinta); color: var(--papel); }
+.strategy-selector small { flex: 1 1 190px; min-width: 0; font-size: 10px; line-height: 1.2; overflow-wrap: anywhere; }
+.strategy-selector button { border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; }
+.strategy-selector select:focus-visible, .strategy-selector button:focus-visible { outline: 3px solid var(--amarillo); outline-offset: 2px; }
+@media (max-width: 1250px) { .site-header__inner { gap: 8px; } .site-header .nav-item { padding: 0 5px; font-size: 12px; } }
+@media (max-width: 600px) { .strategy-selector { flex-basis: 100%; gap: 4px; } .strategy-selector select { max-width: min(100%, 132px); } .strategy-selector small { flex-basis: 100%; } }

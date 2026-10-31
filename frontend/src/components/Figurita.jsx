@@ -1,8 +1,9 @@
 import { LEAGUES, POSITIONS } from '../domain/catalogo.js'
 import { formatCredits } from '../utils/format.js'
+import AlternativeQuote from '../features/album/AlternativeQuote.jsx'
 import './Figurita.css'
 
-export default function Figurita({ id, fullName, team, league, positions = [], nationality, age, marketValue }) {
+export default function Figurita({ id, fullName, team, league, positions = [], nationality, age, marketValue, alternativeQuote }) {
   const leagueData = LEAGUES[league] ?? { label: '—', colorVar: '--tinta-2' }
   const positionKey = Object.keys(POSITIONS).find((key) => positions.includes(key))
   const position = positionKey ? POSITIONS[positionKey].abbr : '—'
@@ -21,6 +22,7 @@ export default function Figurita({ id, fullName, team, league, positions = [], n
       <h3 className="figurita__name" title={fullName}>{fullName}</h3>
       <div className="figurita__detail"><span>{team}</span><span>{leagueData.label}</span></div>
       <div className="figurita__value"><strong>{formatCredits(marketValue)}</strong><span>{metadata}</span></div>
+      {alternativeQuote !== undefined ? <AlternativeQuote marketValue={marketValue} quote={alternativeQuote} /> : null}
     </article>
   )
 }

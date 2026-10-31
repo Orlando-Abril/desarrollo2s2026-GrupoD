@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import PlayerDetailPage from './PlayerDetailPage.jsx'
 import { SessionProvider, useSession } from '../session/SessionContext.jsx'
+import { StrategyViewProvider, createStrategyViewStore } from '../context/StrategyViewContext.jsx'
+import { pendingMomentum } from '../test/strategyFixtures.js'
 
 // jsdom mide 0×0 y no tiene ResizeObserver: se fija el tamaño del gráfico (research R2).
 vi.mock('recharts', async (importOriginal) => {
@@ -117,10 +119,11 @@ function LocationProbe() {
   return <span data-testid="location">{useLocation().pathname}</span>
 }
 
-function renderDetail(path = '/jugadores/42') {
+function renderDetail(path = '/jugadores/42', store = createStrategyViewStore()) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <SessionProvider>
+        <StrategyViewProvider store={store}>
         <AutoLogin>
           <LocationProbe />
           <Link to="/jugadores/43">Ir al 43</Link>
@@ -130,6 +133,7 @@ function renderDetail(path = '/jugadores/42') {
             <Route path="/ingresar" element={<p>Ingreso</p>} />
           </Routes>
         </AutoLogin>
+        </StrategyViewProvider>
       </SessionProvider>
     </MemoryRouter>,
   )
@@ -151,6 +155,28 @@ describe('PlayerDetailPage', () => {
   })
 
   describe('ficha', () => {
+    it('keeps persisted market price and OFFICIAL history while MOMENTUM activation awaits recalculation', async () => {
+      const store = createStrategyViewStore()
+      const snapshot = { viewStrategy: 'MARKET_CURRENT', activeConfig: pendingMomentum, configStatus: 'ready', configError: null }
+      store.getSnapshot = () => snapshot
+      const fetchMock = routeFetch((url) => url.pathname.endsWith('/quotes') ? [200, historyFor(url)] : [200, detail(42, { quote: quote('2026-10-20T18:00:00Z', 1.5, { strategy: 'MOMENTUM' }) })])
+      renderDetail('/jugadores/42', store)
+      const header = await screen.findByRole('region', { name: 'Bukayo Saka' })
+      expect(within(header).getByTestId('current-quote').textContent).toBe('1,25 cr')
+      expect(within(header).getByText(/recálculo/i).textContent).toContain('OFFICIAL')
+      await waitFor(() => expect(quoteCalls(fetchMock).some((query) => query.strategy === 'OFFICIAL')).toBe(true))
+    })
+    it('loads both strategy histories when Momentum view is selected', async () => {
+      const store = createStrategyViewStore()
+      store.setViewStrategy('MOMENTUM')
+      const fetchMock = routeFetch((url) => url.pathname.endsWith('/quotes') ? [200, historyFor(url)] : [200, detail()])
+      renderDetail('/jugadores/42', store)
+      await screen.findByRole('heading', { name: 'Bukayo Saka' })
+      await waitFor(() => expect(screen.getByRole('table', { name: /OFFICIAL \/ MOMENTUM/ })).toBeTruthy())
+      const strategies = quoteCalls(fetchMock).map((query) => query.strategy)
+      expect(strategies).toContain('OFFICIAL')
+      expect(strategies).toContain('MOMENTUM')
+    })
     it('shows the player header, current quote, variation and season stats', async () => {
       routeFetch(defaultHandler)
       renderDetail()
@@ -207,7 +233,7 @@ describe('PlayerDetailPage', () => {
       const fetchMock = routeFetch((url) => (url.pathname.endsWith('/quotes') ? [200, []] : [200, detail(42, { quote: null })]))
       renderDetail()
       const header = await screen.findByRole('region', { name: 'Bukayo Saka' })
-      expect(within(header).getByTestId('current-quote').textContent).toBe('—')
+      expect(within(header).getByTestId('current-quote').textContent).toBe('1,25 cr')
       expect(within(header).getByRole('img', { name: 'Sin variación disponible' })).toBeTruthy()
       await waitFor(() => expect(fetchMock).toHaveBeenCalled())
       expect(quoteCalls(fetchMock).filter((params) => !params.from && !params.at)).toEqual([])
@@ -420,6 +446,14 @@ describe('PlayerDetailPage', () => {
       renderDetail()
       expect(await screen.findByText('Ingreso')).toBeTruthy()
       expect(screen.getByTestId('location').textContent).toBe('/ingresar')
+    })
+
+    it('focuses the existing trade panel when opened from an opportunity', async () => {
+      routeFetch(defaultHandler)
+      renderDetail('/jugadores/42#operar')
+      const heading = await screen.findByRole('heading', { name: 'Operar' })
+      await waitFor(() => expect(document.activeElement).toBe(heading))
+      expect(screen.getByTestId('current-quote').textContent).toBe('1,25 cr')
     })
   })
 })

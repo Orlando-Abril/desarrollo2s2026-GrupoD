@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import AlbumPage from './AlbumPage.jsx'
 import { SessionProvider, useSession } from '../session/SessionContext.jsx'
+import { StrategyViewProvider, createStrategyViewStore } from '../context/StrategyViewContext.jsx'
 
 function player(id, overrides = {}) {
   return {
@@ -41,10 +42,11 @@ function LoginDestination() {
   return <><span>{location.pathname}</span><p>{location.state?.info}</p></>
 }
 
-function renderAlbum() {
+function renderAlbum(store = createStrategyViewStore()) {
   return render(
     <MemoryRouter initialEntries={['/album']}>
       <SessionProvider>
+        <StrategyViewProvider store={store}>
         <AutoLogin>
           <Routes>
             <Route path="/album" element={<AlbumPage />} />
@@ -52,12 +54,28 @@ function renderAlbum() {
             <Route path="/jugadores/:id" element={<LoginDestination />} />
           </Routes>
         </AutoLogin>
+        </StrategyViewProvider>
       </SessionProvider>
     </MemoryRouter>,
   )
 }
 
 describe('AlbumPage', () => {
+  it('uses latest Momentum quotes for the visible cards only', async () => {
+    const store = createStrategyViewStore()
+    store.setViewStrategy('MOMENTUM')
+    const fetchMock = vi.fn((url) => {
+      const parsed = new URL(url)
+      if (parsed.pathname === '/quotes/latest') return Promise.resolve(response(200, { items: [{ playerId: 1, quote: { value: 1.2, status: 'CALCULATED' } }] }))
+      return Promise.resolve(response(200, [player(1)]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderAlbum(store)
+    await waitFor(() => expect(document.body.textContent).toContain('Momentum: 1,2000 cr'))
+    const latestUrl = fetchMock.mock.calls.map(([url]) => new URL(url)).find((url) => url.pathname === '/quotes/latest')
+    expect(latestUrl.searchParams.get('playerIds')).toBe('1')
+    expect(latestUrl.searchParams.get('strategy')).toBe('MOMENTUM')
+  })
   beforeEach(() => {
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080')
   })
