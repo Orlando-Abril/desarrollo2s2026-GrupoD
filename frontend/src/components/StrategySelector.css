@@ -1,7 +1,7 @@
 .strategy-selector { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 0; color: var(--papel); font-size: 12px; white-space: nowrap; }
 .strategy-selector label { font-weight: 800; }
 .strategy-selector select { flex: 0 0 auto; padding: 5px; border: 1px solid var(--papel); background: var(--tinta); color: var(--papel); font: inherit; }
-.strategy-selector small { font-family: var(--font-mono); font-size: 10px; }
+.strategy-selector small, .strategy-selector output { font-family: var(--font-mono); font-size: 10px; }
 .strategy-selector__pending { border: 1px solid var(--amarillo); padding: 2px 4px; color: var(--amarillo); cursor: help; }
 .strategy-selector button { border: 1px solid currentColor; padding: 4px 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .strategy-selector select:focus-visible, .strategy-selector button:focus-visible { outline: 3px solid var(--amarillo); outline-offset: 2px; }

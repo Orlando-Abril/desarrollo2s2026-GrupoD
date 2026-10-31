@@ -49,11 +49,11 @@ export default function OpportunitiesSection({ refreshKey = 0 }) {
         {Object.entries(POSITIONS).map(([code, item]) => <option key={code} value={code}>{item.label}</option>)}
       </Field>
     </section>
-    {visible.status === 'loading' ? <p role="status">Cargando oportunidades…</p> : null}
+    {visible.status === 'loading' ? <p><output>Cargando oportunidades…</output></p> : null}
     {visible.status === 'error' ? <EstadoPanel stamp="Sin conexión" stampVariant="error" title="No pudimos cargar las oportunidades" action={{ label: 'Reintentar', onClick: () => setRetry((value) => value + 1) }}>Intentá de nuevo en unos segundos.</EstadoPanel> : null}
     {visible.data ? <>
       <p className="opportunities__note">Mercado: {marketName} · Estrategia activa: {strategyName(visible.data.activeStrategy?.code)} · Alternativa: {alternativeName}</p>
-      {visible.data.pendingRecalculation ? <p role="status" className="opportunities__note">Hay un recálculo pendiente. Las oportunidades se actualizarán después del próximo recálculo.</p> : null}
+      {visible.data.pendingRecalculation ? <p className="opportunities__note"><output>Hay un recálculo pendiente. Las oportunidades se actualizarán después del próximo recálculo.</output></p> : null}
       <div className="opportunities-columns"><OpportunityList title="Subvaluados" items={visible.data.undervalued ?? []} marketName={marketName} alternativeName={alternativeName} /><OpportunityList title="Sobrevaluados" items={visible.data.overvalued ?? []} marketName={marketName} alternativeName={alternativeName} /></div>
     </> : null}
   </section>

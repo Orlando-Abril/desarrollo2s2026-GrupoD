@@ -9,18 +9,18 @@ const { default: RecalculateButton } = await import('./RecalculateButton.jsx')
 afterEach(cleanup)
 
 describe('RecalculateButton', () => {
+  beforeEach(() => {
+    Object.assign(hookState, { running: false, forbidden: false, notification: null })
+    hookState.recalculate.mockReset()
+    hookState.dismissNotification.mockReset()
+    vi.restoreAllMocks()
+  })
   it('exposes the existing button for keyboard focus without running recalculation', () => {
     const buttonRef = createRef()
     render(<RecalculateButton buttonRef={buttonRef} />)
     buttonRef.current.focus()
     expect(document.activeElement).toBe(buttonRef.current)
     expect(hookState.recalculate).not.toHaveBeenCalled()
-  })
-  beforeEach(() => {
-    Object.assign(hookState, { running: false, forbidden: false, notification: null })
-    hookState.recalculate.mockReset()
-    hookState.dismissNotification.mockReset()
-    vi.restoreAllMocks()
   })
 
   it('cancels without sending and confirms once', () => {

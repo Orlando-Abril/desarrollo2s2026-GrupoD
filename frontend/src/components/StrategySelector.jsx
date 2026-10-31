@@ -19,7 +19,7 @@ export default function StrategySelector({ identity }) {
         <option value="MARKET_CURRENT">Mercado actual</option>
         <option value={ALTERNATIVE_VIEW} disabled={!alternativeCode}>{alternativeCode ? strategyName(alternativeCode) : 'Alternativa'}</option>
       </select>
-      {configStatus === 'loading' ? <small role="status">Cargando…</small> : null}
+      {configStatus === 'loading' ? <output>Cargando…</output> : null}
       {configStatus === 'error' ? <button type="button" title="No se pudo cargar la estrategia" onClick={() => { void refreshConfig() }}>Reintentar</button> : null}
       {activeConfig?.pendingRecalculation ? <small className="strategy-selector__pending" title={pendingTitle}><span aria-hidden="true">⟳</span> <span className="strategy-selector__pending-text">Recálculo pendiente</span></small> : null}
     </div>

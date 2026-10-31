@@ -15,7 +15,7 @@ import { formatInteger } from '../utils/format.js'
 import './AlbumPage.css'
 
 function AlternativeQuotesNotice({ status, label, onRetry }) {
-  if (status === 'loading') return <p role="status">Cargando cotizaciones {label}…</p>
+  if (status === 'loading') return <p><output>Cargando cotizaciones {label}…</output></p>
   if (status === 'error') return <EstadoPanel title={`No pudimos cargar ${label}`} action={{ label: 'Reintentar', onClick: onRetry }}>El precio de mercado sigue disponible.</EstadoPanel>
   return null
 }

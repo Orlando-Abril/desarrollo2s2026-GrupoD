@@ -33,7 +33,7 @@ export default function PlayerHeader({ player, quote, variation, activeConfig })
           <strong data-testid="current-quote">{player.marketValue != null ? formatCredits(player.marketValue) : '—'}</strong>
           <VariationBadge current={matchesMarket ? variation.current : null} previous={matchesMarket ? variation.previous : null} />
         </div>
-        {activeConfig?.pendingRecalculation ? <p role="status">Estrategia activa: {activeConfig.active?.code}. El mercado sigue con {activeConfig.marketStrategy?.code} hasta el próximo recálculo.</p> : null}
+        {activeConfig?.pendingRecalculation ? <p><output>Estrategia activa: {activeConfig.active?.code}. El mercado sigue con {activeConfig.marketStrategy?.code} hasta el próximo recálculo.</output></p> : null}
       </div>
     </section>
   )

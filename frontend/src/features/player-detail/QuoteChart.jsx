@@ -96,7 +96,7 @@ function ComparisonFigure({ points, codes, caption, partialError, onRetry }) {
   const series = codes.map((code, index) => ({ code, label: strategyLabel(code), ...SERIES_TONES[index] }))
   return <figure className="quote-chart__figure quote-chart__figure--comparison">
     <figcaption>{caption}</figcaption>
-    {partialError ? <p role="status">Una de las curvas no está disponible. <button type="button" onClick={onRetry}>Reintentar</button></p> : null}
+    {partialError ? <p><output>Una de las curvas no está disponible.</output> <button type="button" onClick={onRetry}>Reintentar</button></p> : null}
     <div className="quote-chart__canvas">
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={points} role="img" aria-label={caption} margin={{ top: 12, right: 16, bottom: 8, left: 8 }}>

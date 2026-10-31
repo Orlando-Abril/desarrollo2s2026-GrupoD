@@ -84,7 +84,7 @@ export default function usePlayerDetail(id, { now = new Date() } = {}) {
     if (comparisonKey) {
       const codes = comparisonKey.split(',')
       setHistory(LOADING_HISTORY)
-      Promise.allSettled(codes.map((code) => getPlayerQuotes(playerId, { strategy: code, ...dates }, { signal: controller.signal })))
+      void Promise.allSettled(codes.map((code) => getPlayerQuotes(playerId, { strategy: code, ...dates }, { signal: controller.signal })))
         .then((results) => {
           if (controller.signal.aborted) return
           if (results.every((result) => result.status === 'rejected')) {

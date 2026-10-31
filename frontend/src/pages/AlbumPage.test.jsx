@@ -63,6 +63,16 @@ function renderAlbum(store = createStrategyViewStore()) {
 }
 
 describe('AlbumPage', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080')
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
   it('uses latest alternative quotes for the visible cards only', async () => {
     const store = strategyStore({ viewStrategy: 'MOMENTUM' })
     const fetchMock = vi.fn((url) => {
@@ -91,16 +101,6 @@ describe('AlbumPage', () => {
     expect(latestUrl.searchParams.get('strategy')).toBe('OFFICIAL')
     expect(document.body.textContent).not.toContain('Momentum')
   })
-  beforeEach(() => {
-    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080')
-  })
-
-  afterEach(() => {
-    cleanup()
-    vi.unstubAllEnvs()
-    vi.restoreAllMocks()
-  })
-
   it('shows eight loading slots with busy semantics and no pager', async () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     renderAlbum()

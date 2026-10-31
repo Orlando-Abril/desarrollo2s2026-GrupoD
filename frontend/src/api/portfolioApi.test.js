@@ -5,11 +5,11 @@ import { getCurrentAccount, getUserPortfolio, getUserTransactions } from './port
 vi.mock('./httpClient.js', () => ({ request: vi.fn() }))
 
 describe('portfolioApi', () => {
+  beforeEach(() => request.mockReset())
   it('requests a comparison only when Momentum is selected', async () => {
     await getUserPortfolio(7, { strategy: 'MOMENTUM' })
     expect(request).toHaveBeenCalledWith('/users/7/portfolio?strategy=MOMENTUM', { signal: undefined })
   })
-  beforeEach(() => request.mockReset())
   it('forwards account and portfolio payloads with signals and encoded ids', async () => {
     const signal = new AbortController().signal
     const payload = { id: 7 }

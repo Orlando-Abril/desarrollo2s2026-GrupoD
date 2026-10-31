@@ -35,7 +35,7 @@ describe('OpportunitiesSection', () => {
   it('offers a retry after a network error', async () => {
     getOpportunities.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ activeStrategy: { code: 'OFFICIAL' }, alternativeStrategy: { code: 'MOMENTUM' }, marketStrategy: { code: 'OFFICIAL' }, pendingRecalculation: false, undervalued: [], overvalued: [] })
     render(<MemoryRouter><OpportunitiesSection /></MemoryRouter>)
-    await waitFor(() => expect(screen.getByText('No pudimos cargar las oportunidades')).toBeTruthy())
+    await screen.findByText('No pudimos cargar las oportunidades')
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     await waitFor(() => expect(document.body.textContent).toContain('No hay oportunidades'))
   })
