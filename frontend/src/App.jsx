@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import MarketPage from './pages/MarketPage.jsx'
 import NotFound from './pages/NotFound.jsx'
 import PlayerDetailPage from './pages/PlayerDetailPage.jsx'
+import PortfolioPage from './pages/PortfolioPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 import RankingPage from './pages/RankingPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/ranking" element={<RankingPage />} />
           <Route path="/jugadores/:id" element={<PlayerDetailPage />} />
           <Route path="/mercado" element={<MarketPage />} />
+          <Route path="/portfolio" element={<PortfolioPage />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>
