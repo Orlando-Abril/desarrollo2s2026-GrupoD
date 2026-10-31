@@ -7,6 +7,7 @@ import PublicOnlyRoute from './PublicOnlyRoute.jsx'
 
 vi.mock('../pages/RankingPage.jsx', () => ({ default: () => <div>ranking page</div> }))
 vi.mock('../pages/MarketPage.jsx', () => ({ default: () => <div>market page</div> }))
+vi.mock('../pages/PortfolioPage.jsx', () => ({ default: () => <div>portfolio page</div> }))
 
 let authenticated = false
 vi.mock('../session/SessionContext.jsx', () => ({
@@ -95,7 +96,7 @@ describe('route guards', () => {
 })
 
 describe('market route', () => {
-  it('links Mercado in desktop and mobile navigation and keeps Mi portfolio disabled', () => {
+  it('links Mercado in desktop and mobile navigation', () => {
     authenticated = true
     renderApp('/mercado')
 
@@ -105,13 +106,32 @@ describe('market route', () => {
       const market = within(nav).getByRole('link', { name: /Mercado/ })
       expect(market.getAttribute('href')).toBe('/mercado')
       expect(market.getAttribute('aria-current')).toBe('page')
-      expect(within(nav).queryByRole('link', { name: /Mi portfolio/ })).toBeNull()
+      expect(within(nav).getByRole('link', { name: /Mi portfolio/ }).getAttribute('href')).toBe('/portfolio')
     }
   })
 
   it('redirects unauthenticated market access to login', () => {
     authenticated = false
     renderApp('/mercado')
+    expect(screen.getByTestId('location').textContent).toBe('/ingresar')
+  })
+})
+
+describe('portfolio route', () => {
+  it('is protected and marks Mi portfolio current in both navigations', () => {
+    authenticated = true
+    renderApp('/portfolio')
+    expect(screen.getByText('portfolio page')).toBeTruthy()
+    for (const name of [/Navegaci.n principal/, /Navegaci.n m.vil/]) {
+      const link = within(screen.getByRole('navigation', { name })).getByRole('link', { name: /Mi portfolio/ })
+      expect(link.getAttribute('href')).toBe('/portfolio')
+      expect(link.getAttribute('aria-current')).toBe('page')
+    }
+  })
+
+  it('redirects unauthenticated access to login', () => {
+    authenticated = false
+    renderApp('/portfolio')
     expect(screen.getByTestId('location').textContent).toBe('/ingresar')
   })
 })

@@ -1,0 +1,5 @@
+export const account = (overrides = {}) => ({ id: 7, username: 'abril', email: 'abril@example.com', role: 'USER', balance: 100, ...overrides })
+export const position = (overrides = {}) => ({ playerId: 42, playerName: 'Alex Morgan', playerTeam: 'Orlando', quantity: 3, reservedQuantity: 0, availableQuantity: 3, averagePurchasePrice: 1.25, costBasis: 3.75, marketValue: 1.5, currentValue: 4.5, profitLoss: 0.75, ...overrides })
+export const portfolio = (overrides = {}) => ({ userId: 7, balance: 100, reservedCredits: 10, availableBalance: 90, positions: [position()], totalCost: 3.75, totalCurrentValue: 4.5, totalProfitLoss: 0.75, totalEquity: 104.5, ...overrides })
+export const transaction = (overrides = {}) => ({ id: 1, type: 'COMPRA', playerId: 42, playerName: 'Alex Morgan', quantity: 3, price: 1.25, total: 3.75, executedAt: '2026-10-20T18:00:00Z', ...overrides })
+export const transactionPage = (overrides = {}) => ({ items: [transaction()], page: 0, size: 20, numberOfElements: 1, totalElements: 1, totalPages: 1, first: true, last: true, ...overrides })
