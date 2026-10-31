@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -66,6 +67,17 @@ public interface PlayerQuoteRepository extends Repository<PlayerQuote, Long> {
                                      or (q2.calculatedAt = q.calculatedAt and q2.id > q.id)))
             """)
     List<PlayerQuote> findLatestForAllPlayers(@Param("code") String strategyCode);
+
+    /** Última cotización de la estrategia para cada jugador pedido que tenga al menos una (spec 031). */
+    @Query("""
+            select q from PlayerQuote q join fetch q.player p left join fetch p.positions
+            where q.strategyCode = :code and p.id in :ids
+              and not exists (select q2.id from PlayerQuote q2
+                              where q2.player = q.player and q2.strategyCode = q.strategyCode
+                                and (q2.calculatedAt > q.calculatedAt
+                                     or (q2.calculatedAt = q.calculatedAt and q2.id > q.id)))
+            """)
+    List<PlayerQuote> findLatestForPlayers(@Param("code") String strategyCode, @Param("ids") Collection<Long> playerIds);
 
     @Query(value = """
             with quote_history as (

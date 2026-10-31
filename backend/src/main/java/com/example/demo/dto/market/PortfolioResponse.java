@@ -1,5 +1,6 @@
 package com.example.demo.dto.market;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -19,7 +20,16 @@ public record PortfolioResponse(
         @Schema(example = "16.0000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal totalCost,
         @Schema(example = "19.5000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal totalCurrentValue,
         @Schema(example = "3.5000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal totalProfitLoss,
-        @Schema(example = "919.5000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal totalEquity) {
+        @Schema(example = "919.5000", requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal totalEquity,
+        @Schema(description = "Sólo con ?strategy (spec 031)")
+        @JsonInclude(JsonInclude.Include.NON_NULL) PortfolioStrategyValuationResponse strategyValuation) {
+
+    public PortfolioResponse(Long userId, BigDecimal balance, BigDecimal reservedCredits, BigDecimal availableBalance,
+                             List<PortfolioPositionResponse> positions, BigDecimal totalCost,
+                             BigDecimal totalCurrentValue, BigDecimal totalProfitLoss, BigDecimal totalEquity) {
+        this(userId, balance, reservedCredits, availableBalance, positions, totalCost, totalCurrentValue,
+                totalProfitLoss, totalEquity, null);
+    }
 
     public PortfolioResponse {
         Objects.requireNonNull(userId, "userId");
@@ -42,6 +52,22 @@ public record PortfolioResponse(
                 || totalCost.compareTo(expectedCost) != 0 || totalCurrentValue.compareTo(expectedCurrent) != 0
                 || totalProfitLoss.compareTo(expectedProfit) != 0) {
             throw new IllegalArgumentException("invalid portfolio totals");
+        }
+        validateStrategyTotals(strategyValuation, positions, balance, totalCost);
+    }
+
+    private static void validateStrategyTotals(PortfolioStrategyValuationResponse valuation,
+                                               List<PortfolioPositionResponse> positions, BigDecimal balance,
+                                               BigDecimal totalCost) {
+        if (valuation == null || valuation.totalValue() == null) {
+            return;
+        }
+        BigDecimal expectedValue = scale(positions.stream().map(position -> position.strategyValuation().value())
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        if (valuation.totalValue().compareTo(expectedValue) != 0
+                || valuation.totalProfitLoss().compareTo(scale(expectedValue.subtract(totalCost))) != 0
+                || valuation.totalEquity().compareTo(scale(balance.add(expectedValue))) != 0) {
+            throw new IllegalArgumentException("invalid strategy portfolio totals");
         }
     }
 
