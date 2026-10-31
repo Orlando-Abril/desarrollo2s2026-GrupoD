@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -47,21 +46,17 @@ public final class OpportunityCalculator {
     }
 
     public static Result classify(List<Candidate> candidates, int limit) {
-        List<Ranked> undervalued = new ArrayList<>();
-        List<Ranked> overvalued = new ArrayList<>();
-        for (Candidate candidate : candidates) {
-            if (!eligible(candidate)) {
-                continue;
-            }
-            BigDecimal difference = candidate.alternativeValue().subtract(candidate.marketValue());
-            int sign = difference.signum();
-            if (sign == 0) {
-                continue;
-            }
-            BigDecimal percent = difference.divide(candidate.marketValue(), MathContext.DECIMAL128).multiply(HUNDRED);
-            (sign > 0 ? undervalued : overvalued).add(new Ranked(candidate, difference, percent));
-        }
-        return new Result(top(undervalued, limit), top(overvalued, limit));
+        List<Ranked> ranked = candidates.stream()
+                .filter(OpportunityCalculator::eligible)
+                .map(OpportunityCalculator::rank)
+                .toList();
+        return new Result(top(ranked, 1, limit), top(ranked, -1, limit));
+    }
+
+    private static Ranked rank(Candidate candidate) {
+        BigDecimal difference = candidate.alternativeValue().subtract(candidate.marketValue());
+        BigDecimal percent = difference.divide(candidate.marketValue(), MathContext.DECIMAL128).multiply(HUNDRED);
+        return new Ranked(candidate, difference, percent);
     }
 
     private static boolean eligible(Candidate candidate) {
@@ -72,8 +67,10 @@ public final class OpportunityCalculator {
                 && candidate.marketValue().signum() > 0;
     }
 
-    private static List<OpportunityItemResponse> top(List<Ranked> ranked, int limit) {
+    /** Los de signo {@code sign} (1 subvaluados, -1 sobrevaluados); la diferencia cero no entra en ninguno. */
+    private static List<OpportunityItemResponse> top(List<Ranked> ranked, int sign, int limit) {
         return ranked.stream()
+                .filter(r -> r.difference().signum() == sign)
                 .sorted(Comparator.comparing((Ranked r) -> r.percent().abs()).reversed()
                         .thenComparing(r -> r.candidate().name())
                         .thenComparing(r -> r.candidate().playerId()))

@@ -15,7 +15,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionOperations;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -129,8 +128,9 @@ class QuoteRunActiveSnapshotTest {
 
     private QuoteCalculationService service(MarketStrategyRecorder recorder) {
         return new QuoteCalculationService(new ValuationStrategyCatalog("OFFICIAL", settings),
-                List.of(official, momentum), snapshotService, playerRepository, statsRepository, quoteRepository,
-                Clock.fixed(NOW, ZoneOffset.UTC), TransactionOperations.withoutTransaction(),
-                mock(PlatformTransactionManager.class), mock(ApplicationEventPublisher.class), recorder);
+                List.of(official, momentum),
+                new QuoteRunData(snapshotService, playerRepository, statsRepository, quoteRepository),
+                Clock.fixed(NOW, ZoneOffset.UTC), mock(PlatformTransactionManager.class),
+                mock(ApplicationEventPublisher.class), recorder);
     }
 }

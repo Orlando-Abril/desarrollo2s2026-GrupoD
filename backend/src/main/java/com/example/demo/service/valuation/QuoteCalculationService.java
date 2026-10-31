@@ -16,7 +16,6 @@ import com.example.demo.service.valuation.strategy.ValuationStrategyDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -71,38 +70,19 @@ public class QuoteCalculationService {
 
     public QuoteCalculationService(ValuationStrategyCatalog catalog,
                                    List<ValuationAlgorithm> algorithms,
-                                   StatsSnapshotService snapshotService,
-                                   PlayerRepository playerRepository,
-                                   PlayerStatsRepository statsRepository,
-                                   PlayerQuoteRepository quoteRepository,
+                                   QuoteRunData data,
                                    Clock clock,
-                                   TransactionOperations playerTransaction,
-                                   PlatformTransactionManager transactionManager,
-                                   ApplicationEventPublisher eventPublisher) {
-        this(catalog, algorithms, snapshotService, playerRepository, statsRepository, quoteRepository, clock,
-                playerTransaction, transactionManager, eventPublisher, MarketStrategyRecorder.NONE);
-    }
-
-    @Autowired
-    public QuoteCalculationService(ValuationStrategyCatalog catalog,
-                                   List<ValuationAlgorithm> algorithms,
-                                   StatsSnapshotService snapshotService,
-                                   PlayerRepository playerRepository,
-                                   PlayerStatsRepository statsRepository,
-                                   PlayerQuoteRepository quoteRepository,
-                                   Clock clock,
-                                   TransactionOperations playerTransaction,
                                    PlatformTransactionManager transactionManager,
                                    ApplicationEventPublisher eventPublisher,
                                    MarketStrategyRecorder marketStrategyRecorder) {
         this.catalog = catalog;
         this.algorithms = byType(algorithms);
-        this.snapshotService = snapshotService;
-        this.playerRepository = playerRepository;
-        this.statsRepository = statsRepository;
-        this.quoteRepository = quoteRepository;
+        this.snapshotService = data.snapshots();
+        this.playerRepository = data.players();
+        this.statsRepository = data.stats();
+        this.quoteRepository = data.quotes();
         this.clock = clock;
-        this.playerTransaction = playerTransaction;
+        this.playerTransaction = new TransactionTemplate(transactionManager);
         this.readOnlyTransaction = new TransactionTemplate(transactionManager);
         this.readOnlyTransaction.setReadOnly(true);
         this.eventPublisher = eventPublisher;
