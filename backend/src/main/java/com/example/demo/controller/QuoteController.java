@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.quote.LatestQuotesResponse;
+import com.example.demo.dto.quote.OpportunitiesResponse;
 import com.example.demo.dto.quote.QuoteRunResponse;
 import com.example.demo.dto.quote.RecalculateRequest;
 import com.example.demo.dto.quote.PlayerQuoteResponse;
@@ -9,6 +11,8 @@ import com.example.demo.model.Position;
 import com.example.demo.exception.InvalidQuoteQueryException;
 import com.example.demo.exception.GlobalExceptionHandler.ErrorResponse;
 import com.example.demo.filter.CorrelationIdFilter;
+import com.example.demo.service.valuation.LatestQuoteService;
+import com.example.demo.service.valuation.OpportunityService;
 import com.example.demo.service.valuation.QuoteCalculationService;
 import com.example.demo.service.valuation.QuoteQueryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -46,10 +50,76 @@ public class QuoteController {
 
     private final QuoteCalculationService calculationService;
     private final QuoteQueryService queryService;
+    private final OpportunityService opportunityService;
+    private final LatestQuoteService latestQuoteService;
 
-    public QuoteController(QuoteCalculationService calculationService, QuoteQueryService queryService) {
+    public QuoteController(QuoteCalculationService calculationService, QuoteQueryService queryService,
+                           OpportunityService opportunityService, LatestQuoteService latestQuoteService) {
         this.calculationService = calculationService;
         this.queryService = queryService;
+        this.opportunityService = opportunityService;
+        this.latestQuoteService = latestQuoteService;
+    }
+
+    @GetMapping("/quotes/opportunities")
+    @SecurityRequirement(name = "bearerAuth")
+    @SecurityRequirement(name = "apiKeyAuth")
+    @Operation(summary = "Jugadores subvaluados y sobrevaluados frente a la estrategia alternativa",
+            description = "Compara el marketValue de cada jugador con su última cotización de la estrategia "
+                    + "alternativa. difference = alternativa − marketValue; differencePercent = difference ÷ "
+                    + "marketValue × 100 (2 decimales). Excluye jugadores sin cotización alternativa, con la última "
+                    + "cotización alternativa o de la estrategia de mercado en NO_STATS o INSUFFICIENT_HISTORY, sin "
+                    + "marketValue positivo o con diferencia cero. Cada lista se ordena por |differencePercent| "
+                    + "descendente y, ante empate, por nombre e id ascendentes. Sólo lee cotizaciones guardadas.")
+    @ApiResponse(responseCode = "200", description = "Oportunidades",
+            headers = @Header(name = CorrelationIdFilter.HEADER, description = "UUID de trazabilidad"),
+            content = @Content(schema = @Schema(implementation = OpportunitiesResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Liga, posición o límite inválidos",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class), examples = @ExampleObject(
+                    value = "{\"error\":\"validation_error\",\"message\":\"limit debe estar entre 1 y 50\"}")))
+    @ApiResponse(responseCode = "401", description = "Sin credenciales, o con credenciales inválidas o vencidas",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public OpportunitiesResponse opportunities(
+            @Parameter(description = "Liga exacta del dominio", schema = @Schema(allowableValues = {
+                    "PREMIER_LEAGUE", "LA_LIGA", "SERIE_A", "BUNDESLIGA", "LIGUE_1"}))
+            @RequestParam(required = false) String league,
+            @Parameter(description = "Posición incluida entre las del jugador", schema = @Schema(allowableValues = {
+                    "GOALKEEPER", "DEFENDER", "MIDFIELDER", "FORWARD"}))
+            @RequestParam(required = false) String position,
+            @Parameter(description = "Máximo de jugadores por lista", schema = @Schema(type = "integer",
+                    format = "int32", minimum = "1", maximum = "50", defaultValue = "10"))
+            @RequestParam(required = false) String limit) {
+        int parsedLimit = parseInteger("limit", limit, 1, 50, 10);
+        return opportunityService.opportunities(parseEnum("league", league, League.class),
+                parseEnum("position", position, Position.class), parsedLimit);
+    }
+
+    @GetMapping("/quotes/latest")
+    @SecurityRequirement(name = "bearerAuth")
+    @SecurityRequirement(name = "apiKeyAuth")
+    @Operation(summary = "Última cotización de una estrategia para un conjunto de jugadores",
+            description = "Pensada para una página del Catálogo. Devuelve una entrada por id distinto existente, en "
+                    + "el orden pedido; los ids inexistentes se omiten. quote es null si el jugador no tiene "
+                    + "cotización de esa estrategia. Sin strategy se usa la estrategia alternativa.")
+    @ApiResponse(responseCode = "200", description = "Últimas cotizaciones",
+            headers = @Header(name = CorrelationIdFilter.HEADER, description = "UUID de trazabilidad"),
+            content = @Content(schema = @Schema(implementation = LatestQuotesResponse.class)))
+    @ApiResponse(responseCode = "400", description = "playerIds ausente, vacío, mal formado o con más de 100 ids "
+            + "distintos, o estrategia inexistente",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class), examples = {
+                    @ExampleObject(name = "tooManyIds", value = "{\"error\":\"validation_error\",\"message\":"
+                            + "\"playerIds admite como máximo 100 ids distintos\"}"),
+                    @ExampleObject(name = "unknownStrategy", value = "{\"error\":\"unknown_strategy\","
+                            + "\"message\":\"Estrategia de valuación desconocida\"}")}))
+    @ApiResponse(responseCode = "401", description = "Sin credenciales, o con credenciales inválidas o vencidas",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public LatestQuotesResponse latestQuotes(
+            @Parameter(description = "Ids positivos separados por comas, de 1 a 100 distintos", required = true,
+                    example = "1,2,3")
+            @RequestParam(required = false) String playerIds,
+            @Parameter(description = "Código exacto de estrategia; ausente usa la alternativa", example = "MOMENTUM")
+            @RequestParam(required = false) String strategy) {
+        return latestQuoteService.latest(playerIds, strategy);
     }
 
     @GetMapping("/players/ranking")

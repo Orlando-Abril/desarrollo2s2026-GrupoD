@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -21,6 +22,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/users")
@@ -36,13 +39,19 @@ public class UserMarketController {
 
     @GetMapping("/{id}/portfolio")
     @Operation(summary = "Consultar el portfolio valuado",
-            description = "Devuelve saldo, reservas, posiciones, costo promedio y valuación vigente de la cuenta.",
+            description = "Devuelve saldo, reservas, posiciones, costo promedio y valuación vigente de la cuenta. "
+                    + "Sin strategy la respuesta no incluye strategyValuation. Con strategy, cada posición y los "
+                    + "totales agregan strategyValuation, valuado con la última cotización de esa estrategia "
+                    + "cualquiera sea su estado; si un jugador no tiene cotización, sus campos y los totales de "
+                    + "strategyValuation son null. La estrategia se valida antes que el acceso a la cuenta.",
             security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
     @ApiResponse(responseCode = "200", description = "Portfolio actual",
             headers = @Header(name = "X-Correlation-ID", ref = "#/components/headers/CorrelationId"),
             content = @Content(schema = @Schema(implementation = PortfolioResponse.class)))
-    @ApiResponse(responseCode = "400", description = "Id inválido",
-            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Id inválido o estrategia inexistente (unknown_strategy)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class), examples = @ExampleObject(
+                    name = "unknownStrategy", value = "{\"error\":\"unknown_strategy\",\"message\":"
+                    + "\"Estrategia de valuación desconocida: 'FOO'. Códigos válidos: OFFICIAL, MOMENTUM\"}")))
     @ApiResponse(responseCode = "401", description = "Credencial ausente o inválida",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "403", description = "La cuenta no pertenece al usuario",
@@ -54,8 +63,14 @@ public class UserMarketController {
     public PortfolioResponse portfolio(
             @Parameter(description = "Id de la cuenta", required = true,
                     schema = @Schema(minimum = "1")) @PathVariable @Min(1) Long id,
+            @Parameter(description = "Código exacto de estrategia para la valuación comparativa (spec 031)",
+                    example = "MOMENTUM")
+            @RequestParam(required = false) String strategy,
             Authentication authentication) {
-        return portfolioService.portfolio(id, authentication);
+        if (strategy == null) {
+            return portfolioService.portfolio(id, authentication);
+        }
+        return portfolioService.portfolio(id, authentication, Optional.of(strategy));
     }
 
     @GetMapping("/{id}/transactions")

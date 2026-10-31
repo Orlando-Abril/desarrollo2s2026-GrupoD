@@ -24,6 +24,8 @@ import java.util.UUID;
 @Service
 public class TransactionAuditService {
 
+    private static final int MAX_CORRELATION_LENGTH = 36;
+
     private final AuditLogRepository repository;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -46,8 +48,24 @@ public class TransactionAuditService {
         return repository.save(log);
     }
 
-    private static String correlationId() {
+    /**
+     * Correlation id del pedido o de la corrida. {@code audit_logs.correlation_id} admite 36 caracteres: un valor
+     * más largo con un UUID al final (p. ej. {@code valuation-<uuid>} del recálculo programado) se guarda como ese
+     * UUID; antes fallaba la inserción (spec 031).
+     */
+    static String correlationId() {
         String current = MDC.get(CorrelationIdFilter.MDC_KEY);
-        return current == null || current.isBlank() ? UUID.randomUUID().toString() : current;
+        if (current == null || current.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        if (current.length() <= MAX_CORRELATION_LENGTH) {
+            return current;
+        }
+        String suffix = current.substring(current.length() - MAX_CORRELATION_LENGTH);
+        try {
+            return UUID.fromString(suffix).toString();
+        } catch (IllegalArgumentException notAUuid) {
+            return UUID.randomUUID().toString();
+        }
     }
 }

@@ -1,0 +1,374 @@
+openapi: 3.0.3
+info:
+  title: Strategy Comparison API
+  version: 1.0.0
+  description: >
+    Contract for feature 031. The running application merges these operations into its global OpenAPI document.
+    Every operation reads persisted quotes only; none computes quotes, triggers a recalculation or calls external sources.
+
+paths:
+  /users/{id}/portfolio:
+    get:
+      tags: [User Market]
+      summary: Get a user's portfolio, optionally valued with another strategy
+      description: >
+        Without `strategy` the response is identical to feature 028 (no `strategyValuation` keys).
+        With `strategy`, every position and the totals add a `strategyValuation` object valued at the latest quote
+        of that strategy, whatever its status. The strategy is validated before authorization.
+      operationId: getUserPortfolio
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: strategy
+          in: query
+          required: false
+          schema: { type: string, example: MOMENTUM }
+      responses:
+        '200':
+          description: Portfolio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioResponse'
+              example:
+                userId: 12
+                balance: 100.0000
+                reservedCredits: 0.0000
+                availableBalance: 100.0000
+                positions:
+                  - playerId: 42
+                    playerName: Lionel Messi
+                    playerTeam: Inter Miami CF
+                    quantity: 15
+                    reservedQuantity: 0
+                    availableQuantity: 15
+                    averagePurchasePrice: 1.0667
+                    costBasis: 16.0000
+                    marketValue: 1.3000
+                    currentValue: 19.5000
+                    profitLoss: 3.5000
+                    strategyValuation:
+                      quotePrice: 1.1000
+                      quoteStatus: CALCULATED
+                      quoteCalculatedAt: '2026-10-28T03:00:00Z'
+                      value: 16.5000
+                      profitLoss: 0.5000
+                totalCost: 16.0000
+                totalCurrentValue: 19.5000
+                totalProfitLoss: 3.5000
+                totalEquity: 119.5000
+                strategyValuation:
+                  strategy: { code: MOMENTUM, version: 1, label: MOMENTUM v1 }
+                  totalValue: 16.5000
+                  totalProfitLoss: 0.5000
+                  totalEquity: 116.5000
+                  positionsWithoutQuote: 0
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /quotes/opportunities:
+    get:
+      tags: [Quotes]
+      summary: Undervalued and overvalued players versus the alternative strategy
+      description: >
+        Compares each player's marketValue with its latest quote of the alternative strategy.
+        difference = alternative − marketValue; differencePercent = difference ÷ marketValue × 100 (2 decimals).
+        Excludes players without an alternative quote, with a non-CALCULATED latest quote in the alternative or
+        market strategy, without a positive marketValue, or with zero difference. Each list is sorted by
+        |differencePercent| desc, then name and id asc.
+      operationId: getQuoteOpportunities
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: league
+          in: query
+          required: false
+          schema: { type: string, enum: [PREMIER_LEAGUE, LA_LIGA, SERIE_A, BUNDESLIGA, LIGUE_1] }
+          description: Same values as GET /players/ranking
+        - name: position
+          in: query
+          required: false
+          schema: { type: string, enum: [GOALKEEPER, DEFENDER, MIDFIELDER, FORWARD] }
+          description: Same values as GET /players/ranking
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: Opportunities
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpportunitiesResponse' }
+              example:
+                activeStrategy: { code: OFFICIAL, version: 1, label: OFFICIAL v1 }
+                alternativeStrategy: { code: MOMENTUM, version: 1, label: MOMENTUM v1 }
+                marketStrategy: { code: OFFICIAL, version: 1, label: OFFICIAL v1 }
+                pendingRecalculation: false
+                undervalued:
+                  - playerId: 7
+                    name: Pedri
+                    team: FC Barcelona
+                    league: LA_LIGA
+                    positions: [MIDFIELDER]
+                    marketValue: 1.0000
+                    alternativeQuote: 1.2000
+                    alternativeQuoteCalculatedAt: '2026-10-28T03:00:00Z'
+                    difference: 0.2000
+                    differencePercent: 20.00
+                overvalued: []
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /quotes/latest:
+    get:
+      tags: [Quotes]
+      summary: Latest quote of a strategy for a set of players
+      description: >
+        Built for the catalog page. Returns one item per distinct existing id, in request order; unknown ids are
+        omitted. `quote` is null when the player has no quote of that strategy.
+      operationId: getLatestQuotes
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: playerIds
+          in: query
+          required: true
+          description: Comma-separated positive ids, 1 to 100 distinct values
+          schema: { type: string, example: '1,2,3' }
+        - name: strategy
+          in: query
+          required: false
+          description: Defaults to the alternative strategy
+          schema: { type: string, example: MOMENTUM }
+      responses:
+        '200':
+          description: Latest quotes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LatestQuotesResponse' }
+              example:
+                strategy: { code: MOMENTUM, version: 1, label: MOMENTUM v1 }
+                items:
+                  - playerId: 1
+                    quote: { value: 1.1500, status: CALCULATED, calculatedAt: '2026-10-28T03:00:00Z', strategyVersion: 1 }
+                  - playerId: 2
+                    quote: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /strategies/active:
+    get:
+      tags: [Valuation Strategies]
+      summary: Active, alternative and market strategy
+      operationId: getActiveStrategy
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Current configuration
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActiveStrategyResponse' }
+              example:
+                active: { code: MOMENTUM, version: 1, label: MOMENTUM v1 }
+                alternative: { code: OFFICIAL, version: 1, label: OFFICIAL v1 }
+                marketStrategy: { code: OFFICIAL, version: 1, label: OFFICIAL v1 }
+                pendingRecalculation: true
+                changedAt: '2026-10-30T14:05:00Z'
+                changedBy: { actorType: USER, userId: 1, username: superuser }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Valuation Strategies]
+      summary: Change the global active strategy (ADMIN only)
+      description: >
+        Persists the choice and audits it (ACTIVE_STRATEGY_CHANGED). Does not change marketValue nor trigger a
+        recalculation: the next recalculation that starts after the change uses it. Re-activating the current
+        strategy returns 200 with `changed: false` and writes no audit entry.
+      operationId: changeActiveStrategy
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeActiveStrategyRequest' }
+            example: { strategy: MOMENTUM }
+      responses:
+        '200':
+          description: Resulting configuration
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ActiveStrategyResponse'
+                  - type: object
+                    required: [changed]
+                    properties:
+                      changed: { type: boolean }
+        '400':
+          description: Unknown strategy or invalid body
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example:
+                error: unknown_strategy
+                message: "Estrategia de valuación desconocida: 'FOO'. Válidas: OFFICIAL, MOMENTUM"
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    apiKeyAuth: { type: apiKey, in: header, name: X-API-KEY }
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+  responses:
+    BadRequest:
+      description: unknown_strategy or validation_error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: Missing or invalid credentials
+    Forbidden:
+      description: Authenticated without permission
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example: { error: forbidden, message: No tenés permisos para esta operación }
+    NotFound:
+      description: User not found (ADMIN only)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string }
+        message: { type: string }
+    StrategyRef:
+      type: object
+      required: [code, version, label]
+      properties:
+        code: { type: string }
+        version: { type: integer }
+        label: { type: string }
+    QuoteStatus:
+      type: string
+      enum: [CALCULATED, NO_STATS, INSUFFICIENT_HISTORY]
+    PositionStrategyValuation:
+      type: object
+      description: All fields null together when the player has no quote of the strategy
+      required: [quotePrice, quoteStatus, quoteCalculatedAt, value, profitLoss]
+      properties:
+        quotePrice: { type: number, nullable: true }
+        quoteStatus: { allOf: [{ $ref: '#/components/schemas/QuoteStatus' }], nullable: true }
+        quoteCalculatedAt: { type: string, format: date-time, nullable: true }
+        value: { type: number, nullable: true }
+        profitLoss: { type: number, nullable: true }
+    PortfolioStrategyValuation:
+      type: object
+      description: Totals are null when positionsWithoutQuote > 0
+      required: [strategy, totalValue, totalProfitLoss, totalEquity, positionsWithoutQuote]
+      properties:
+        strategy: { $ref: '#/components/schemas/StrategyRef' }
+        totalValue: { type: number, nullable: true }
+        totalProfitLoss: { type: number, nullable: true }
+        totalEquity: { type: number, nullable: true }
+        positionsWithoutQuote: { type: integer, minimum: 0 }
+    PortfolioPositionResponse:
+      description: Feature 028 position plus optional strategyValuation (present only with ?strategy)
+      type: object
+      properties:
+        strategyValuation: { $ref: '#/components/schemas/PositionStrategyValuation' }
+    PortfolioResponse:
+      description: Feature 028 portfolio plus optional strategyValuation (present only with ?strategy)
+      type: object
+      properties:
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/PortfolioPositionResponse' }
+        strategyValuation: { $ref: '#/components/schemas/PortfolioStrategyValuation' }
+    OpportunityItem:
+      type: object
+      required: [playerId, name, team, league, positions, marketValue, alternativeQuote,
+                 alternativeQuoteCalculatedAt, difference, differencePercent]
+      properties:
+        playerId: { type: integer, format: int64 }
+        name: { type: string }
+        team: { type: string }
+        league: { type: string }
+        positions: { type: array, items: { type: string } }
+        marketValue: { type: number }
+        alternativeQuote: { type: number }
+        alternativeQuoteCalculatedAt: { type: string, format: date-time }
+        difference: { type: number }
+        differencePercent: { type: number }
+    OpportunitiesResponse:
+      type: object
+      required: [activeStrategy, alternativeStrategy, marketStrategy, pendingRecalculation, undervalued, overvalued]
+      properties:
+        activeStrategy: { $ref: '#/components/schemas/StrategyRef' }
+        alternativeStrategy: { $ref: '#/components/schemas/StrategyRef' }
+        marketStrategy: { $ref: '#/components/schemas/StrategyRef' }
+        pendingRecalculation: { type: boolean }
+        undervalued: { type: array, items: { $ref: '#/components/schemas/OpportunityItem' } }
+        overvalued: { type: array, items: { $ref: '#/components/schemas/OpportunityItem' } }
+    LatestQuotesResponse:
+      type: object
+      required: [strategy, items]
+      properties:
+        strategy: { $ref: '#/components/schemas/StrategyRef' }
+        items:
+          type: array
+          items:
+            type: object
+            required: [playerId, quote]
+            properties:
+              playerId: { type: integer, format: int64 }
+              quote:
+                type: object
+                nullable: true
+                required: [value, status, calculatedAt, strategyVersion]
+                properties:
+                  value: { type: number }
+                  status: { $ref: '#/components/schemas/QuoteStatus' }
+                  calculatedAt: { type: string, format: date-time }
+                  strategyVersion: { type: integer }
+    ActiveStrategyResponse:
+      type: object
+      required: [active, alternative, marketStrategy, pendingRecalculation, changedAt, changedBy]
+      properties:
+        active: { $ref: '#/components/schemas/StrategyRef' }
+        alternative: { $ref: '#/components/schemas/StrategyRef' }
+        marketStrategy: { $ref: '#/components/schemas/StrategyRef' }
+        pendingRecalculation: { type: boolean }
+        changedAt: { type: string, format: date-time, nullable: true }
+        changedBy:
+          type: object
+          nullable: true
+          required: [actorType]
+          properties:
+            actorType: { type: string, enum: [USER, SYSTEM] }
+            userId: { type: integer, format: int64, nullable: true }
+            username: { type: string, nullable: true }
+    ChangeActiveStrategyRequest:
+      type: object
+      required: [strategy]
+      properties:
+        strategy: { type: string, minLength: 1 }

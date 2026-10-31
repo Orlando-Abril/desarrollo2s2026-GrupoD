@@ -16,6 +16,7 @@ import com.example.demo.service.valuation.strategy.ValuationStrategyDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -45,6 +46,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>
  * Cada jugador se guarda en su propia transacción: una falla revierte sus cotizaciones y su precio, y la corrida
  * sigue. Como máximo corre una corrida a la vez (una sola instancia, ver research D6).
+ * <p>
+ * La estrategia activa se lee una sola vez, al empezar la corrida: un cambio posterior (spec 031) se aplica en la
+ * corrida siguiente. Si la corrida fija precios, registra la estrategia de mercado con {@link MarketStrategyRecorder}.
  */
 @Service
 public class QuoteCalculationService {
@@ -62,6 +66,7 @@ public class QuoteCalculationService {
     private final TransactionOperations playerTransaction;
     private final TransactionTemplate readOnlyTransaction;
     private final ApplicationEventPublisher eventPublisher;
+    private final MarketStrategyRecorder marketStrategyRecorder;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public QuoteCalculationService(ValuationStrategyCatalog catalog,
@@ -74,6 +79,22 @@ public class QuoteCalculationService {
                                    TransactionOperations playerTransaction,
                                    PlatformTransactionManager transactionManager,
                                    ApplicationEventPublisher eventPublisher) {
+        this(catalog, algorithms, snapshotService, playerRepository, statsRepository, quoteRepository, clock,
+                playerTransaction, transactionManager, eventPublisher, MarketStrategyRecorder.NONE);
+    }
+
+    @Autowired
+    public QuoteCalculationService(ValuationStrategyCatalog catalog,
+                                   List<ValuationAlgorithm> algorithms,
+                                   StatsSnapshotService snapshotService,
+                                   PlayerRepository playerRepository,
+                                   PlayerStatsRepository statsRepository,
+                                   PlayerQuoteRepository quoteRepository,
+                                   Clock clock,
+                                   TransactionOperations playerTransaction,
+                                   PlatformTransactionManager transactionManager,
+                                   ApplicationEventPublisher eventPublisher,
+                                   MarketStrategyRecorder marketStrategyRecorder) {
         this.catalog = catalog;
         this.algorithms = byType(algorithms);
         this.snapshotService = snapshotService;
@@ -85,6 +106,7 @@ public class QuoteCalculationService {
         this.readOnlyTransaction = new TransactionTemplate(transactionManager);
         this.readOnlyTransaction.setReadOnly(true);
         this.eventPublisher = eventPublisher;
+        this.marketStrategyRecorder = marketStrategyRecorder;
     }
 
     /**
@@ -109,17 +131,37 @@ public class QuoteCalculationService {
             correlationId = UUID.randomUUID().toString();
             MDC.put(CorrelationIdFilter.MDC_KEY, correlationId);
         }
-        Run run = new Run(UUID.randomUUID(), clock.instant(), correlationId);
+        Run run;
+        try {
+            run = new Run(UUID.randomUUID(), clock.instant(), correlationId, catalog.active().code());
+        } catch (RuntimeException exception) {
+            running.set(false);
+            restoreCorrelationId(previousCorrelationId);
+            throw exception;
+        }
         try {
             return execute(run, strategyCode.orElse(null), definitions);
         } finally {
             publishCompleted(run.id());
             running.set(false);
-            if (previousCorrelationId == null) {
-                MDC.remove(CorrelationIdFilter.MDC_KEY);
-            } else {
-                MDC.put(CorrelationIdFilter.MDC_KEY, previousCorrelationId);
-            }
+            restoreCorrelationId(previousCorrelationId);
+        }
+    }
+
+    private static void restoreCorrelationId(String previousCorrelationId) {
+        if (previousCorrelationId == null) {
+            MDC.remove(CorrelationIdFilter.MDC_KEY);
+        } else {
+            MDC.put(CorrelationIdFilter.MDC_KEY, previousCorrelationId);
+        }
+    }
+
+    private void recordMarketStrategy(Run run) {
+        try {
+            marketStrategyRecorder.recordMarketStrategy(run.activeCode(), run.calculatedAt(), run.id());
+        } catch (RuntimeException exception) {
+            log.error("market_strategy_record_failed runId={} errorType={}",
+                    run.id(), exception.getClass().getSimpleName(), exception);
         }
     }
 
@@ -144,6 +186,9 @@ public class QuoteCalculationService {
             }
 
             QuoteRunResult result = summarizeSafely(run, requestedStrategy, plan, tally);
+            if (result.marketValueUpdated()) {
+                recordMarketStrategy(run);
+            }
             log.info("quote_recalculation_finished runId={} calculated={} skipped={} processed={} failed={} "
                             + "marketValueUpdated={} durationMs={}",
                     run.id(), result.calculated(), result.skipped(), result.playersProcessed(),
@@ -213,9 +258,8 @@ public class QuoteCalculationService {
                 }
                 currentStrategy.set(null);
                 quoteRepository.saveAll(built);
-                String active = catalog.active().code();
                 for (PlayerQuote quote : built) {
-                    if (quote.getStrategyCode().equals(active)) {
+                    if (quote.getStrategyCode().equals(run.activeCode())) {
                         managed.setMarketValue(quote.getValue());
                     }
                 }
@@ -271,7 +315,7 @@ public class QuoteCalculationService {
     }
 
     private QuoteRunResult summarize(Run run, String requestedStrategy, Plan plan, Tally tally) {
-        String active = catalog.active().code();
+        String active = run.activeCode();
         boolean activeCalculated = plan.strategies().stream()
                 .anyMatch(strategy -> strategy.definition().code().equals(active));
         boolean marketValueUpdated = activeCalculated && (tally.processed > 0 || plan.players().isEmpty());
@@ -289,7 +333,7 @@ public class QuoteCalculationService {
         return byType;
     }
 
-    private record Run(UUID id, Instant calculatedAt, String correlationId) {
+    private record Run(UUID id, Instant calculatedAt, String correlationId, String activeCode) {
     }
 
     private record StrategyPlan(ValuationStrategyDefinition definition, ValuationAlgorithm algorithm,
