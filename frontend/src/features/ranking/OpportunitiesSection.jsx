@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Button from '../../components/Button.jsx'
 import { Link } from 'react-router-dom'
 import { getOpportunities } from '../../api/comparisonApi.js'
 import EstadoPanel from '../../components/EstadoPanel.jsx'
@@ -9,16 +10,26 @@ import { formatCredits } from '../../utils/format.js'
 import './RankingFilters.css'
 import './OpportunitiesSection.css'
 
+// El backend devuelve hasta 50 por lista; se muestran de a PAGE_SIZE para que la sección no sea eterna.
+export const OPPORTUNITIES_LIMIT = 50
+export const PAGE_SIZE = 5
+
 const percent = (item) => (Number(item.marketValue) > 0 ? formatSignedPercent(item.differencePercent) : 'No disponible')
 
 function OpportunityList({ title, items, marketName, alternativeName }) {
-  return <section className="opportunities-group"><h3>{title}</h3>{items.length ? <ul className="opportunities-list">{items.map((item) => <li key={item.playerId} className="opportunity-card">
+  const [shown, setShown] = useState(PAGE_SIZE)
+  const visibleItems = items.slice(0, shown)
+  const remaining = items.length - visibleItems.length
+  return <section className="opportunities-group"><h3>{title}</h3>{items.length ? <><ul className="opportunities-list">{visibleItems.map((item) => <li key={item.playerId} className="opportunity-card">
     <strong>{item.name}</strong>
     <span>Mercado actual ({marketName}): {formatCredits(item.marketValue)}</span>
     <span>Cotización alternativa ({alternativeName}): {formatCredits(item.alternativeQuote)}</span>
     <span>Diferencia: <span className={`opportunity-card__difference opportunity-card__difference--${differenceTone(item.difference)}`}>{formatSignedCredits(item.difference)} <span>({percent(item)})</span></span></span>
     <Link to={`/jugadores/${item.playerId}#operar`}>Operar</Link>
-  </li>)}</ul> : <p>No hay oportunidades en esta lista.</p>}</section>
+  </li>)}</ul>
+    <p className="opportunities-group__count">Mostrando {visibleItems.length} de {items.length}</p>
+    {remaining > 0 ? <Button type="button" variant="secondary" onClick={() => setShown((value) => value + PAGE_SIZE)}>Ver {Math.min(PAGE_SIZE, remaining)} más</Button> : null}
+  </> : <p>No hay oportunidades en esta lista.</p>}</section>
 }
 
 export default function OpportunitiesSection({ refreshKey = 0 }) {
@@ -29,7 +40,7 @@ export default function OpportunitiesSection({ refreshKey = 0 }) {
   const visible = state.key === key ? state : { status: 'loading', data: null }
   useEffect(() => {
     const controller = new AbortController()
-    getOpportunities(filters, { signal: controller.signal })
+    getOpportunities({ ...filters, limit: OPPORTUNITIES_LIMIT }, { signal: controller.signal })
       .then((data) => { if (!controller.signal.aborted) setState({ status: 'ready', data, key }) })
       .catch(() => { if (!controller.signal.aborted) setState({ status: 'error', data: null, key }) })
     return () => controller.abort()
@@ -54,7 +65,7 @@ export default function OpportunitiesSection({ refreshKey = 0 }) {
     {visible.data ? <>
       <p className="opportunities__note">Mercado: {marketName} · Estrategia activa: {strategyName(visible.data.activeStrategy?.code)} · Alternativa: {alternativeName}</p>
       {visible.data.pendingRecalculation ? <p className="opportunities__note"><output>Hay un recálculo pendiente. Las oportunidades se actualizarán después del próximo recálculo.</output></p> : null}
-      <div className="opportunities-columns"><OpportunityList title="Subvaluados" items={visible.data.undervalued ?? []} marketName={marketName} alternativeName={alternativeName} /><OpportunityList title="Sobrevaluados" items={visible.data.overvalued ?? []} marketName={marketName} alternativeName={alternativeName} /></div>
+      <div className="opportunities-columns"><OpportunityList key={`under-${key}`} title="Subvaluados" items={visible.data.undervalued ?? []} marketName={marketName} alternativeName={alternativeName} /><OpportunityList key={`over-${key}`} title="Sobrevaluados" items={visible.data.overvalued ?? []} marketName={marketName} alternativeName={alternativeName} /></div>
     </> : null}
   </section>
 }

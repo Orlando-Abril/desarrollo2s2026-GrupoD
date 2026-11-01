@@ -34,7 +34,9 @@ export default function RankingTable({ items }) {
                 </td>
                 <td>
                   <span className="ranking-table__positions">
-                    {player.positions.map((position) => <span key={position}>{POSITIONS[position].label}</span>)}
+                    {player.positions.length
+                      ? player.positions.map((position) => <span key={position}>{POSITIONS[position]?.label ?? position}</span>)
+                      : <span aria-label="Sin posición informada">—</span>}
                   </span>
                 </td>
                 <td className="ranking-table__number">{formatCredits(entry.value)}</td>

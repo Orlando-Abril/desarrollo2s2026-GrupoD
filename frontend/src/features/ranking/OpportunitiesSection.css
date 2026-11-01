@@ -13,3 +13,4 @@
 .opportunity-card a { justify-self: start; margin-top: var(--esp-2); padding: 6px 10px; background: var(--tinta); color: var(--papel); font-weight: 700; text-decoration: none; text-transform: uppercase; }
 .opportunity-card a:focus-visible { outline: 3px solid var(--azul); outline-offset: 3px; }
 @media (max-width: 700px) { .opportunities-columns { grid-template-columns: 1fr; } }
+.opportunities-group__count { margin: var(--esp-3) 0 var(--esp-2); color: var(--tinta-2); font-family: var(--font-mono); font-size: 12px; }

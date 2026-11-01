@@ -6,7 +6,9 @@ import './PerformanceChart.css'
 
 export default function PerformanceChart({ positions }) {
   const data = toPerformanceData(positions)
-  const caption = `Precio promedio y cotización actual por jugador · ${data.length} posiciones`
+  const total = positions?.length ?? 0
+  const scope = data.length < total ? 'las ' + data.length + ' de mayor valor de ' + total + ' posiciones' : data.length + ' posiciones'
+  const caption = `Precio promedio y cotización actual por jugador · ${scope}`
   return <figure className="portfolio-chart">
     <h2>Rendimiento del portfolio</h2><figcaption>{caption}</figcaption>
     <div role="img" aria-label={caption} className="portfolio-chart__canvas"><ResponsiveContainer width="100%" height={300}><BarChart data={data}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="playerName"/><YAxis/><Tooltip formatter={(value) => formatCredits(value)}/><Bar dataKey="averagePurchasePrice" name="Precio promedio" fill="#1f4fd1" isAnimationActive={!prefersReducedMotion()}/><Bar dataKey="marketValue" name="Cotización actual" fill="#12805c" isAnimationActive={!prefersReducedMotion()}/></BarChart></ResponsiveContainer></div>

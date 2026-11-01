@@ -81,6 +81,22 @@ class RankingControllerTest {
     }
 
     @Test
+    void playersWithoutPositionAreListedWithAnEmptyPositionSet() throws Exception {
+        Player withoutPosition = player("Sin posicion", "Club", League.BUNDESLIGA);
+        Player forward = player("Delantero", "Club", League.BUNDESLIGA, Position.FORWARD);
+        RankingFixtures.quote(quoteRepository, withoutPosition, "MOMENTUM", 1, "1.0000", "2026-10-02T00:00:00Z");
+        RankingFixtures.quote(quoteRepository, forward, "MOMENTUM", 1, "0.9000", "2026-10-02T00:00:00Z");
+
+        mockMvc.perform(get("/players/ranking").header("X-API-KEY", userKey)
+                        .param("strategy", "MOMENTUM").param("league", "BUNDESLIGA"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].player.name").value("Sin posicion"))
+                .andExpect(jsonPath("$.items[0].player.positions.length()").value(0))
+                .andExpect(jsonPath("$.items[1].player.positions[0]").value("FORWARD"));
+    }
+
+    @Test
     void strategyFiltersAndPageRanksApplyToTheFilteredSet() throws Exception {
         for (int i = 0; i < 22; i++) {
             Player player = player("P" + i, "Club", League.LA_LIGA, Position.FORWARD, Position.MIDFIELDER);

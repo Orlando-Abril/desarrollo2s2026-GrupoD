@@ -30,7 +30,10 @@ public class SecurityConfig {
             "/auth/login",
             "/swagger-ui/**",
             "/v3/api-docs/**",
-            "/actuator/health"
+            "/actuator/health",
+            // Reenvío interno de Spring para armar respuestas de error: si no es público, un 404 o 500
+            // de un usuario autenticado sale como 401 y el front cierra la sesión.
+            "/error"
     };
 
     @Value("${security.cors.allowed-origin}")

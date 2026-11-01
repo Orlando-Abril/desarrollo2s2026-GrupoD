@@ -1,3 +1,4 @@
+import { strategyName } from '../../utils/comparison.js'
 import Button from '../../components/Button.jsx'
 import Toast from '../../components/Toast.jsx'
 import useRecalculate from './useRecalculate.js'
@@ -20,16 +21,16 @@ function SuccessSummary({ summary, onClose }) {
         <Button type="button" variant="secondary" onClick={onClose} aria-label="Cerrar resumen">Cerrar</Button>
       </div>
       <div className="recalculate-summary__body">
-        <p className="recalculate-summary__run">Run ID: {summary.runId}</p>
+        <p className="recalculate-summary__run">Corrida: {summary.runId}</p>
         <section>
           <h2>Estrategias calculadas</h2>
           {summary.strategies.length === 0 ? <p>Ninguna</p> : (
             <ul>{summary.strategies.map((strategy) => (
               <li key={`${strategy.code}-${strategy.version}`}>
-                <strong>{strategy.code} v{strategy.version}</strong>
-                <span>CALCULATED: {strategy.calculated}</span>
-                <span>NO_STATS: {strategy.noStats}</span>
-                <span>INSUFFICIENT_HISTORY: {strategy.insufficientHistory}</span>
+                <strong>{strategyName(strategy.code)} v{strategy.version}</strong>
+                <span>Calculadas: {strategy.calculated}</span>
+                <span>Sin estadísticas: {strategy.noStats}</span>
+                <span>Historial insuficiente: {strategy.insufficientHistory}</span>
               </li>
             ))}</ul>
           )}
@@ -39,14 +40,14 @@ function SuccessSummary({ summary, onClose }) {
           {summary.skippedStrategies.length === 0 ? <p>Ninguna</p> : (
             <ul>{summary.skippedStrategies.map((strategy) => (
               <li key={`${strategy.code}-${strategy.version}`}>
-                {strategy.code} v{strategy.version}: {strategy.reason}
+                {strategyName(strategy.code)} v{strategy.version}: {strategy.reason}
               </li>
             ))}</ul>
           )}
         </section>
         <p>Jugadores procesados: {summary.playersProcessed}</p>
         <p>Jugadores fallidos: {summary.playersFailed}</p>
-        <p>Estrategia activa: {summary.activeStrategy}</p>
+        <p>Estrategia activa: {strategyName(summary.activeStrategy)}</p>
         <p>Valor de mercado actualizado: {summary.marketValueUpdated ? 'Sí' : 'No'}</p>
       </div>
     </div>
