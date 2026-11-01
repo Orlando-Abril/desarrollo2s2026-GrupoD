@@ -53,7 +53,7 @@ function SuccessSummary({ summary, onClose }) {
   )
 }
 
-export default function RecalculateButton({ onRecalculated }) {
+export default function RecalculateButton({ onRecalculated, buttonRef }) {
   const { running, notification, forbidden, recalculate, dismissNotification } = useRecalculate({ onRecalculated })
 
   const handleClick = () => {
@@ -64,7 +64,7 @@ export default function RecalculateButton({ onRecalculated }) {
   return (
     <div className="recalculate-control">
       {!forbidden ? (
-        <Button type="button" onClick={handleClick} disabled={running} aria-busy={running ? 'true' : 'false'}>
+        <Button ref={buttonRef} type="button" onClick={handleClick} disabled={running} aria-busy={running ? 'true' : 'false'}>
           {running ? 'Recalculando…' : 'Recalcular cotizaciones'}
         </Button>
       ) : null}

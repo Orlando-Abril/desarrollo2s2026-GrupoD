@@ -13,8 +13,9 @@
 .quote-chart__canvas { width: 100%; min-width: 0; font-family: var(--font-mono); font-size: 11px; }
 .quote-chart__loading { display: grid; }
 .quote-chart__loading .casillero { width: 100%; }
-/* Tabla alternativa: sólo para lectores de pantalla, con los mismos datos que el gráfico. */
-.quote-chart__table { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Tabla alternativa: sólo para lectores de pantalla, con los mismos datos que el gráfico.
+   El layout fijo hace que respete el ancho de 1px aunque sus celdas sean largas. */
+.quote-chart__table { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; table-layout: fixed; }
 
 /* Los trazos se pintan por CSS: los atributos SVG no resuelven custom properties de forma confiable (research R9). */
 .quote-chart .recharts-line-curve { stroke: var(--quote-line); }
@@ -27,3 +28,8 @@
 
 .quote-tooltip { display: grid; gap: 2px; border: var(--borde); padding: var(--esp-2) var(--esp-3); background: var(--blanco); box-shadow: var(--sombra-sm); font-family: var(--font-mono); font-size: 12px; }
 .quote-tooltip strong { font-size: 13px; }
+.quote-chart__series--market { --quote-line: var(--azul); }
+.quote-chart__series--alternative { --quote-line: var(--amarillo); }
+.quote-chart__legend { display: flex; flex-wrap: wrap; gap: var(--esp-2) var(--esp-4); margin: var(--esp-2) 0 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: 12px; font-weight: 700; }
+.quote-chart__legend li { display: flex; align-items: center; gap: var(--esp-2); }
+.quote-chart__swatch { width: 18px; height: 4px; background: var(--quote-line); }

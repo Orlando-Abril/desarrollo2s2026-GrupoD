@@ -4,11 +4,12 @@ import { LEAGUES, POSITIONS } from '../../domain/catalogo.js'
 import { formatCredits } from '../../utils/format.js'
 import './PlayerHeader.css'
 
-export default function PlayerHeader({ player, quote, variation }) {
+export default function PlayerHeader({ player, quote, variation, activeConfig }) {
   const titleId = useId()
   const leagueData = LEAGUES[player.league] ?? { label: '—', colorVar: '--tinta-2' }
   const positionKey = Object.keys(POSITIONS).find((key) => player.positions.includes(key))
   const position = positionKey ? POSITIONS[positionKey] : null
+  const matchesMarket = quote && Number(quote.value) === Number(player.marketValue) && (!activeConfig?.marketStrategy?.code || quote.strategy === activeConfig.marketStrategy.code)
 
   return (
     <section className="player-header" aria-labelledby={titleId} style={{ '--figurita-liga': `var(${leagueData.colorVar})` }}>
@@ -28,10 +29,11 @@ export default function PlayerHeader({ player, quote, variation }) {
           <div><dt>Nacionalidad · edad</dt><dd>{`${player.nationality ?? '—'} · ${player.age ?? '—'}`}</dd></div>
         </dl>
         <div className="player-header__quote">
-          <span>Cotización actual</span>
-          <strong data-testid="current-quote">{quote ? formatCredits(quote.value) : '—'}</strong>
-          <VariationBadge current={variation.current} previous={variation.previous} />
+          <span>Cotización actual</span><small>Mercado actual · precio para operar{activeConfig?.marketStrategy?.code ? ` · ${activeConfig.marketStrategy.code}` : ''}</small>
+          <strong data-testid="current-quote">{player.marketValue != null ? formatCredits(player.marketValue) : '—'}</strong>
+          <VariationBadge current={matchesMarket ? variation.current : null} previous={matchesMarket ? variation.previous : null} />
         </div>
+        {activeConfig?.pendingRecalculation ? <p><output>Estrategia activa: {activeConfig.active?.code}. El mercado sigue con {activeConfig.marketStrategy?.code} hasta el próximo recálculo.</output></p> : null}
       </div>
     </section>
   )

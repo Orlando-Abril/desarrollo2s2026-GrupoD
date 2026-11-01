@@ -1,5 +1,8 @@
+import { useEffect } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from '../session/SessionContext.jsx'
+import { useStrategyView } from '../context/StrategyViewContext.jsx'
+import StrategySelector from '../components/StrategySelector.jsx'
 import './Header.css'
 
 function Logo() {
@@ -33,7 +36,10 @@ function Navigation({ items }) {
 export default function Header({ items }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { isAuthenticated, username, logout } = useSession()
+  const { isAuthenticated, username, token, logout } = useSession()
+  const { setIdentity } = useStrategyView()
+  useEffect(() => { setIdentity(token) }, [setIdentity, token])
+  const hasStrategyView = location.pathname === '/album' || location.pathname === '/portfolio' || /^\/jugadores\/[^/]+$/.test(location.pathname)
   const trimmed = username?.trim() ?? ''
   const initial = trimmed.charAt(0).toUpperCase() || '—'
 
@@ -50,6 +56,7 @@ export default function Header({ items }) {
         <div className="site-header__actions">
           {isAuthenticated ? (
             <>
+              {hasStrategyView ? <StrategySelector identity={token} /> : null}
               <div className="user-chip">
                 <span className="user-chip__avatar" aria-hidden="true">{initial}</span>
                 <span className="user-chip__name">{username}</span>

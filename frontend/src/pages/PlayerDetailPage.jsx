@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Casillero from '../components/Casillero.jsx'
 import EstadoPanel from '../components/EstadoPanel.jsx'
 import PlayerHeader from '../features/player-detail/PlayerHeader.jsx'
@@ -7,12 +7,15 @@ import QuoteAtDate from '../features/player-detail/QuoteAtDate.jsx'
 import QuoteChart from '../features/player-detail/QuoteChart.jsx'
 import StatsPanel from '../features/player-detail/StatsPanel.jsx'
 import usePlayerDetail from '../features/player-detail/usePlayerDetail.js'
+import { useStrategyView } from '../context/StrategyViewContext.jsx'
 import TradingSection from '../features/trading/TradingSection.jsx'
 import './PlayerDetailPage.css'
 
 function PlayerDetail({ id }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const page = usePlayerDetail(id)
+  const { activeConfig } = useStrategyView()
   const fullName = page.detail?.player.fullName
 
   useEffect(() => {
@@ -41,8 +44,8 @@ function PlayerDetail({ id }) {
     const { player, stats, quote } = page.detail
     content = (
       <>
-        <PlayerHeader player={player} quote={quote} variation={page.variation} />
-        <TradingSection player={player} />
+        <PlayerHeader player={player} quote={quote} variation={page.variation} activeConfig={activeConfig} />
+        <TradingSection player={player} hash={location.hash} />
         <QuoteChart
           points={page.history.points}
           status={page.history.status}
@@ -52,6 +55,9 @@ function PlayerDetail({ id }) {
           onStrategyChange={page.setStrategy}
           onRangeChange={page.setRange}
           onRetry={page.retryHistory}
+          comparisonCodes={page.comparisonCodes}
+          comparisonPoints={page.history.comparisonPoints ?? []}
+          partialError={page.history.partialError}
         />
         <QuoteAtDate today={page.today} atQuery={page.atQuery} onQuery={page.queryAt} onRetry={page.retryAt} />
         <StatsPanel stats={stats} />

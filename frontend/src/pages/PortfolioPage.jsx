@@ -6,9 +6,10 @@ import PositionsTable from '../features/portfolio/PositionsTable.jsx'
 import TransactionsTable from '../features/portfolio/TransactionsTable.jsx'
 import { formatCredits, formatResult, resultKind, resultLabel } from '../features/portfolio/portfolioFormat.js'
 import usePortfolio from '../features/portfolio/usePortfolio.js'
+import { strategyName } from '../utils/comparison.js'
 import './PortfolioPage.css'
 
-function Summary({ portfolio }) {
+function Summary({ portfolio, comparisonLabel }) {
   const items = [
     ['Saldo', formatCredits(portfolio.balance)],
     ['Invertido', formatCredits(portfolio.totalCost)],
@@ -16,6 +17,7 @@ function Summary({ portfolio }) {
     ['Resultado', formatResult(portfolio.totalProfitLoss)],
   ]
   return <><dl className="portfolio-summary">{items.map(([label, value], index) => <div key={label}><dt>{label}</dt><dd className={index === 3 ? `portfolio-result--${resultKind(portfolio.totalProfitLoss)}` : ''}>{index === 3 ? <span className="sr-only">{resultLabel(portfolio.totalProfitLoss)}: </span> : null}{value}</dd></div>)}</dl>
+    {comparisonLabel ? <section aria-label={`Valuación ${comparisonLabel}`}><h3>Valuación {comparisonLabel}</h3><dl className="portfolio-summary"><div><dt>Valor {comparisonLabel}</dt><dd>{portfolio.strategyValuation?.totalValue == null ? 'No disponible' : formatCredits(portfolio.strategyValuation.totalValue)}</dd></div><div><dt>Resultado {comparisonLabel}</dt><dd>{portfolio.strategyValuation?.totalProfitLoss == null ? 'No disponible' : formatResult(portfolio.strategyValuation.totalProfitLoss)}</dd></div><div><dt>Patrimonio {comparisonLabel}</dt><dd>{portfolio.strategyValuation?.totalEquity == null ? 'No disponible' : formatCredits(portfolio.strategyValuation.totalEquity)}</dd></div></dl>{portfolio.strategyValuation?.positionsWithoutQuote > 0 ? <p>{portfolio.strategyValuation.positionsWithoutQuote} posiciones sin cotización. Totales comparativos no disponibles.</p> : null}</section> : null}
     <p className="portfolio-balance-detail">Disponible: {formatCredits(portfolio.availableBalance)} · Reservado: {formatCredits(portfolio.reservedCredits)}</p></>
 }
 
@@ -31,22 +33,23 @@ function IdentityError({ onRetry }) {
   return <div className="portfolio-page"><h1>Mi portfolio</h1><EstadoPanel stamp="Error" stampVariant="danger" title="No pudimos identificar tu cuenta" action={{ label: 'Reintentar', onClick: onRetry }}>Probá nuevamente.</EstadoPanel></div>
 }
 
-function PortfolioContent({ portfolio }) {
+function PortfolioContent({ portfolio, comparisonLabel }) {
   if (!portfolio.positions.length) {
-    return <><Summary portfolio={portfolio}/><div className="portfolio-empty"><h3>Todavía no compraste tokens</h3><p>Explorá el álbum para conocer jugadores y empezar tu portfolio.</p><Link to="/album">Ir al álbum</Link></div></>
+    return <><Summary portfolio={portfolio} comparisonLabel={comparisonLabel}/><div className="portfolio-empty"><h3>Todavía no compraste tokens</h3><p>Explorá el álbum para conocer jugadores y empezar tu portfolio.</p><Link to="/album">Ir al álbum</Link></div></>
   }
 
-  return <><Summary portfolio={portfolio}/><PositionsTable positions={portfolio.positions}/><div className="portfolio-charts"><PerformanceChart positions={portfolio.positions}/><AllocationDonut positions={portfolio.positions} totalCurrentValue={portfolio.totalCurrentValue}/></div></>
+  return <><Summary portfolio={portfolio} comparisonLabel={comparisonLabel}/><PositionsTable positions={portfolio.positions} comparisonLabel={comparisonLabel}/><div className="portfolio-charts"><PerformanceChart positions={portfolio.positions}/><AllocationDonut positions={portfolio.positions} totalCurrentValue={portfolio.totalCurrentValue}/></div></>
 }
 
 function PortfolioSection({ state }) {
+  const comparisonLabel = state.portfolioStrategy ? strategyName(state.portfolioStrategy) : null
   const hasPortfolio = Boolean(state.portfolio)
   const showLoading = state.portfolioStatus === 'loading' && !hasPortfolio
 
   return <section aria-labelledby="portfolio-position-title" aria-busy={state.portfolioStatus === 'loading' || state.portfolioRefreshing}><h2 id="portfolio-position-title">Posición actual</h2>
     {showLoading ? <output className="portfolio-loading-status">Cargando posición…</output> : null}
     {state.portfolioStatus === 'error' ? <ResourceError title="No pudimos cargar tu posición." onRetry={state.retryPortfolio} stale={hasPortfolio}/> : null}
-    {hasPortfolio ? <PortfolioContent portfolio={state.portfolio}/> : null}
+    {hasPortfolio ? <PortfolioContent portfolio={state.portfolio} comparisonLabel={comparisonLabel}/> : null}
   </section>
 }
 

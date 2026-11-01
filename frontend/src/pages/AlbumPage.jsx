@@ -8,8 +8,17 @@ import AlbumGrid from '../features/album/AlbumGrid.jsx'
 import AlbumTable from '../features/album/AlbumTable.jsx'
 import Pager from '../features/album/Pager.jsx'
 import useAlbum from '../features/album/useAlbum.js'
+import useLatestPageQuotes from '../features/album/useLatestPageQuotes.js'
+import { useStrategyView } from '../context/StrategyViewContext.jsx'
+import { strategyName } from '../utils/comparison.js'
 import { formatInteger } from '../utils/format.js'
 import './AlbumPage.css'
+
+function AlternativeQuotesNotice({ status, label, onRetry }) {
+  if (status === 'loading') return <p><output>Cargando cotizaciones {label}…</output></p>
+  if (status === 'error') return <EstadoPanel title={`No pudimos cargar ${label}`} action={{ label: 'Reintentar', onClick: onRetry }}>El precio de mercado sigue disponible.</EstadoPanel>
+  return null
+}
 
 export default function AlbumPage() {
   const location = useLocation()
@@ -17,6 +26,10 @@ export default function AlbumPage() {
   const [toast, setToast] = useState(location.state?.toast ?? null)
   const resultsRef = useRef(null)
   const album = useAlbum()
+  const { comparisonStrategy } = useStrategyView()
+  const latest = useLatestPageQuotes(album.items ?? [], comparisonStrategy)
+  const alternativeQuotes = latest.status === 'ready' ? latest.quotes : null
+  const alternativeLabel = strategyName(comparisonStrategy)
   const dismissToast = useCallback(() => {
     setToast(null)
     void navigate(location.pathname, { replace: true, state: null })
@@ -64,8 +77,8 @@ export default function AlbumPage() {
     )
   } else {
     content = album.viewMode === 'cards'
-      ? <AlbumGrid players={album.items} />
-      : <AlbumTable players={album.items} />
+      ? <AlbumGrid players={album.items} alternativeQuotes={alternativeQuotes} alternativeLabel={alternativeLabel} />
+      : <AlbumTable players={album.items} alternativeQuotes={alternativeQuotes} alternativeLabel={alternativeLabel} />
   }
 
   return (
@@ -82,6 +95,7 @@ export default function AlbumPage() {
         onViewChange={album.setViewMode}
         onClear={album.clearFilters}
       />
+      <AlternativeQuotesNotice status={latest.status} label={alternativeLabel} onRetry={latest.retry} />
       <div className="album-results" ref={resultsRef}>{content}</div>
       {album.status === 'ready' && album.total > 0 ? (
         <Pager

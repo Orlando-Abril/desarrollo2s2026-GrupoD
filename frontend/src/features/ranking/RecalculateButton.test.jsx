@@ -1,3 +1,4 @@
+import { createRef } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -13,6 +14,13 @@ describe('RecalculateButton', () => {
     hookState.recalculate.mockReset()
     hookState.dismissNotification.mockReset()
     vi.restoreAllMocks()
+  })
+  it('exposes the existing button for keyboard focus without running recalculation', () => {
+    const buttonRef = createRef()
+    render(<RecalculateButton buttonRef={buttonRef} />)
+    buttonRef.current.focus()
+    expect(document.activeElement).toBe(buttonRef.current)
+    expect(hookState.recalculate).not.toHaveBeenCalled()
   })
 
   it('cancels without sending and confirms once', () => {

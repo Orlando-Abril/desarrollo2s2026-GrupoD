@@ -1,15 +1,27 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import EstadoPanel from '../components/EstadoPanel.jsx'
 import Pager from '../features/album/Pager.jsx'
 import RankingFilters from '../features/ranking/RankingFilters.jsx'
 import RecalculateButton from '../features/ranking/RecalculateButton.jsx'
 import RankingTable from '../features/ranking/RankingTable.jsx'
 import useRanking from '../features/ranking/useRanking.js'
+import OpportunitiesSection from '../features/ranking/OpportunitiesSection.jsx'
+import ActiveStrategyControl from '../features/admin/ActiveStrategyControl.jsx'
+import { useStrategyView } from '../context/StrategyViewContext.jsx'
 import './RankingPage.css'
 
 export default function RankingPage() {
   const ranking = useRanking()
   const resultsRef = useRef(null)
+  const recalculateRef = useRef(null)
+  const [opportunityRefresh, setOpportunityRefresh] = useState(0)
+  const { refreshConfig } = useStrategyView()
+  const refreshOpportunities = useCallback(() => setOpportunityRefresh((value) => value + 1), [])
+  const afterRecalculate = useCallback(() => {
+    ranking.reload()
+    refreshOpportunities()
+    void refreshConfig()
+  }, [ranking, refreshOpportunities, refreshConfig])
 
   const changePage = useCallback((nextPage) => {
     if (nextPage === ranking.page || nextPage < 1 || nextPage > ranking.totalPages) return
@@ -48,7 +60,10 @@ export default function RankingPage() {
           <h1>Ranking</h1>
           <p>Jugadores ordenados por su cotización actual</p>
         </div>
-        <RecalculateButton onRecalculated={ranking.reload} />
+        <div className="ranking-page__admin-actions">
+          <ActiveStrategyControl onChanged={refreshOpportunities} onRecalculate={() => recalculateRef.current?.click()} />
+          <RecalculateButton buttonRef={recalculateRef} onRecalculated={afterRecalculate} />
+        </div>
       </header>
       <RankingFilters
         value={ranking.filters}
@@ -67,6 +82,7 @@ export default function RankingPage() {
           onPageChange={changePage}
         />
       ) : null}
+      <OpportunitiesSection refreshKey={opportunityRefresh} />
     </div>
   )
 }

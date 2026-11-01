@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import AlbumPage from './AlbumPage.jsx'
 import { SessionProvider, useSession } from '../session/SessionContext.jsx'
+import { StrategyViewProvider, createStrategyViewStore } from '../context/StrategyViewContext.jsx'
+import { marketMomentum } from '../test/strategyFixtures.js'
+import { strategyStore } from '../test/strategyStore.js'
 
 function player(id, overrides = {}) {
   return {
@@ -41,10 +44,11 @@ function LoginDestination() {
   return <><span>{location.pathname}</span><p>{location.state?.info}</p></>
 }
 
-function renderAlbum() {
+function renderAlbum(store = createStrategyViewStore()) {
   return render(
     <MemoryRouter initialEntries={['/album']}>
       <SessionProvider>
+        <StrategyViewProvider store={store}>
         <AutoLogin>
           <Routes>
             <Route path="/album" element={<AlbumPage />} />
@@ -52,6 +56,7 @@ function renderAlbum() {
             <Route path="/jugadores/:id" element={<LoginDestination />} />
           </Routes>
         </AutoLogin>
+        </StrategyViewProvider>
       </SessionProvider>
     </MemoryRouter>,
   )
@@ -68,6 +73,34 @@ describe('AlbumPage', () => {
     vi.restoreAllMocks()
   })
 
+  it('uses latest alternative quotes for the visible cards only', async () => {
+    const store = strategyStore({ viewStrategy: 'MOMENTUM' })
+    const fetchMock = vi.fn((url) => {
+      const parsed = new URL(url)
+      if (parsed.pathname === '/quotes/latest') return Promise.resolve(response(200, { items: [{ playerId: 1, quote: { value: 1.2, status: 'CALCULATED' } }] }))
+      return Promise.resolve(response(200, [player(1)]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderAlbum(store)
+    await waitFor(() => expect(document.body.textContent).toContain('Momentum1,20 cr'))
+    const latestUrl = fetchMock.mock.calls.map(([url]) => new URL(url)).find((url) => url.pathname === '/quotes/latest')
+    expect(latestUrl.searchParams.get('playerIds')).toBe('1')
+    expect(latestUrl.searchParams.get('strategy')).toBe('MOMENTUM')
+  })
+  it('asks for the alternative returned by the active strategy when MOMENTUM fixed the market', async () => {
+    const store = strategyStore({ viewStrategy: 'MOMENTUM', activeConfig: marketMomentum })
+    const fetchMock = vi.fn((url) => {
+      const parsed = new URL(url)
+      if (parsed.pathname === '/quotes/latest') return Promise.reject(new TypeError('offline'))
+      return Promise.resolve(response(200, [player(1)]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderAlbum(store)
+    await waitFor(() => expect(document.body.textContent).toContain('No pudimos cargar Oficial'))
+    const latestUrl = fetchMock.mock.calls.map(([url]) => new URL(url)).find((url) => url.pathname === '/quotes/latest')
+    expect(latestUrl.searchParams.get('strategy')).toBe('OFFICIAL')
+    expect(document.body.textContent).not.toContain('Momentum')
+  })
   it('shows eight loading slots with busy semantics and no pager', async () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     renderAlbum()
