@@ -1,14 +1,21 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import Button from '../../components/Button.jsx'
 import { formatCredits, formatResult, resultKind, resultLabel } from './portfolioFormat.js'
 import { quoteStatusLabel } from '../../utils/comparison.js'
 import './PositionsTable.css'
 
+export const POSITIONS_PAGE_SIZE = 10
+
 export default function PositionsTable({ positions, comparisonLabel = null }) {
+  const [shown, setShown] = useState(POSITIONS_PAGE_SIZE)
+  const visiblePositions = positions.slice(0, shown)
+  const remaining = positions.length - visiblePositions.length
   const comparisonHeader = `${comparisonLabel} · valor y resultado`
-  return <div className="portfolio-table-wrap"><table className="portfolio-table">
+  return <><div className="portfolio-table-wrap"><table className="portfolio-table">
     <caption>Posiciones actuales</caption>
     <thead><tr><th scope="col">Jugador</th><th scope="col">Tokens</th><th scope="col">Precio promedio</th><th scope="col">Cotización</th><th scope="col">Valor actual</th><th scope="col">Ganancia/Pérdida</th>{comparisonLabel ? <th scope="col">{comparisonHeader}</th> : null}</tr></thead>
-    <tbody>{positions.map((item) => <tr key={item.playerId}>
+    <tbody>{visiblePositions.map((item) => <tr key={item.playerId}>
       <td data-label="Jugador"><Link to={`/jugadores/${item.playerId}`}>{item.playerName}</Link>{item.playerTeam ? <small>{item.playerTeam}</small> : null}</td>
       <td data-label="Tokens">{item.quantity}</td>
       <td data-label="Precio promedio">{formatCredits(item.averagePurchasePrice)}</td>
@@ -18,4 +25,9 @@ export default function PositionsTable({ positions, comparisonLabel = null }) {
       {comparisonLabel ? <td data-label={comparisonHeader}>{item.strategyValuation?.value == null || item.strategyValuation?.profitLoss == null ? 'No disponible · sin cotización' : <><strong>{formatCredits(item.strategyValuation.value)}</strong><span> · {formatResult(item.strategyValuation.profitLoss)}</span><small> · {quoteStatusLabel(item.strategyValuation.quoteStatus)}</small></>}</td> : null}
     </tr>)}</tbody>
   </table></div>
+  {positions.length > POSITIONS_PAGE_SIZE ? <div className="portfolio-table-more">
+    <p>Mostrando {visiblePositions.length} de {positions.length} posiciones</p>
+    {remaining > 0 ? <Button type="button" variant="secondary" onClick={() => setShown((value) => value + POSITIONS_PAGE_SIZE)}>Ver {Math.min(POSITIONS_PAGE_SIZE, remaining)} más</Button> : null}
+  </div> : null}
+  </>
 }

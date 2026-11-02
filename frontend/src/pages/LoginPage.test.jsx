@@ -8,6 +8,8 @@ import { SessionProvider } from '../session/SessionContext.jsx'
 const loginMock = vi.fn()
 
 vi.mock('../api/authApi.js', () => ({
+  refreshSession: () => Promise.reject(new Error('sin cookie')),
+  logout: () => Promise.resolve(null),
   login: (...args) => loginMock(...args),
   register: vi.fn(),
 }))

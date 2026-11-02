@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, NetworkError } from '../../api/httpClient.js'
 
 let token = 'token-a'
+let sessionId = null
 const recalculateQuotesMock = vi.fn()
 vi.mock('../../api/quotesApi.js', () => ({ recalculateQuotes: recalculateQuotesMock }))
-vi.mock('../../session/SessionContext.jsx', () => ({ useSession: () => ({ token }) }))
+vi.mock('../../session/SessionContext.jsx', () => ({ useSession: () => ({ token, sessionId }) }))
 
 const { default: useRecalculate } = await import('./useRecalculate.js')
 
@@ -22,7 +23,28 @@ afterEach(cleanup)
 describe('useRecalculate', () => {
   beforeEach(() => {
     token = `token-${crypto.randomUUID()}`
+    sessionId = null
     recalculateQuotesMock.mockReset()
+  })
+
+  it('keeps a running recalculation when only the JWT is renewed in the same session', async () => {
+    const pending = deferred()
+    const summary = { runId: 'run-2', strategies: [], skippedStrategies: [], playersProcessed: 0, playersFailed: 0 }
+    const onRecalculated = vi.fn()
+    sessionId = 'abril#1'
+    recalculateQuotesMock.mockReturnValue(pending.promise)
+    const { result, rerender } = renderHook(() => useRecalculate({ onRecalculated }))
+
+    act(() => { void result.current.recalculate() })
+    const { signal } = recalculateQuotesMock.mock.calls[0][1]
+    token = 'jwt-renovado'
+    rerender()
+    expect(signal.aborted).toBe(false)
+    expect(result.current.running).toBe(true)
+    pending.resolve(summary)
+
+    await waitFor(() => expect(result.current.notification).toEqual({ type: 'success', summary }))
+    expect(onRecalculated).toHaveBeenCalledTimes(1)
   })
 
   it('publishes the unchanged summary, reloads once and blocks duplicate sends', async () => {

@@ -57,6 +57,20 @@ describe('RecalculateButton', () => {
     expect(hookState.dismissNotification).toHaveBeenCalled()
   })
 
+  it('shows strategy counts with readable names instead of status codes', () => {
+    hookState.notification = { type: 'success', summary: {
+      runId: 'run-9', strategies: [{ code: 'MOMENTUM', version: 1, calculated: 3, noStats: 1, insufficientHistory: 2 }],
+      skippedStrategies: [], playersProcessed: 6, playersFailed: 0, activeStrategy: 'OFFICIAL', marketValueUpdated: true,
+    } }
+    render(<RecalculateButton onRecalculated={vi.fn()} />)
+    expect(screen.getByText('Momentum v1')).toBeTruthy()
+    expect(screen.getByText('Calculadas: 3')).toBeTruthy()
+    expect(screen.getByText('Sin estadísticas: 1')).toBeTruthy()
+    expect(screen.getByText('Historial insuficiente: 2')).toBeTruthy()
+    expect(screen.getByText('Estrategia activa: Oficial')).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(/INSUFFICIENT_HISTORY|NO_STATS|CALCULATED/)
+  })
+
   it.each([
     ['in_progress', 'Ya hay un recálculo en curso'],
     ['network_error', 'No se pudo conectar con el servidor. Intentá de nuevo.'],

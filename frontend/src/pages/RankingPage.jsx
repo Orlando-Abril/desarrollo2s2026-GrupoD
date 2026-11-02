@@ -7,11 +7,13 @@ import RankingTable from '../features/ranking/RankingTable.jsx'
 import useRanking from '../features/ranking/useRanking.js'
 import OpportunitiesSection from '../features/ranking/OpportunitiesSection.jsx'
 import ActiveStrategyControl from '../features/admin/ActiveStrategyControl.jsx'
+import useAccountRole from '../features/admin/useAccountRole.js'
 import { useStrategyView } from '../context/StrategyViewContext.jsx'
 import './RankingPage.css'
 
 export default function RankingPage() {
   const ranking = useRanking()
+  const isAdmin = useAccountRole() === 'ADMIN'
   const resultsRef = useRef(null)
   const recalculateRef = useRef(null)
   const [opportunityRefresh, setOpportunityRefresh] = useState(0)
@@ -62,7 +64,7 @@ export default function RankingPage() {
         </div>
         <div className="ranking-page__admin-actions">
           <ActiveStrategyControl onChanged={refreshOpportunities} onRecalculate={() => recalculateRef.current?.click()} />
-          <RecalculateButton buttonRef={recalculateRef} onRecalculated={afterRecalculate} />
+          {isAdmin ? <RecalculateButton buttonRef={recalculateRef} onRecalculated={afterRecalculate} /> : null}
         </div>
       </header>
       <RankingFilters

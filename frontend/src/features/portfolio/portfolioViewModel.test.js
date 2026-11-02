@@ -36,4 +36,13 @@ describe('portfolioViewModel', () => {
     expect(data.map((row) => row.percentage)).toEqual([33.4, 33.3, 33.3])
     expect(data.reduce((sum, row) => sum + row.percentage, 0)).toBeCloseTo(100, 10)
   })
+  it('keeps the ten most valuable positions in the charts and groups the rest as Otros', () => {
+    const source = Array.from({ length: 15 }, (_, index) => position({ playerId: index + 1, playerName: `J${index + 1}`, currentValue: index + 1 }))
+    expect(toPerformanceData(source).map((row) => row.playerId)).toEqual([15, 14, 13, 12, 11, 10, 9, 8, 7, 6])
+    const allocation = toAllocationData(source, 120)
+    expect(allocation).toHaveLength(10)
+    expect(allocation.slice(0, 9).map((row) => row.playerId)).toEqual([15, 14, 13, 12, 11, 10, 9, 8, 7])
+    expect(allocation[9]).toMatchObject({ playerId: 'otros', playerName: 'Otros (6 jugadores)', currentValue: 21 })
+    expect(allocation.reduce((sum, row) => sum + row.percentage, 0)).toBeCloseTo(100, 5)
+  })
 })

@@ -130,6 +130,8 @@ class JwtAuthFilterTest {
     @ValueSource(strings = {
             "/auth/register",
             "/auth/login",
+            "/auth/refresh",
+            "/auth/logout",
             "/swagger-ui/index.html",
             "/v3/api-docs/swagger-config",
             "/actuator/health"

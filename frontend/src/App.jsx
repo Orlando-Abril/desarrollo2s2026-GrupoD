@@ -13,7 +13,8 @@ import PublicOnlyRoute from './routes/PublicOnlyRoute.jsx'
 import { useSession } from './session/SessionContext.jsx'
 
 function RootRoute() {
-  const { isAuthenticated } = useSession()
+  const { isAuthenticated, isRestoring } = useSession()
+  if (isRestoring) return null
   return <Navigate to={isAuthenticated ? '/album' : '/ingresar'} replace />
 }
 

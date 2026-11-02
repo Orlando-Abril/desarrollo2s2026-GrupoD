@@ -6,7 +6,16 @@ import com.example.demo.dto.auth.RegisterRequest;
 import com.example.demo.dto.auth.RegisterResponse;
 import com.example.demo.dto.auth.MeResponse;
 import com.example.demo.exception.GlobalExceptionHandler.ErrorResponse;
+import com.example.demo.dto.auth.SessionResponse;
 import com.example.demo.service.AuthService;
+import com.example.demo.service.RefreshTokenService;
+import com.example.demo.service.RefreshTokenService.InvalidRefreshTokenException;
+import com.example.demo.service.RefreshTokenService.Renewal;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.web.bind.annotation.CookieValue;
+import java.time.Duration;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -30,10 +39,19 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Auth", description = "Registro e inicio de sesión de usuario")
 public class AuthController {
 
-    private final AuthService authService;
+    /** Cookie con el token de renovación. Solo viaja a /auth, nunca al resto de la API. */
+    public static final String REFRESH_COOKIE = "refresh_token";
+    private static final String REFRESH_COOKIE_PATH = "/auth";
 
-    public AuthController(AuthService authService) {
+    private final AuthService authService;
+    private final RefreshTokenService refreshTokenService;
+    private final boolean secureCookie;
+
+    public AuthController(AuthService authService, RefreshTokenService refreshTokenService,
+                          @Value("${security.refresh.cookie-secure}") boolean secureCookie) {
         this.authService = authService;
+        this.refreshTokenService = refreshTokenService;
+        this.secureCookie = secureCookie;
     }
 
     @PostMapping("/register")
@@ -62,7 +80,8 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión",
             description = "Valida username y password contra el hash almacenado y, si son "
-                    + "correctos, devuelve un JWT para operaciones posteriores.")
+                    + "correctos, devuelve un JWT para operaciones posteriores. Además deja una "
+                    + "cookie HttpOnly refresh_token para renovar la sesión con POST /auth/refresh.")
     @ApiResponse(responseCode = "200", description = "Login exitoso",
             content = @Content(schema = @Schema(implementation = LoginResponse.class),
                     examples = @ExampleObject(value = "{\"token\":\"eyJhbGciOiJIUzI1NiJ9...\","
@@ -76,7 +95,65 @@ public class AuthController {
                     examples = @ExampleObject(value = "{\"error\":\"invalid_credentials\","
                             + "\"message\":\"Username o password inválidos\"}")))
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+        LoginResponse response = authService.login(request);
+        String refreshToken = refreshTokenService.issue(request.username());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie(refreshToken, refreshTokenService.lifetime()))
+                .body(response);
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Renovar la sesión",
+            description = "Canjea la cookie refresh_token por un JWT nuevo sin pedir la contraseña "
+                    + "(lo usa el front al recargar la página o cuando el JWT vence). La cookie usada "
+                    + "queda revocada y se entrega otra nueva.")
+    @ApiResponse(responseCode = "200", description = "Sesión renovada",
+            content = @Content(schema = @Schema(implementation = SessionResponse.class),
+                    examples = @ExampleObject(value = "{\"token\":\"eyJhbGciOiJIUzI1NiJ9...\","
+                            + "\"tokenType\":\"Bearer\",\"username\":\"abril\"}")))
+    @ApiResponse(responseCode = "401", description = "No hay cookie, o venció, o ya se usó",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"error\":\"session_expired\","
+                            + "\"message\":\"La sesión venció. Volvé a ingresar.\"}")))
+    public ResponseEntity<Object> refresh(
+            @CookieValue(name = REFRESH_COOKIE, required = false) String refreshToken) {
+        try {
+            Renewal renewal = refreshTokenService.renew(refreshToken);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie(renewal.refreshToken(), refreshTokenService.lifetime()))
+                    .body(new SessionResponse(renewal.accessToken(), renewal.username()));
+        } catch (InvalidRefreshTokenException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie("", Duration.ZERO))
+                    .body(new ErrorResponse("session_expired", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Cerrar sesión",
+            description = "Revoca el token de renovación de la cookie y la borra del navegador. "
+                    + "Responde 204 aunque no haya cookie.")
+    @ApiResponse(responseCode = "204", description = "Sesión cerrada")
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = REFRESH_COOKIE, required = false) String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie("", Duration.ZERO))
+                .build();
+    }
+
+    // HttpOnly: JavaScript no la puede leer, así un script inyectado no se la roba.
+    // SameSite=Strict: el navegador no la manda desde otros sitios, eso cubre CSRF en /auth/refresh.
+    // Secure: solo viaja por HTTPS (los navegadores tratan http://localhost como seguro).
+    private String refreshCookie(String value, Duration maxAge) {
+        return ResponseCookie.from(REFRESH_COOKIE, value)
+                .httpOnly(true)
+                .secure(secureCookie)
+                .sameSite("Strict")
+                .path(REFRESH_COOKIE_PATH)
+                .maxAge(maxAge)
+                .build()
+                .toString();
     }
 
     @GetMapping("/me")
