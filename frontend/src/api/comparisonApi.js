@@ -9,10 +9,11 @@ export function getLatestQuotes(playerIds, strategy, { signal } = {}) {
   return request(`/quotes/latest?${query}`, { signal })
 }
 
-export function getOpportunities({ league = '', position = '' } = {}, { signal } = {}) {
+export function getOpportunities({ league = '', position = '', limit } = {}, { signal } = {}) {
   const query = new URLSearchParams()
   if (league) query.set('league', league)
   if (position) query.set('position', position)
+  if (limit) query.set('limit', String(limit))
   const suffix = query.size ? `?${query}` : ''
   return request(`/quotes/opportunities${suffix}`, { signal })
 }

@@ -6,7 +6,7 @@ import { activeOfficial } from '../test/strategyFixtures.js'
 const getActiveStrategy = vi.fn().mockResolvedValue(activeOfficial)
 const changeActiveStrategy = vi.fn()
 vi.mock('../api/strategyApi.js', () => ({ getActiveStrategy, changeActiveStrategy }))
-vi.mock('../session/SessionContext.jsx', () => ({ useSession: () => ({ token: 'jwt', username: 'abril', isAuthenticated: true, logout: vi.fn() }) }))
+vi.mock('../session/SessionContext.jsx', () => ({ useSession: () => ({ token: 'jwt', username: 'abril', sessionId: 'abril#1', isAuthenticated: true, logout: vi.fn() }) }))
 const { StrategyViewProvider, createStrategyViewStore } = await import('../context/StrategyViewContext.jsx')
 const { default: Header } = await import('./Header.jsx')
 

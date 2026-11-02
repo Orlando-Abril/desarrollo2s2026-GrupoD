@@ -36,9 +36,9 @@ function Navigation({ items }) {
 export default function Header({ items }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { isAuthenticated, username, token, logout } = useSession()
+  const { isAuthenticated, username, sessionId, logout } = useSession()
   const { setIdentity } = useStrategyView()
-  useEffect(() => { setIdentity(token) }, [setIdentity, token])
+  useEffect(() => { setIdentity(sessionId) }, [setIdentity, sessionId])
   const hasStrategyView = location.pathname === '/album' || location.pathname === '/portfolio' || /^\/jugadores\/[^/]+$/.test(location.pathname)
   const trimmed = username?.trim() ?? ''
   const initial = trimmed.charAt(0).toUpperCase() || '—'
@@ -56,7 +56,7 @@ export default function Header({ items }) {
         <div className="site-header__actions">
           {isAuthenticated ? (
             <>
-              {hasStrategyView ? <StrategySelector identity={token} /> : null}
+              {hasStrategyView ? <StrategySelector identity={sessionId} /> : null}
               <div className="user-chip">
                 <span className="user-chip__avatar" aria-hidden="true">{initial}</span>
                 <span className="user-chip__name">{username}</span>

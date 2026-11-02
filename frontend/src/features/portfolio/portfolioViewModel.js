@@ -17,14 +17,36 @@ export function toPositions(positions = []) {
   return positions.map((position) => ({ ...position, resultKind: resultKind(position.profitLoss) }))
 }
 
+// Con muchas posiciones (el superusuario tiene una por jugador) los gráficos se vuelven ilegibles:
+// se muestran las de mayor valor actual y, en la dona, el resto se agrupa en "Otros".
+export const CHART_LIMIT = 10
+
+function byCurrentValueDesc(a, b) {
+  return Number(b.currentValue) - Number(a.currentValue)
+}
+
+export function topPositions(positions = [], limit = CHART_LIMIT) {
+  if (positions.length <= limit) return positions
+  return [...positions].sort(byCurrentValueDesc).slice(0, limit)
+}
+
+function groupOthers(positions) {
+  if (positions.length <= CHART_LIMIT) return positions
+  const sorted = [...positions].sort(byCurrentValueDesc)
+  const kept = sorted.slice(0, CHART_LIMIT - 1)
+  const rest = sorted.slice(CHART_LIMIT - 1)
+  const othersValue = rest.reduce((sum, position) => sum + Number(position.currentValue || 0), 0)
+  return [...kept, { playerId: 'otros', playerName: `Otros (${rest.length} jugadores)`, currentValue: othersValue }]
+}
+
 export function toPerformanceData(positions = []) {
-  return positions.map(({ playerId, playerName, averagePurchasePrice, marketValue }) => ({
+  return topPositions(positions).map(({ playerId, playerName, averagePurchasePrice, marketValue }) => ({
     playerId, playerName, averagePurchasePrice, marketValue,
   }))
 }
 
 export function toAllocationData(positions, totalCurrentValue) {
-  const safePositions = positions ?? []
+  const safePositions = groupOthers(positions ?? [])
   const total = Number(totalCurrentValue)
   const valid = Number.isFinite(total) && total > 0
   const rows = safePositions.map((position, index) => {

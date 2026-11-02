@@ -157,4 +157,55 @@ describe('httpClient', () => {
     await expect(request('/auth/login', { publicRequest: true })).rejects.toBeInstanceOf(ApiError)
     expect(onUnauthorized).not.toHaveBeenCalled()
   })
+
+  it('renews the session once on a protected 401 and retries with the new token', async () => {
+    let token = 'vencido'
+    const onUnauthorized = vi.fn()
+    const refreshSession = vi.fn(async () => { token = 'nuevo'; return token })
+    configureHttpClient({ getToken: () => token, onUnauthorized, refreshSession })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(401, { error: 'invalid_token', message: 'expired' }))
+      .mockResolvedValueOnce(response(200, [{ id: 1 }]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(request('/players')).resolves.toEqual([{ id: 1 }])
+    expect(refreshSession).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer nuevo')
+    expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+
+  it('logs out when the retried request is still unauthorized', async () => {
+    const onUnauthorized = vi.fn()
+    const refreshSession = vi.fn().mockResolvedValue('nuevo')
+    configureHttpClient({ getToken: () => 'token', onUnauthorized, refreshSession })
+    const fetchMock = vi.fn().mockResolvedValue(response(401, { error: 'invalid_token', message: 'expired' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(request('/players')).rejects.toBeInstanceOf(ApiError)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not try to renew the session for public requests or other errors', async () => {
+    const refreshSession = vi.fn().mockResolvedValue('nuevo')
+    configureHttpClient({ getToken: () => 'token', refreshSession })
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(response(401, { error: 'invalid_credentials', message: 'bad' }))
+      .mockResolvedValueOnce(response(403, { error: 'forbidden', message: 'no' })))
+
+    await expect(request('/auth/login', { publicRequest: true })).rejects.toBeInstanceOf(ApiError)
+    await expect(request('/quotes/recalculate', { method: 'POST' })).rejects.toBeInstanceOf(ApiError)
+    expect(refreshSession).not.toHaveBeenCalled()
+  })
+
+  it('sends cookies only when the request asks for credentials', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(200, {}))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await request('/auth/refresh', { method: 'POST', publicRequest: true, credentials: 'include' })
+    await request('/players')
+
+    expect(fetchMock.mock.calls[0][1].credentials).toBe('include')
+    expect(fetchMock.mock.calls[1][1]).not.toHaveProperty('credentials')
+  })
 })

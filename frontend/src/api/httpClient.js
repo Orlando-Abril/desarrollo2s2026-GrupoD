@@ -1,9 +1,12 @@
 const UNEXPECTED_MESSAGE = 'Unexpected server response'
 
-let clientConfig = {
+const EMPTY_CONFIG = {
   getToken: () => null,
   onUnauthorized: () => {},
+  refreshSession: async () => null,
 }
+
+let clientConfig = EMPTY_CONFIG
 
 export class ApiError extends Error {
   constructor(status, code, message) {
@@ -23,13 +26,14 @@ export class NetworkError extends Error {
 
 export function configureHttpClient(config) {
   clientConfig = {
-    getToken: config.getToken ?? (() => null),
-    onUnauthorized: config.onUnauthorized ?? (() => {}),
+    getToken: config.getToken ?? EMPTY_CONFIG.getToken,
+    onUnauthorized: config.onUnauthorized ?? EMPTY_CONFIG.onUnauthorized,
+    refreshSession: config.refreshSession ?? EMPTY_CONFIG.refreshSession,
   }
   const registered = clientConfig
   return () => {
     if (clientConfig === registered) {
-      clientConfig = { getToken: () => null, onUnauthorized: () => {} }
+      clientConfig = EMPTY_CONFIG
     }
   }
 }
@@ -56,9 +60,8 @@ function buildHeaders(body, extraHeaders) {
   return headers
 }
 
-function validateResponse(response, payload, { publicRequest, expectJson }) {
+function validateResponse(response, payload, { expectJson }) {
   if (!response.ok) {
-    if (response.status === 401 && !publicRequest) clientConfig.onUnauthorized()
     const validError = payload && typeof payload.error === 'string' && typeof payload.message === 'string'
     throw new ApiError(
       response.status,
@@ -72,15 +75,36 @@ function validateResponse(response, payload, { publicRequest, expectJson }) {
   }
 }
 
+// Si un request protegido da 401 (por ejemplo, venció el JWT), se pide un JWT nuevo con la cookie
+// de renovación y se reintenta una sola vez. Recién si eso falla se cierra la sesión.
 export async function request(path, options = {}) {
+  try {
+    return await send(path, options)
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401 || options.publicRequest) throw error
+    const renewedToken = await clientConfig.refreshSession()
+    if (!renewedToken) {
+      clientConfig.onUnauthorized()
+      throw error
+    }
+    try {
+      return await send(path, options)
+    } catch (retryError) {
+      if (retryError instanceof ApiError && retryError.status === 401) clientConfig.onUnauthorized()
+      throw retryError
+    }
+  }
+}
+
+async function send(path, options) {
   const {
     method = 'GET',
     body,
-    publicRequest = false,
     expectJson = true,
     headers: extraHeaders = {},
     signal,
     timeoutMs = 10_000,
+    credentials,
   } = options
   const controller = new AbortController()
   const abortFromCaller = () => controller.abort()
@@ -97,9 +121,10 @@ export async function request(path, options = {}) {
       headers: buildHeaders(body, extraHeaders),
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
+      ...(credentials ? { credentials } : {}),
     })
     const payload = parseBody(await response.text())
-    validateResponse(response, payload, { publicRequest, expectJson })
+    validateResponse(response, payload, { expectJson })
     return payload
   } catch (error) {
     if (error instanceof ApiError) throw error

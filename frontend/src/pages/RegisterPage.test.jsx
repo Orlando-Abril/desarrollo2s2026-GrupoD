@@ -9,6 +9,8 @@ const registerMock = vi.fn()
 const loginMock = vi.fn()
 
 vi.mock('../api/authApi.js', () => ({
+  refreshSession: () => Promise.reject(new Error('sin cookie')),
+  logout: () => Promise.resolve(null),
   register: (...args) => registerMock(...args),
   login: (...args) => loginMock(...args),
 }))

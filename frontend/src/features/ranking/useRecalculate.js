@@ -6,7 +6,10 @@ import { useSession } from '../../session/SessionContext.jsx'
 let lastDeniedToken = null
 
 export default function useRecalculate({ onRecalculated }) {
-  const { token } = useSession()
+  // La identidad es la sesión, no el JWT: el JWT se renueva solo cada 15 minutos y eso no debe
+  // cortar un recálculo en curso ni olvidar un 403. sessionId cambia solo al entrar o salir.
+  const { token: jwt, sessionId } = useSession()
+  const token = sessionId ?? jwt
   const [runningToken, setRunningToken] = useState(null)
   const [notificationState, setNotificationState] = useState(null)
   const inFlightRef = useRef(false)

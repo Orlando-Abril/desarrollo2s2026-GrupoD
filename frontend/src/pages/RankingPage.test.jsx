@@ -9,6 +9,8 @@ const recalculateButtonMock = vi.fn(({ onRecalculated }) => (
 
 vi.mock('../features/ranking/useRanking.js', () => ({ default: useRankingMock }))
 vi.mock('../features/ranking/RecalculateButton.jsx', () => ({ default: recalculateButtonMock }))
+let accountRole = 'ADMIN'
+vi.mock('../features/admin/useAccountRole.js', () => ({ default: () => accountRole }))
 
 const { default: RankingPage } = await import('./RankingPage.jsx')
 
@@ -98,6 +100,17 @@ describe('RankingPage', () => {
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: 'Mock recalcular' }))
     expect(state.reload).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['USER', 'UNKNOWN', null])('hides the recalculation button for role %s', (role) => {
+    accountRole = role
+    try {
+      useRankingMock.mockReturnValue(rankingState())
+      renderPage()
+      expect(screen.queryByRole('button', { name: 'Mock recalcular' })).toBeNull()
+    } finally {
+      accountRole = 'ADMIN'
+    }
   })
 
   it('links each player name to its detail', () => {

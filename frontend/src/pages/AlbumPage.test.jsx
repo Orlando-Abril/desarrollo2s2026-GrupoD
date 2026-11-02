@@ -8,6 +8,13 @@ import { StrategyViewProvider, createStrategyViewStore } from '../context/Strate
 import { marketMomentum } from '../test/strategyFixtures.js'
 import { strategyStore } from '../test/strategyStore.js'
 
+// Sin cookie de renovación: la sesión arranca vacía y la crea cada test.
+vi.mock('../api/authApi.js', () => ({
+  refreshSession: () => Promise.reject(new Error('sin cookie')),
+  logout: () => Promise.resolve(null),
+}))
+
+
 function player(id, overrides = {}) {
   return {
     id,

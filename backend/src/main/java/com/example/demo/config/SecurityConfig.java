@@ -28,9 +28,15 @@ public class SecurityConfig {
     private static final String[] PUBLIC_ROUTES = {
             "/auth/register",
             "/auth/login",
+            // Se autentican con la cookie HttpOnly del token de renovación, no con el JWT.
+            "/auth/refresh",
+            "/auth/logout",
             "/swagger-ui/**",
             "/v3/api-docs/**",
-            "/actuator/health"
+            "/actuator/health",
+            // Reenvío interno de Spring para armar respuestas de error: si no es público, un 404 o 500
+            // de un usuario autenticado sale como 401 y el front cierra la sesión.
+            "/error"
     };
 
     @Value("${security.cors.allowed-origin}")
@@ -47,6 +53,8 @@ public class SecurityConfig {
             http
                     // API stateless (JWT en Authorization + API Key en header): no hay cookies de sesión,
                     // por lo que CSRF no aplica. Ver OWASP CSRF Prevention Cheat Sheet, sección "stateless APIs".
+                    // La única cookie es refresh_token, limitada a /auth y con SameSite=Strict, así que
+                    // otro sitio no puede hacer que el navegador la mande.
                     .csrf(AbstractHttpConfigurer::disable) // NOSONAR java:S4502
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -73,6 +81,8 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "X-API-KEY", "X-Correlation-ID", "Content-Type"));
         configuration.setExposedHeaders(List.of("X-Correlation-ID"));
+        // El front manda la cookie refresh_token con credentials: 'include'. Requiere un origen explícito.
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

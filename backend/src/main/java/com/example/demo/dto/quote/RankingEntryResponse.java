@@ -31,14 +31,15 @@ public record RankingEntryResponse(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String team,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) League league,
-            @ArraySchema(uniqueItems = true, minItems = 1,
+            @ArraySchema(uniqueItems = true,
                     arraySchema = @Schema(requiredMode = Schema.RequiredMode.REQUIRED),
                     schema = @Schema(implementation = Position.class)) Set<Position> positions) {
         public RankingPlayerResponse {
             if (id < 1 || name == null || name.isBlank() || team == null || team.isBlank() || league == null
-                    || positions == null || positions.isEmpty()) {
+                    || positions == null) {
                 throw new IllegalArgumentException("Jugador de ranking inválido");
             }
+            // Hay jugadores sin posición informada por Football-Data: se listan con el conjunto vacío.
             positions = Set.copyOf(positions);
         }
     }

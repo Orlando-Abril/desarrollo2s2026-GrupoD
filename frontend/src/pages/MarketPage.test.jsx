@@ -5,6 +5,13 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import MarketPage from './MarketPage.jsx'
 import { SessionProvider, useSession } from '../session/SessionContext.jsx'
 
+// Sin cookie de renovación: la sesión arranca vacía y la crea cada test.
+vi.mock('../api/authApi.js', () => ({
+  refreshSession: () => Promise.reject(new Error('sin cookie')),
+  logout: () => Promise.resolve(null),
+}))
+
+
 const plain = (text) => text.replace(/\s/g, ' ')
 
 function myOrder(overrides = {}) {

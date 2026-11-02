@@ -8,6 +8,13 @@ import { StrategyViewProvider, createStrategyViewStore } from '../context/Strate
 import { marketMomentum, pendingMomentum } from '../test/strategyFixtures.js'
 import { strategyStore } from '../test/strategyStore.js'
 
+// Sin cookie de renovación: la sesión arranca vacía y la crea cada test.
+vi.mock('../api/authApi.js', () => ({
+  refreshSession: () => Promise.reject(new Error('sin cookie')),
+  logout: () => Promise.resolve(null),
+}))
+
+
 // jsdom mide 0×0 y no tiene ResizeObserver: se fija el tamaño del gráfico (research R2).
 vi.mock('recharts', async (importOriginal) => {
   const { cloneElement } = await import('react')

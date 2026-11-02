@@ -27,6 +27,13 @@ class SecurityConfigTest {
     }
 
     @Test
+    void rutaDeErrorEsPublicaParaQueUnErrorNoSalgaComo401() throws Exception {
+        mockMvc.perform(get("/error"))
+                .andExpect(result -> org.assertj.core.api.Assertions.assertThat(result.getResponse().getStatus())
+                        .isNotEqualTo(401));
+    }
+
+    @Test
     void rutaPublicaApiDocsSinCredencialesDeberiaResponder200() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk());
