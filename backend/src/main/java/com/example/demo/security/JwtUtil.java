@@ -11,7 +11,6 @@ import org.springframework.util.StringUtils;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Date;
 
 @Component
 public class JwtUtil {
@@ -35,8 +34,8 @@ public class JwtUtil {
 
         return Jwts.builder()
                 .subject(username)
-                .issuedAt(Date.from(issuedAt))
-                .expiration(Date.from(expiration))
+                .claim(Claims.ISSUED_AT, issuedAt.getEpochSecond())
+                .claim(Claims.EXPIRATION, expiration.getEpochSecond())
                 .signWith(signingKey)
                 .compact();
     }
