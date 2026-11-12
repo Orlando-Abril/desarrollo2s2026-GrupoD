@@ -249,10 +249,15 @@ class WebServiceAuditAspectTest {
                 .andReturn();
         String correlationId = result.getResponse().getHeader(CorrelationIdFilter.HEADER);
 
+        // El archivo es compartido por toda la corrida de tests (otros contextos escriben con el patrón por
+        // defecto), así que sólo se valida la línea de este request, ubicada por su correlationId.
         List<String> fileLines = Files.readAllLines(Path.of("logs", "audit.log"), StandardCharsets.UTF_8);
+        assertThat(correlationId).isNotBlank();
         assertThat(fileLines)
-                .anySatisfy(line -> assertThat(line).contains("ws_audit ").contains(correlationId))
-                .allSatisfy(line -> assertThat(line).contains("\"logger\":\"WEB_SERVICE_AUDIT\""));
+                .filteredOn(line -> line.contains(correlationId))
+                .singleElement().asString()
+                .contains("ws_audit ")
+                .contains("\"logger\":\"WEB_SERVICE_AUDIT\"");
     }
 
     private static String credentials(String username, String password) {
