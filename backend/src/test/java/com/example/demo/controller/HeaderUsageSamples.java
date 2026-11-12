@@ -6,12 +6,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 public final class HeaderUsageSamples {
     // CorrelationIdFilter.HEADER in a comment is inert.
-    private static final String LITERAL = "CorrelationIdFilter.HEADER";
+    static final String LITERAL = "CorrelationIdFilter.HEADER";
 
     @ApiResponse(headers = @Header(name = CorrelationIdFilter.HEADER))
-    public void allowed() { }
+    public void allowed() {
+        // Intentionally empty: this fixture tests only the annotation.
+    }
 
     public static final class Forbidden {
-        private final String value = CorrelationIdFilter.HEADER;
+        final String value = CorrelationIdFilter.HEADER;
     }
 }

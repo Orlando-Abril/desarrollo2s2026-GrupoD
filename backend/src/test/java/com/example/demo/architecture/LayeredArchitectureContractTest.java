@@ -79,7 +79,7 @@ class LayeredArchitectureContractTest {
 
     @Test
     void header_ast_accepts_documentation_and_ignores_comments_and_literals() {
-        Path root = Path.of("src/test/java/com/example/demo/architecture/fixtures/controller");
+        Path root = Path.of("src/test/java/com/example/demo/controller");
         assertTrue(ControllerHeaderSourceCheck.violations(root.resolve("AllowedHeaderUsage.java")).isEmpty());
         var violations = ControllerHeaderSourceCheck.violations(root.resolve("HeaderUsageSamples.java"));
         assertEquals(1, violations.size(), violations.toString());

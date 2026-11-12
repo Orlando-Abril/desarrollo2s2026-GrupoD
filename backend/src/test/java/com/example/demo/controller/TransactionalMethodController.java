@@ -4,5 +4,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 public class TransactionalMethodController {
     @Transactional
-    public void handle() { }
+    public void handle() {
+        // Intentionally empty: this fixture tests only the annotation.
+    }
 }
