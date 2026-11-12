@@ -1,7 +1,6 @@
 package com.example.demo.repository.market;
 
 import com.example.demo.model.User;
-import com.example.demo.service.market.MarketPrincipal;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -23,7 +22,7 @@ public interface MarketUserRepository extends Repository<User, Long> {
     Optional<User> findLockedById(@Param("id") Long id);
 
     /** Id y username sin cargar la entidad: el motor de calce carga el {@code User} sólo con su lock (spec 027). */
-    @Query("select new com.example.demo.service.market.MarketPrincipal(u.id, u.username) from User u"
+    @Query("select new com.example.demo.repository.market.MarketPrincipal(u.id, u.username) from User u"
             + " where u.username = :username")
     Optional<MarketPrincipal> findPrincipalByUsername(@Param("username") String username);
 

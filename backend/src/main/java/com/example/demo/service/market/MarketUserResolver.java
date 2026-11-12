@@ -1,6 +1,7 @@
 package com.example.demo.service.market;
 
 import com.example.demo.exception.OrderAccessDeniedException;
+import com.example.demo.repository.market.MarketPrincipal;
 import com.example.demo.repository.market.MarketUserRepository;
 import org.springframework.stereotype.Component;
 
