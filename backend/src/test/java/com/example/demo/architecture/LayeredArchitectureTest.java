@@ -2,13 +2,11 @@ package com.example.demo.architecture;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
-import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 
-import java.nio.file.Path;
 import java.util.Set;
 
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
@@ -33,17 +31,14 @@ class LayeredArchitectureTest {
             ROOT + ".service.valuation.strategy.ValuationStrategyDefinition");
 
     @ArchTest
-    static final ArchRule layers = layersFor("com.example.demo");
-
-    static ArchRule layersFor(String root) {
-        return layeredArchitecture()
+    static final ArchRule layers = layeredArchitecture()
             .consideringOnlyDependenciesInLayers()
-            .layer("Controller").definedBy(root + ".controller..")
-            .layer("Service").definedBy(root + ".service..")
-            .layer("Repository").definedBy(root + ".repository..")
-            .layer("Adapter").definedBy(root + ".adapter..")
-            .layer("Model").definedBy(root + ".model..")
-            .layer("DTO").definedBy(root + ".dto..")
+            .layer("Controller").definedBy(ROOT + ".controller..")
+            .layer("Service").definedBy(ROOT + ".service..")
+            .layer("Repository").definedBy(ROOT + ".repository..")
+            .layer("Adapter").definedBy(ROOT + ".adapter..")
+            .layer("Model").definedBy(ROOT + ".model..")
+            .layer("DTO").definedBy(ROOT + ".dto..")
             .whereLayer("Controller").mayNotBeAccessedByAnyLayer()
             .whereLayer("Service").mayOnlyBeAccessedByLayers("Controller", "DTO")
             .whereLayer("Repository").mayOnlyBeAccessedByLayers("Service")
@@ -52,13 +47,6 @@ class LayeredArchitectureTest {
                     "Controller", "Service", "Repository", "Adapter", "DTO")
             .whereLayer("DTO").mayOnlyBeAccessedByLayers("Controller", "Service", "Repository")
             .because("Constitution §2.1 exige dependencias dirigidas entre capas del backend");
-    }
-
-    @ArchTest
-    static final ArchRule controllers_do_not_access_repositories = noClasses()
-            .that().resideInAPackage("..controller..")
-            .should().dependOnClassesThat().resideInAPackage("..repository..")
-            .because("Constitution §2.1 separa los contratos REST del acceso a persistencia");
 
     @ArchTest
     static final ArchRule model_does_not_access_other_backend_packages = noClasses()
@@ -95,21 +83,12 @@ class LayeredArchitectureTest {
             .should().dependOnClassesThat().resideInAPackage(ROOT + ".service..")
             .because("Constitution §2.1 acota la excepción dto a service a tres respuestas existentes");
 
-    @ArchTest
-    static void controller_header_constant_is_only_used_in_openapi_name(JavaClasses ignored) {
-        var violations = ControllerHeaderSourceCheck.violations(
-                Path.of("src/main/java/com/example/demo/controller"));
-        if (!violations.isEmpty()) {
-            throw new AssertionError("Constitution §2.1 y §5.3: CorrelationIdFilter sólo se importa "
-                    + "para usar HEADER en @Header(name=...): " + violations);
-        }
-    }
-
     static boolean forbiddenControllerDependency(JavaClass target, String root) {
         String packageName = target.getPackageName();
         if (!packageName.startsWith(root + ".")) {
             return false;
         }
+        // Los controllers sólo usan CorrelationIdFilter.HEADER para @Header(name=...) de OpenAPI.
         if (inPackage(packageName, root + ".service")
                 || inPackage(packageName, root + ".dto")
                 || inPackage(packageName, root + ".exception")

@@ -35,17 +35,14 @@ class CodingRulesTest {
 
     @ArchTest
     static void central_layers_have_no_cycles(JavaClasses ignored) {
-        ArchRule rule = coreCyclesFor(ROOT);
+        // Sólo estas cinco capas: service ↔ dto y controller ↔ exception son dependencias aceptadas.
+        ArchRule rule = slices().matching(ROOT + ".(*)..")
+                .should().beFreeOfCycles()
+                .because("Constitution §2.1 prohíbe ciclos entre controller, service, repository, adapter y model");
         JavaClasses central = new ClassFileImporter()
                 .withImportOption(new ImportOption.DoNotIncludeTests())
                 .importPackages(ROOT + ".controller", ROOT + ".service", ROOT + ".repository",
                         ROOT + ".adapter", ROOT + ".model");
         rule.check(central);
-    }
-
-    static ArchRule coreCyclesFor(String root) {
-        return slices().matching(root + ".(*)..")
-                .should().beFreeOfCycles()
-                .because("Constitution §2.1 prohíbe ciclos entre controller, service, repository, adapter y model");
     }
 }
