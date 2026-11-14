@@ -144,6 +144,16 @@ class JwtAuthFilterTest {
 
         filter.doFilter(request, response, chain);
 
+        if ("/actuator/health".equals(path)) {
+            assertThat(response.getStatus()).isEqualTo(401);
+            assertThat(MediaType.parseMediaType(response.getContentType())
+                    .isCompatibleWith(MediaType.APPLICATION_JSON)).isTrue();
+            assertThat(response.getContentAsString()).isEqualTo(INVALID_TOKEN_BODY);
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+            verify(chain, never()).doFilter(request, response);
+            return;
+        }
+
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(chain).doFilter(request, response);

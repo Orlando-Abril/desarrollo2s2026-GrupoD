@@ -34,6 +34,8 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/actuator/health",
+            "/actuator/health/**",
+            "/actuator/info",
             // Reenvío interno de Spring para armar respuestas de error: si no es público, un 404 o 500
             // de un usuario autenticado sale como 401 y el front cierra la sesión.
             "/error"
@@ -60,6 +62,7 @@ public class SecurityConfig {
                     .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                     .authorizeHttpRequests(auth -> auth
                             .requestMatchers(getPublicRoutes()).permitAll()
+                            .requestMatchers("/actuator/**").hasRole("ADMIN")
                             .requestMatchers(HttpMethod.POST, "/quotes/recalculate").hasRole("ADMIN")
                             .anyRequest().authenticated()
                     )
