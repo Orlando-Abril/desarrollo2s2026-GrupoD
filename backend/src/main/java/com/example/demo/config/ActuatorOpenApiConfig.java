@@ -23,6 +23,20 @@ import org.springframework.context.annotation.Configuration;
 public class ActuatorOpenApiConfig {
     private static final String JSON = "application/json";
 
+    /**
+     * Al existir un {@link GroupedOpenApi}, Swagger UI lista sólo los grupos declarados: sin este grupo la API
+     * principal deja de aparecer en el selector y la UI abre directamente en Actuator.
+     */
+    @Bean
+    GroupedOpenApi mainApi() {
+        return GroupedOpenApi.builder()
+                .group("api")
+                .displayName("API")
+                .pathsToMatch("/**")
+                .pathsToExclude("/actuator/**")
+                .build();
+    }
+
     @Bean
     GroupedOpenApi actuatorOpenApi() {
         return GroupedOpenApi.builder()

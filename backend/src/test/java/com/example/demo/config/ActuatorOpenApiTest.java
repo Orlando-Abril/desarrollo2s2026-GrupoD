@@ -32,6 +32,13 @@ class ActuatorOpenApiTest {
     void swaggerOffersActuatorGroupAndFourFamilies() throws Exception {
         JsonNode config = read("/v3/api-docs/swagger-config");
         assertThat(config.path("urls").toString()).contains("actuator");
+        assertThat(config.path("urls").get(0).path("url").asText())
+                .as("la API principal sigue siendo el grupo inicial de Swagger UI")
+                .isEqualTo("/v3/api-docs/api");
+
+        JsonNode main = read("/v3/api-docs/api");
+        assertThat(main.path("paths").size()).isPositive();
+        assertThat(iterableKeys(main.path("paths"))).noneSatisfy(path -> assertThat(path).startsWith("/actuator"));
 
         JsonNode api = read("/v3/api-docs/actuator");
         Set<String> paths = iterableKeys(api.path("paths"));

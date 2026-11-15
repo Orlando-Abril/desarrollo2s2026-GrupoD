@@ -31,6 +31,8 @@
 		<jjwt.version>0.13.0</jjwt.version>
 		<testcontainers.version>1.21.4</testcontainers.version>
 		<sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+		<!-- Vacío por defecto; jacoco:prepare-agent lo completa y surefire lo usa vía @{argLine}. -->
+		<argLine></argLine>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -217,6 +219,15 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<!-- Java 17 en Windows usa cp1252 como charset por defecto: se fija UTF-8 en la JVM de tests para que
+				     OutputCapture decodifique igual que escribe el log (logging.charset.console=UTF-8 en tests). -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>@{argLine} -Dfile.encoding=UTF-8</argLine>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
