@@ -106,9 +106,9 @@ class HealthEndpointTest {
     @Test
     void nonexistentOrInactiveApiKeyIsUnauthorizedOnAllHealthRoutes() throws Exception {
         String inactive = AuthFixtures.apiKey(apiKeys, null);
-        ApiKey record = apiKeys.findByKeyHash(ApiKeyHasher.sha256Hex(inactive)).orElseThrow();
-        record.setActive(false);
-        apiKeys.save(record);
+        ApiKey inactiveRecord = apiKeys.findByKeyHash(ApiKeyHasher.sha256Hex(inactive)).orElseThrow();
+        inactiveRecord.setActive(false);
+        apiKeys.save(inactiveRecord);
         for (String path : new String[] {HEALTH, HEALTH + "/liveness", HEALTH + "/readiness"}) {
             for (String key : new String[] {"missing-key", inactive}) {
                 mvc.perform(get(path).header("X-API-KEY", key))

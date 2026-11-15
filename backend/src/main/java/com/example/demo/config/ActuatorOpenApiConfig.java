@@ -22,6 +22,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ActuatorOpenApiConfig {
     private static final String JSON = "application/json";
+    private static final String BEARER_AUTH = "bearerAuth";
+    private static final String API_KEY_AUTH = "apiKeyAuth";
 
     /**
      * Al existir un {@link GroupedOpenApi}, Swagger UI lista sólo los grupos declarados: sin este grupo la API
@@ -67,12 +69,12 @@ public class ActuatorOpenApiConfig {
     }
 
     private void ensureSecuritySchemes(Components components) {
-        if (components.getSecuritySchemes() == null || !components.getSecuritySchemes().containsKey("bearerAuth")) {
-            components.addSecuritySchemes("bearerAuth", new SecurityScheme()
+        if (components.getSecuritySchemes() == null || !components.getSecuritySchemes().containsKey(BEARER_AUTH)) {
+            components.addSecuritySchemes(BEARER_AUTH, new SecurityScheme()
                     .type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT"));
         }
-        if (components.getSecuritySchemes() == null || !components.getSecuritySchemes().containsKey("apiKeyAuth")) {
-            components.addSecuritySchemes("apiKeyAuth", new SecurityScheme()
+        if (components.getSecuritySchemes() == null || !components.getSecuritySchemes().containsKey(API_KEY_AUTH)) {
+            components.addSecuritySchemes(API_KEY_AUTH, new SecurityScheme()
                     .type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.HEADER).name("X-API-KEY"));
         }
     }
@@ -99,8 +101,8 @@ public class ActuatorOpenApiConfig {
 
     private Operation metricsOperation(boolean named) {
         Operation operation = new Operation().summary(named ? "Mediciones de una métrica" : "Nombres de métricas")
-                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
-                .addSecurityItem(new SecurityRequirement().addList("apiKeyAuth"));
+                .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH))
+                .addSecurityItem(new SecurityRequirement().addList(API_KEY_AUTH));
         if (named) {
             operation.addParametersItem(new Parameter().in("path").name("requiredMetricName")
                     .required(true).schema(new StringSchema()));
@@ -123,8 +125,8 @@ public class ActuatorOpenApiConfig {
                 .content(new Content().addMediaType("text/plain",
                         new MediaType().schema(new StringSchema())));
         return new Operation().summary("Exposición Prometheus")
-                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
-                .addSecurityItem(new SecurityRequirement().addList("apiKeyAuth"))
+                .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH))
+                .addSecurityItem(new SecurityRequirement().addList(API_KEY_AUTH))
                 .responses(protectedResponses(success));
     }
 
