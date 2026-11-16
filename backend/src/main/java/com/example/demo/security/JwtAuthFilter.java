@@ -41,6 +41,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
+        if (PATH_MATCHER.match("/actuator/health", path)
+                || PATH_MATCHER.match("/actuator/health/**", path)) {
+            String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+            return authorization == null || !authorization.startsWith(BEARER_PREFIX);
+        }
         for (String publicRoute : SecurityConfig.getPublicRoutes()) {
             if (PATH_MATCHER.match(publicRoute, path)) {
                 return true;

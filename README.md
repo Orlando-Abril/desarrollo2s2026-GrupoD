@@ -178,6 +178,43 @@ cd frontend
 npm run build
 ```
 
+## Monitoreo
+
+Con el backend iniciado, `/actuator/health`, sus rutas `/liveness` y `/readiness`, y `/actuator/info` son públicos. `/actuator/metrics` y `/actuator/prometheus` requieren JWT ADMIN o una API key con `ROLE_ADMIN`. Swagger UI muestra el grupo Actuator en `http://localhost:8080/swagger-ui/index.html`.
+
+La demo de `observability/` requiere Docker Compose, PostgreSQL y Redis del backend levantados como se indica arriba, y `psql` para crear una clave de servicio en la base **local de desarrollo**. En PowerShell, con el backend ya iniciado:
+
+```powershell
+$bytes = New-Object byte[] 24
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+$rng.Dispose()
+$env:SCRAPE_API_KEY = 'sk_' + ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+$sha = [System.Security.Cryptography.SHA256]::Create()
+$hash = ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($env:SCRAPE_API_KEY)))).Replace('-', '').ToLowerInvariant()
+$sha.Dispose()
+$prefix = $env:SCRAPE_API_KEY.Substring(0, 11)
+psql -h localhost -U postgres -d desarrollo2_grupod -c "INSERT INTO api_keys (key_hash, key_prefix, user_id, active, created_at) VALUES ('$hash', '$prefix', NULL, true, CURRENT_TIMESTAMP)"
+curl.exe -i -H "X-API-KEY: $env:SCRAPE_API_KEY" http://localhost:8080/actuator/prometheus
+```
+
+La última llamada debe devolver 200. La base guarda sólo el hash de la clave; el valor crudo permanece en `SCRAPE_API_KEY` durante la sesión. Desde la raíz del repositorio:
+
+```powershell
+docker compose -f observability/docker-compose.yml config --quiet
+docker compose -f observability/docker-compose.yml up -d
+```
+
+Prometheus está en `http://localhost:9090/targets`: después del primer scrape de 15 segundos el objetivo `demo` debe figurar `UP`. Grafana está en `http://localhost:3000` (credenciales iniciales `admin`/`admin` para esta demo local) y ya tiene Prometheus como datasource. La aplicación puede arrancar sin estos contenedores. Para detener la demo:
+
+```powershell
+docker compose -f observability/docker-compose.yml down
+psql -h localhost -U postgres -d desarrollo2_grupod -c "DELETE FROM api_keys WHERE key_hash = '$hash'"
+Remove-Item Env:SCRAPE_API_KEY
+```
+
+No guardar la clave cruda en Git. La secuencia completa de comprobaciones está en [el quickstart de monitoreo](specs/035-actuator-prometheus/quickstart.md).
+
 ## Tests end-to-end con PostgreSQL y Redis reales
 
 Los tests `e2e` son destructivos: antes y después de cada método ejecutan `TRUNCATE ... RESTART
