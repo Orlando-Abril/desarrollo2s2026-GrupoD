@@ -4,11 +4,14 @@ import com.example.demo.adapter.whoscored.WhoScoredAdapter;
 import com.example.demo.adapter.whoscored.dto.WhoScoredPlayerStats;
 import com.example.demo.config.CacheConfig;
 import com.example.demo.exception.WhoScoredException;
+import com.example.demo.metrics.BusinessMetrics;
 import com.example.demo.model.League;
 import com.example.demo.model.Player;
 import com.example.demo.model.PlayerStats;
 import com.example.demo.repository.PlayerRepository;
 import com.example.demo.repository.PlayerStatsRepository;
+import com.example.demo.repository.UserRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +56,8 @@ class PlayerStatsServiceTest {
     @Mock WhoScoredAdapter adapter;
     PlayerStatsService service;
     CacheManager cacheManager;
+    final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    final BusinessMetrics metrics = new BusinessMetrics(meterRegistry, mock(UserRepository.class));
 
     final List<Player> players = new ArrayList<>();
     long nextId = 1;
@@ -61,7 +66,7 @@ class PlayerStatsServiceTest {
     void setUp() {
         cacheManager = new ConcurrentMapCacheManager(CacheConfig.WHOSCORED_PLAYER_STATS_CACHE);
         service = new PlayerStatsService(playerRepository, statsRepository, adapter,
-                TransactionOperations.withoutTransaction(), cacheManager);
+                TransactionOperations.withoutTransaction(), cacheManager, metrics);
         when(playerRepository.findAll()).thenReturn(players);
         when(statsRepository.findById(anyLong())).thenReturn(Optional.empty());
         when(statsRepository.save(any(PlayerStats.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -564,6 +569,35 @@ class PlayerStatsServiceTest {
     }
 
     @Test
+    void leagueServedFromCacheIsCountedAsOneCacheCall() {
+        Player bruno = player("Bruno Fernandes", "Manchester United FC", League.PREMIER_LEAGUE);
+        cache().put(bruno.getId(), simpleRow("123761", "Bruno Fernandes", "32", "Man Utd", "Manchester United"));
+
+        service.updateAllStats();
+
+        verify(adapter, never()).fetchLeaguePlayers(any());
+        assertThat(whoScoredCacheCalls()).isEqualTo(1);
+    }
+
+    @Test
+    void leagueWithAPendingPlayerIsNotCountedAsCache() {
+        Player bruno = player("Bruno Fernandes", "Manchester United FC", League.PREMIER_LEAGUE);
+        player("Bryan Mbeumo", "Manchester United FC", League.PREMIER_LEAGUE);
+        cache().put(bruno.getId(), simpleRow("123761", "Bruno Fernandes", "32", "Man Utd", "Manchester United"));
+        leagueRows(League.PREMIER_LEAGUE,
+                simpleRow("353377", "Bryan Mbeumo", "32", "Man Utd", "Manchester United"));
+
+        service.updateAllStats();
+
+        assertThat(whoScoredCacheCalls()).isZero();
+    }
+
+    private double whoScoredCacheCalls() {
+        return meterRegistry.get("gdmarket.external.calls").tags("source", "whoscored", "outcome", "cache")
+                .counter().count();
+    }
+
+    @Test
     void onePendingPlayerDownloadsTheLeagueOnce() {
         Player bruno = player("Bruno Fernandes", "Manchester United FC", League.PREMIER_LEAGUE);
         player("Bryan Mbeumo", "Manchester United FC", League.PREMIER_LEAGUE);
@@ -676,7 +710,7 @@ class PlayerStatsServiceTest {
         CacheManager failingManager = mock(CacheManager.class);
         when(failingManager.getCache(CacheConfig.WHOSCORED_PLAYER_STATS_CACHE)).thenReturn(failing);
         service = new PlayerStatsService(playerRepository, statsRepository, adapter,
-                TransactionOperations.withoutTransaction(), failingManager);
+                TransactionOperations.withoutTransaction(), failingManager, metrics);
     }
 
     Player player(String name, String team, League league) {

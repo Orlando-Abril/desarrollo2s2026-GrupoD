@@ -3,7 +3,10 @@ package com.example.demo.adapter.whoscored;
 import com.example.demo.adapter.whoscored.dto.WhoScoredPlayerStats;
 import com.example.demo.config.WhoScoredProperties;
 import com.example.demo.exception.WhoScoredException;
+import com.example.demo.metrics.BusinessMetrics;
 import com.example.demo.model.League;
+import com.example.demo.repository.UserRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -31,10 +34,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -53,6 +58,8 @@ class WhoScoredAdapterTest {
     MockRestServiceServer server;
     WhoScoredStatsMapper mapper;
     WhoScoredAdapter adapter;
+    final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    final BusinessMetrics metrics = new BusinessMetrics(meterRegistry, mock(UserRepository.class));
 
     void setUp(Duration requestDelay, boolean retryEnabled, Duration retryDelay) {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL)
@@ -60,7 +67,7 @@ class WhoScoredAdapterTest {
         server = MockRestServiceServer.bindTo(builder).build();
         mapper = spy(new WhoScoredStatsMapper(JsonMapper.builder().build()));
         adapter = new WhoScoredAdapter(new HttpFeedClient(builder.build()),
-                properties(requestDelay, retryEnabled, retryDelay), mapper);
+                properties(requestDelay, retryEnabled, retryDelay), mapper, metrics);
     }
 
     @Test
@@ -80,6 +87,60 @@ class WhoScoredAdapterTest {
                     assertThat(bruno.dribbles()).isEqualTo(12);
                 });
         assertThat(rows).extracting(WhoScoredPlayerStats::fetchedAt).containsOnly(rows.get(0).fetchedAt());
+    }
+
+    // --- spec 036: una llamada por liga, con su resultado ----------------------------------------------
+
+    @Test
+    void completeLeagueIsCountedAsOneSuccessfulCall() {
+        setUp(Duration.ZERO, true, Duration.ZERO);
+        expectFullLeague();
+
+        adapter.fetchLeaguePlayers(League.PREMIER_LEAGUE);
+
+        assertThat(calls("success")).isEqualTo(1);
+        assertThat(calls("error")).isZero();
+    }
+
+    @Test
+    void blockedLeagueIsCountedAsOneErrorAndKeepsTheSameException() {
+        setUp(Duration.ZERO, false, Duration.ZERO);
+        expectQuery("summary", "all", "0").andRespond(forbidden("blocked-cloudflare.html"));
+
+        assertCode(WhoScoredException.BLOCKED);
+
+        assertThat(calls("error")).isEqualTo(1);
+        assertThat(calls("success")).isZero();
+    }
+
+    @Test
+    void retryAfterABlockStillCountsOneCall() {
+        setUp(Duration.ZERO, true, Duration.ZERO);
+        expectQuery("summary", "all", "0").andRespond(forbidden("blocked-cloudflare.html"));
+        expectFullLeague();
+
+        adapter.fetchLeaguePlayers(League.PREMIER_LEAGUE);
+
+        assertThat(calls("success")).isEqualTo(1);
+        assertThat(calls("error")).isZero();
+    }
+
+    @Test
+    void unexpectedClientFailureIsCountedAsErrorAndRethrownUnchanged() {
+        WhoScoredFeedClient broken = mock(WhoScoredFeedClient.class);
+        IllegalStateException failure = new IllegalStateException("browser crashed");
+        when(broken.get(anyString())).thenThrow(failure);
+        WhoScoredAdapter failing = new WhoScoredAdapter(broken, properties(Duration.ZERO, true, Duration.ZERO),
+                new WhoScoredStatsMapper(JsonMapper.builder().build()), metrics);
+
+        assertThatThrownBy(() -> failing.fetchLeaguePlayers(League.PREMIER_LEAGUE)).isSameAs(failure);
+
+        assertThat(calls("error")).isEqualTo(1);
+    }
+
+    private double calls(String outcome) {
+        return meterRegistry.get("gdmarket.external.calls").tags("source", "whoscored", "outcome", outcome)
+                .counter().count();
     }
 
     // --- spec 013: la consulta de gambetas es opcional ----------------------------------------------

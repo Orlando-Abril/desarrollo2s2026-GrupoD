@@ -1,6 +1,7 @@
 package com.example.demo.service.market;
 
 import com.example.demo.filter.CorrelationIdFilter;
+import com.example.demo.metrics.BusinessMetrics;
 import com.example.demo.model.Player;
 import com.example.demo.model.User;
 import com.example.demo.model.market.AuditAction;
@@ -8,6 +9,7 @@ import com.example.demo.model.market.AuditActor;
 import com.example.demo.model.market.Holding;
 import com.example.demo.model.market.MarketOrder;
 import com.example.demo.model.market.OrderSide;
+import com.example.demo.model.market.OrderType;
 import com.example.demo.repository.market.HoldingRepository;
 import com.example.demo.repository.market.MarketOrderRepository;
 import com.example.demo.service.audit.TransactionAuditService;
@@ -48,13 +50,14 @@ public class MarketMakerService {
     private final TransactionAuditService auditService;
     private final TransactionOperations transactionOperations;
     private final EntityManager entityManager;
+    private final BusinessMetrics metrics;
     private final Clock clock;
 
     public MarketMakerService(@Value("${market.superuser.enabled:true}") boolean enabled,
                               SuperuserAccount superuserAccount, HoldingRepository holdingRepository,
                               MarketOrderRepository orderRepository, MarketLocks locks,
                               TransactionAuditService auditService, TransactionOperations transactionOperations,
-                              EntityManager entityManager, Clock clock) {
+                              EntityManager entityManager, BusinessMetrics metrics, Clock clock) {
         this.enabled = enabled;
         this.superuserAccount = superuserAccount;
         this.holdingRepository = holdingRepository;
@@ -63,6 +66,7 @@ public class MarketMakerService {
         this.auditService = auditService;
         this.transactionOperations = transactionOperations;
         this.entityManager = entityManager;
+        this.metrics = metrics;
         this.clock = clock;
     }
 
@@ -173,6 +177,7 @@ public class MarketMakerService {
         int quantity = holding.available();
         MarketOrder order = orderRepository.save(MarketOrder.limit(entityManager.getReference(User.class, superuserId),
                 player, OrderSide.SELL, quantity, marketValue, now));
+        metrics.orderCreated(OrderSide.SELL, OrderType.LIMIT);
         auditService.audit(system, AuditAction.ORDER_CREATED, MarketEntityTypes.ORDER, order.getId(), null,
                 OrderSnapshot.of(order));
         HoldingSnapshot holdingBefore = HoldingSnapshot.of(holding);

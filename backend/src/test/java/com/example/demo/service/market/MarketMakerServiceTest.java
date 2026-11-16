@@ -8,6 +8,7 @@ import com.example.demo.model.market.OrderStatus;
 import com.example.demo.repository.market.MarketOrderRepository;
 import com.example.demo.repository.market.MarketPlayerRepository;
 import com.example.demo.support.UnitTestProfile;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ class MarketMakerServiceTest {
     @Autowired private MarketOrderRepository orderRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private ApplicationContext context;
+    @Autowired private MeterRegistry meterRegistry;
     @MockitoSpyBean private MarketPlayerRepository playerRepository;
 
     private MarketSeed seed;
@@ -62,6 +64,17 @@ class MarketMakerServiceTest {
         assertSuperuserSell(first, 100, "1.2000");
         assertSuperuserSell(second, 100, "0.9500");
         assertThat(holding(first)).containsExactly(100, 100);
+    }
+
+    @Test
+    void eachPublishedSellIsCountedAsACreatedLimitSell() {
+        issued("1.2000");
+        issued("0.9500");
+        double before = createdSellLimits();
+
+        marketMakerService.syncAll();
+
+        assertThat(createdSellLimits() - before).isEqualTo(2);
     }
 
     @Test
@@ -193,5 +206,9 @@ class MarketMakerServiceTest {
         return jdbcTemplate.queryForObject(
                 "select quantity, reserved_quantity from holdings where user_id = ? and player_id = ?",
                 (rs, row) -> List.of(rs.getInt(1), rs.getInt(2)), superuser.getId(), player.getId());
+    }
+
+    private double createdSellLimits() {
+        return meterRegistry.get("gdmarket.orders.placed").tags("side", "SELL", "type", "LIMIT").counter().count();
     }
 }

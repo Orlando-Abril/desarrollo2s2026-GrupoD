@@ -10,6 +10,8 @@ import com.example.demo.exception.RecalculationFailedException;
 import com.example.demo.exception.RecalculationInProgressException;
 import com.example.demo.exception.UnknownValuationStrategyException;
 import com.example.demo.filter.CorrelationIdFilter;
+import com.example.demo.metrics.BusinessMetrics;
+import com.example.demo.metrics.RecalculationTrigger;
 import com.example.demo.model.League;
 import com.example.demo.model.Player;
 import com.example.demo.model.PlayerQuote;
@@ -19,12 +21,15 @@ import com.example.demo.model.QuoteStatus;
 import com.example.demo.repository.PlayerQuoteRepository;
 import com.example.demo.repository.PlayerRepository;
 import com.example.demo.repository.PlayerStatsRepository;
+import com.example.demo.repository.UserRepository;
 import com.example.demo.service.PlayerStatsService;
 import com.example.demo.service.valuation.momentum.MomentumFixtures;
 import com.example.demo.service.valuation.momentum.MomentumFormAlgorithm;
 import com.example.demo.service.valuation.official.OfficialPerformanceAlgorithm;
 import com.example.demo.service.valuation.strategy.StrategyType;
 import com.example.demo.service.valuation.strategy.ValuationStrategyCatalog;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,6 +87,7 @@ class QuoteCalculationServiceTest {
     private final PlayerQuoteRepository quoteRepository = mock(PlayerQuoteRepository.class);
     private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private final ValuationAlgorithm official = mock(ValuationAlgorithm.class);
     private final Logger logger = (Logger) LoggerFactory.getLogger(QuoteCalculationService.class);
     private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
@@ -276,6 +282,60 @@ class QuoteCalculationServiceTest {
         }
         verify(snapshotService, never()).snapshotAll(any());
         verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    // Spec 036: métricas del recálculo
+
+    @Test
+    void successfulManualRunRecordsItsDurationAndTheQuotesOfEachStrategy() {
+        Player a = player(1, "1.0000");
+        Player b = player(2, "1.0000");
+        withStats(a, b);
+        officialResults.put(1L, calculated("1.0960", "0.9600"));
+        officialResults.put(2L, calculated("1.0120", "0.1200"));
+
+        QuoteRunResult result = service().recalculate(Optional.empty());
+
+        assertThat(recalculations("manual", "success")).isEqualTo(1);
+        assertThat(recalculations("scheduled", "success")).isZero();
+        assertThat(meterRegistry.get("gdmarket.quotes.recalculation.last").timeGauge().value(TimeUnit.NANOSECONDS))
+                .isPositive();
+        assertThat(meterRegistry.get("gdmarket.quotes.calculated").tag("strategy", "OFFICIAL").counter().count())
+                .isEqualTo(result.calculated().get(0).calculated()).isEqualTo(2);
+    }
+
+    @Test
+    void failedScheduledRunRecordsFailureAndNoQuotes() {
+        player(1, "1.0000");
+        doThrowOnSnapshot(new IllegalStateException("db down"));
+
+        assertThatThrownBy(() -> service().recalculate(Optional.empty(), RecalculationTrigger.SCHEDULED))
+                .isInstanceOf(RecalculationFailedException.class);
+
+        assertThat(recalculations("scheduled", "failure")).isEqualTo(1);
+        assertThat(recalculations("manual", "failure")).isZero();
+        assertThat(meterRegistry.find("gdmarket.quotes.calculated").counters()).isEmpty();
+    }
+
+    @Test
+    void runRejectedBecauseAnotherIsInProgressIsNotTimed() {
+        player(1, "1.0000");
+        QuoteCalculationService service = service();
+        doAnswer(invocation -> {
+            assertThatThrownBy(() -> service.recalculate(Optional.empty()))
+                    .isInstanceOf(RecalculationInProgressException.class);
+            return null;
+        }).when(eventPublisher).publishEvent(any(QuoteRunCompletedEvent.class));
+
+        service.recalculate(Optional.empty());
+
+        assertThat(meterRegistry.get("gdmarket.quotes.recalculation").timers().stream()
+                .mapToLong(Timer::count).sum()).isEqualTo(1);
+    }
+
+    private long recalculations(String trigger, String outcome) {
+        return meterRegistry.get("gdmarket.quotes.recalculation").tags("trigger", trigger, "outcome", outcome)
+                .timer().count();
     }
 
     @Test
@@ -703,7 +763,8 @@ class QuoteCalculationServiceTest {
     private QuoteCalculationService service(ValuationStrategyCatalog catalog, ValuationAlgorithm... algorithms) {
         return new QuoteCalculationService(catalog, List.of(algorithms),
                 new QuoteRunData(snapshotService, playerRepository, statsRepository, quoteRepository),
-                Clock.fixed(NOW, ZoneOffset.UTC), transactionManager, eventPublisher, MarketStrategyRecorder.NONE);
+                Clock.fixed(NOW, ZoneOffset.UTC), transactionManager, eventPublisher, MarketStrategyRecorder.NONE,
+                new BusinessMetrics(meterRegistry, mock(UserRepository.class)));
     }
 
     private void doThrowOnSnapshot(RuntimeException exception) {

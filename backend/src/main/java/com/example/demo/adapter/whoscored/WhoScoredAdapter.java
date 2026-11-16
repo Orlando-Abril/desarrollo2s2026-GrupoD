@@ -4,6 +4,9 @@ import com.example.demo.adapter.whoscored.dto.WhoScoredFeedResponse;
 import com.example.demo.adapter.whoscored.dto.WhoScoredPlayerStats;
 import com.example.demo.config.WhoScoredProperties;
 import com.example.demo.exception.WhoScoredException;
+import com.example.demo.metrics.BusinessMetrics;
+import com.example.demo.metrics.ExternalCallOutcome;
+import com.example.demo.metrics.ExternalSource;
 import com.example.demo.model.League;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,22 +49,36 @@ public class WhoScoredAdapter {
     private final WhoScoredFeedClient feedClient;
     private final WhoScoredProperties properties;
     private final WhoScoredStatsMapper mapper;
+    private final BusinessMetrics metrics;
     private final Clock clock = Clock.systemUTC();
     /** {@link System#nanoTime()} de la última consulta real; {@code null} si todavía no hubo ninguna. */
     private Long lastRequestNanos;
 
     public WhoScoredAdapter(WhoScoredFeedClient feedClient, WhoScoredProperties properties,
-                            WhoScoredStatsMapper mapper) {
+                            WhoScoredStatsMapper mapper, BusinessMetrics metrics) {
         this.feedClient = feedClient;
         this.properties = properties;
         this.mapper = mapper;
+        this.metrics = metrics;
     }
 
     /**
      * Todas las filas {@code (jugador, equipo)} de la liga, o {@link WhoScoredException} si falta alguna de las
-     * 4 respuestas obligatorias. La falla de la consulta de gambetas no hace fallar la liga.
+     * 4 respuestas obligatorias. La falla de la consulta de gambetas no hace fallar la liga. Cuenta una llamada por
+     * liga (spec 036): éxito, o error ante cualquier excepción, que se relanza sin cambios.
      */
     public List<WhoScoredPlayerStats> fetchLeaguePlayers(League league) {
+        try {
+            List<WhoScoredPlayerStats> rows = fetchLeague(league);
+            metrics.externalCall(ExternalSource.WHOSCORED, ExternalCallOutcome.SUCCESS);
+            return rows;
+        } catch (RuntimeException ex) {
+            metrics.externalCall(ExternalSource.WHOSCORED, ExternalCallOutcome.ERROR);
+            throw ex;
+        }
+    }
+
+    private List<WhoScoredPlayerStats> fetchLeague(League league) {
         int tournamentId = properties.tournaments().get(league);
         WhoScoredFeedResponse summary = fetch(league, tournamentId, LEAGUE_QUERIES.get(0));
         WhoScoredFeedResponse shots = fetch(league, tournamentId, LEAGUE_QUERIES.get(1));

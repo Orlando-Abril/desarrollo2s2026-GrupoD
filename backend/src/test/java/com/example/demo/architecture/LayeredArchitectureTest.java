@@ -39,13 +39,16 @@ class LayeredArchitectureTest {
             .layer("Adapter").definedBy(ROOT + ".adapter..")
             .layer("Model").definedBy(ROOT + ".model..")
             .layer("DTO").definedBy(ROOT + ".dto..")
+            .layer("Metrics").definedBy(ROOT + ".metrics..")
             .whereLayer("Controller").mayNotBeAccessedByAnyLayer()
             .whereLayer("Service").mayOnlyBeAccessedByLayers("Controller", "DTO")
-            .whereLayer("Repository").mayOnlyBeAccessedByLayers("Service")
+            .whereLayer("Repository").mayOnlyBeAccessedByLayers("Service", "Metrics")
             .whereLayer("Adapter").mayOnlyBeAccessedByLayers("Service")
             .whereLayer("Model").mayOnlyBeAccessedByLayers(
-                    "Controller", "Service", "Repository", "Adapter", "DTO")
+                    "Controller", "Service", "Repository", "Adapter", "DTO", "Metrics")
             .whereLayer("DTO").mayOnlyBeAccessedByLayers("Controller", "Service", "Repository")
+            // Spec 036: metrics es un paquete de soporte (no una capa de negocio) que sólo usan services y adapters.
+            .whereLayer("Metrics").mayOnlyBeAccessedByLayers("Service", "Adapter")
             .because("Constitution §2.1 exige dependencias dirigidas entre capas del backend");
 
     @ArchTest

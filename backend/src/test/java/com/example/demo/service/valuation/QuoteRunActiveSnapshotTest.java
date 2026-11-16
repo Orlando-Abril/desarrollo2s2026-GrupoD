@@ -1,5 +1,6 @@
 package com.example.demo.service.valuation;
 
+import com.example.demo.metrics.BusinessMetrics;
 import com.example.demo.model.ActiveStrategySetting;
 import com.example.demo.model.League;
 import com.example.demo.model.Player;
@@ -9,8 +10,10 @@ import com.example.demo.repository.ActiveStrategySettingRepository;
 import com.example.demo.repository.PlayerQuoteRepository;
 import com.example.demo.repository.PlayerRepository;
 import com.example.demo.repository.PlayerStatsRepository;
+import com.example.demo.repository.UserRepository;
 import com.example.demo.service.valuation.strategy.StrategyType;
 import com.example.demo.service.valuation.strategy.ValuationStrategyCatalog;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -131,6 +134,7 @@ class QuoteRunActiveSnapshotTest {
                 List.of(official, momentum),
                 new QuoteRunData(snapshotService, playerRepository, statsRepository, quoteRepository),
                 Clock.fixed(NOW, ZoneOffset.UTC), mock(PlatformTransactionManager.class),
-                mock(ApplicationEventPublisher.class), recorder);
+                mock(ApplicationEventPublisher.class), recorder,
+                new BusinessMetrics(new SimpleMeterRegistry(), mock(UserRepository.class)));
     }
 }

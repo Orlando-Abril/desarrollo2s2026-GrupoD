@@ -8,6 +8,8 @@ import com.example.demo.dto.auth.MeResponse;
 import com.example.demo.exception.AuthenticatedUserNotFoundException;
 import com.example.demo.exception.DuplicateUserException;
 import com.example.demo.exception.InvalidCredentialsException;
+import com.example.demo.metrics.AuthOutcome;
+import com.example.demo.metrics.BusinessMetrics;
 import com.example.demo.model.ApiKey;
 import com.example.demo.model.User;
 import com.example.demo.repository.UserRepository;
@@ -40,12 +42,15 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final BusinessMetrics metrics;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
+                       BusinessMetrics metrics) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.metrics = metrics;
     }
 
     public RegisterResponse register(RegisterRequest request) {
@@ -53,9 +58,11 @@ public class AuthService {
         String email = request.email();
 
         if (userRepository.existsByUsername(username)) {
+            metrics.registration(AuthOutcome.FAILURE);
             throw new DuplicateUserException("El username ya está registrado");
         }
         if (userRepository.existsByEmail(email)) {
+            metrics.registration(AuthOutcome.FAILURE);
             throw new DuplicateUserException("El email ya está registrado");
         }
 
@@ -77,8 +84,10 @@ public class AuthService {
         try {
             savedUser = userRepository.save(user);
         } catch (DataIntegrityViolationException e) {
+            metrics.registration(AuthOutcome.FAILURE);
             throw new DuplicateUserException("El username o el email ya están registrados");
         }
+        metrics.registration(AuthOutcome.SUCCESS);
 
         return new RegisterResponse(
                 savedUser.getId(),
@@ -97,10 +106,13 @@ public class AuthService {
         boolean passwordMatches = passwordEncoder.matches(request.password(), hashToCheck);
 
         if (userOptional.isEmpty() || !passwordMatches) {
+            metrics.login(AuthOutcome.FAILURE);
             throw new InvalidCredentialsException("Username o password inválidos");
         }
 
-        return new LoginResponse(jwtUtil.generateToken(username));
+        LoginResponse response = new LoginResponse(jwtUtil.generateToken(username));
+        metrics.login(AuthOutcome.SUCCESS);
+        return response;
     }
 
     public MeResponse me(String username) {

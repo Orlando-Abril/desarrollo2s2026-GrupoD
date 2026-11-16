@@ -215,6 +215,27 @@ Remove-Item Env:SCRAPE_API_KEY
 
 No guardar la clave cruda en Git. La secuencia completa de comprobaciones está en [el quickstart de monitoreo](specs/035-actuator-prometheus/quickstart.md).
 
+### Métricas de negocio
+
+`/actuator/prometheus` también publica métricas propias con prefijo `gdmarket_`, con el mismo acceso ADMIN. Sus etiquetas sólo toman valores fijos: nunca ids ni datos de usuarios o jugadores. Si registrar una métrica falla, la operación sigue igual y el log muestra `business_metric_failed`.
+
+| Serie | Etiquetas | Qué mide |
+|---|---|---|
+| `gdmarket_orders_placed_total` | `side`, `type` | Órdenes aceptadas y confirmadas |
+| `gdmarket_orders_rejected_total` | `reason` | Rechazos por saldo, tokens o banda de precio |
+| `gdmarket_trades_executed_total`, `gdmarket_trades_tokens_total`, `gdmarket_trades_volume_credits_total` | — | Trades, tokens y volumen en créditos |
+| `gdmarket_quotes_recalculation_seconds` | `trigger`, `outcome` | Duración de cada recálculo (histograma) |
+| `gdmarket_quotes_recalculation_last_seconds` | — | Duración del último recálculo (vuelve a 0 al reiniciar) |
+| `gdmarket_quotes_calculated_total` | `strategy` | Cotizaciones calculadas por estrategia |
+| `gdmarket_strategy_changes_total` | — | Cambios confirmados de estrategia activa |
+| `gdmarket_external_calls_total` | `source`, `outcome` | Llamadas a Football-Data y WhoScored: éxito, error o caché |
+| `gdmarket_auth_registrations_total`, `gdmarket_auth_logins_total` | `outcome` | Registros y logins por resultado |
+| `gdmarket_users_registered` | — | Cuentas registradas |
+
+`gdmarket_users_registered` hace un `count()` sobre `users` en cada lectura de métricas (un scrape cada 15 s en la demo). El detalle está en [el contrato](specs/036-metricas-avanzadas/contracts/business-metrics.md).
+
+Con la demo levantada, Grafana carga solo el dashboard **GD Market** (carpeta **Demo**): mercado, cotizaciones de los últimos 7 días, fuentes externas, usuarios, y la latencia p95 y la tasa de error 5xx HTTP.
+
 ## Tests end-to-end con PostgreSQL y Redis reales
 
 Los tests `e2e` son destructivos: antes y después de cada método ejecutan `TRUNCATE ... RESTART
