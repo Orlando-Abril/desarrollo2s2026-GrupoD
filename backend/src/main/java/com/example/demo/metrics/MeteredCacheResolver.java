@@ -45,7 +45,7 @@ public class MeteredCacheResolver implements CacheResolver {
                 .toList();
     }
 
-    /** Delega todo en la caché real; sólo cuenta los aciertos. */
+    /** Delega las operaciones en la caché real y cuenta únicamente los aciertos. */
     private static final class CountingCache implements Cache {
 
         private final Cache delegate;
