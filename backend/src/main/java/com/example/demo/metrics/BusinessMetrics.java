@@ -44,6 +44,7 @@ public class BusinessMetrics {
     static final String REGISTRATIONS = "gdmarket.auth.registrations";
     static final String LOGINS = "gdmarket.auth.logins";
     static final String USERS_REGISTERED = "gdmarket.users.registered";
+    private static final String OUTCOME_TAG = "outcome";
 
     private static final Logger log = LoggerFactory.getLogger(BusinessMetrics.class);
 
@@ -60,8 +61,8 @@ public class BusinessMetrics {
     private final Counter strategyChanges;
     private final Map<ExternalSource, Map<ExternalCallOutcome, Counter>> externalCalls =
             new EnumMap<>(ExternalSource.class);
-    private final Map<AuthOutcome, Counter> registrations = new EnumMap<>(AuthOutcome.class);
-    private final Map<AuthOutcome, Counter> logins = new EnumMap<>(AuthOutcome.class);
+    private final Map<AuthOutcome, Counter> registrationCounters = new EnumMap<>(AuthOutcome.class);
+    private final Map<AuthOutcome, Counter> loginCounters = new EnumMap<>(AuthOutcome.class);
 
     public BusinessMetrics(MeterRegistry registry, UserRepository userRepository) {
         this.registry = registry;
@@ -95,7 +96,7 @@ public class BusinessMetrics {
             for (RecalculationOutcome outcome : RecalculationOutcome.values()) {
                 byOutcome.put(outcome, Timer.builder(RECALCULATION)
                         .description("Duración de cada recálculo de cotizaciones")
-                        .tag("trigger", trigger.tag()).tag("outcome", outcome.tag())
+                        .tag("trigger", trigger.tag()).tag(OUTCOME_TAG, outcome.tag())
                         .publishPercentileHistogram()
                         .register(registry));
             }
@@ -113,18 +114,18 @@ public class BusinessMetrics {
             for (ExternalCallOutcome outcome : ExternalCallOutcome.values()) {
                 byOutcome.put(outcome, Counter.builder(EXTERNAL_CALLS)
                         .description("Consultas a fuentes externas por resultado")
-                        .tag("source", source.tag()).tag("outcome", outcome.tag())
+                        .tag("source", source.tag()).tag(OUTCOME_TAG, outcome.tag())
                         .register(registry));
             }
             externalCalls.put(source, byOutcome);
         }
         for (AuthOutcome outcome : AuthOutcome.values()) {
-            registrations.put(outcome, Counter.builder(REGISTRATIONS)
+            registrationCounters.put(outcome, Counter.builder(REGISTRATIONS)
                     .description("Registros de usuarios por resultado")
-                    .tag("outcome", outcome.tag()).register(registry));
-            logins.put(outcome, Counter.builder(LOGINS)
+                    .tag(OUTCOME_TAG, outcome.tag()).register(registry));
+            loginCounters.put(outcome, Counter.builder(LOGINS)
                     .description("Logins por resultado")
-                    .tag("outcome", outcome.tag()).register(registry));
+                    .tag(OUTCOME_TAG, outcome.tag()).register(registry));
         }
         Gauge.builder(USERS_REGISTERED, this, BusinessMetrics::registeredUsers)
                 .description("Cuentas de usuario registradas")
@@ -183,12 +184,12 @@ public class BusinessMetrics {
 
     /** Un intento de registro y su resultado. */
     public void registration(AuthOutcome outcome) {
-        safely(REGISTRATIONS, () -> registrations.get(outcome).increment());
+        safely(REGISTRATIONS, () -> registrationCounters.get(outcome).increment());
     }
 
     /** Un intento de login y su resultado. */
     public void login(AuthOutcome outcome) {
-        safely(LOGINS, () -> logins.get(outcome).increment());
+        safely(LOGINS, () -> loginCounters.get(outcome).increment());
     }
 
     /** Valor del gauge de usuarios: {@code NaN} si el conteo falla, para no romper la lectura de métricas. */
