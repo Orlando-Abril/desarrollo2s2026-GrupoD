@@ -1,0 +1,68 @@
+BEGIN
+                                                                            QUERY PLAN                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=4209.62..4210.02 rows=20 width=105) (actual time=41.287..41.307 rows=20 loops=1)
+   Buffers: shared hit=931
+   ->  WindowAgg  (cost=4209.62..4211.98 rows=119 width=105) (actual time=41.284..41.301 rows=20 loops=1)
+         Buffers: shared hit=931
+         ->  Sort  (cost=4209.60..4209.90 rows=119 width=97) (actual time=41.267..41.274 rows=20 loops=1)
+               Sort Key: q.quote_value DESC, p.id
+               Sort Method: quicksort  Memory: 339kB
+               Buffers: shared hit=931
+               ->  Hash Join  (cost=3311.29..4205.50 rows=119 width=97) (actual time=26.331..38.666 rows=2651 loops=1)
+                     Hash Cond: (q.player_id = p.id)
+                     Buffers: shared hit=925
+                     ->  Subquery Scan on q  (cost=3212.64..4106.54 rows=119 width=58) (actual time=25.054..36.009 rows=2651 loops=1)
+                           Filter: (q.quote_order = 1)
+                           Buffers: shared hit=886
+                           ->  WindowAgg  (cost=3212.64..3808.56 rows=23838 width=82) (actual time=25.052..35.761 rows=2651 loops=1)
+                                 Run Condition: (row_number() OVER (?) <= 1)
+                                 Buffers: shared hit=886
+                                 ->  Sort  (cost=3212.61..3272.21 rows=23838 width=42) (actual time=24.997..27.045 rows=23859 loops=1)
+                                       Sort Key: q_1.player_id, q_1.calculated_at DESC, q_1.id DESC
+                                       Sort Method: quicksort  Memory: 2260kB
+                                       Buffers: shared hit=886
+                                       ->  Seq Scan on player_quotes q_1  (cost=0.00..1479.47 rows=23838 width=42) (actual time=0.029..14.799 rows=23859 loops=1)
+                                             Filter: ((strategy_code)::text = 'OFFICIAL'::text)
+                                             Rows Removed by Filter: 23859
+                                             Buffers: shared hit=883
+                     ->  Hash  (cost=65.51..65.51 rows=2651 width=47) (actual time=1.256..1.257 rows=2651 loops=1)
+                           Buckets: 4096  Batches: 1  Memory Usage: 240kB
+                           Buffers: shared hit=39
+                           ->  Seq Scan on players p  (cost=0.00..65.51 rows=2651 width=47) (actual time=0.025..0.628 rows=2651 loops=1)
+                                 Buffers: shared hit=39
+ Planning:
+   Buffers: shared hit=289
+ Planning Time: 15.417 ms
+ Execution Time: 42.062 ms
+(34 rows)
+
+                                                                                                QUERY PLAN                                                                                                 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=1983.57..1983.58 rows=1 width=8) (actual time=14.031..14.034 rows=1 loops=1)
+   Buffers: shared hit=213
+   ->  Hash Join  (cost=99.13..1983.27 rows=119 width=0) (actual time=1.264..13.809 rows=2651 loops=1)
+         Hash Cond: (q.player_id = p.id)
+         Buffers: shared hit=213
+         ->  Subquery Scan on q  (cost=0.48..1884.32 rows=119 width=8) (actual time=0.333..11.636 rows=2651 loops=1)
+               Filter: (q.quote_order = 1)
+               Buffers: shared hit=174
+               ->  WindowAgg  (cost=0.48..1586.34 rows=23838 width=41) (actual time=0.332..11.334 rows=2651 loops=1)
+                     Run Condition: (row_number() OVER (?) <= 1)
+                     Buffers: shared hit=174
+                     ->  Index Only Scan using idx_player_quotes_strategy_player_time_id_desc on player_quotes q_1  (cost=0.41..1109.58 rows=23838 width=33) (actual time=0.290..6.177 rows=23859 loops=1)
+                           Index Cond: (strategy_code = 'OFFICIAL'::text)
+                           Heap Fetches: 0
+                           Buffers: shared hit=174
+         ->  Hash  (cost=65.51..65.51 rows=2651 width=8) (actual time=0.891..0.891 rows=2651 loops=1)
+               Buckets: 4096  Batches: 1  Memory Usage: 136kB
+               Buffers: shared hit=39
+               ->  Seq Scan on players p  (cost=0.00..65.51 rows=2651 width=8) (actual time=0.037..0.523 rows=2651 loops=1)
+                     Buffers: shared hit=39
+ Planning:
+   Buffers: shared hit=11
+ Planning Time: 0.678 ms
+ Execution Time: 14.274 ms
+(24 rows)
+
+ROLLBACK

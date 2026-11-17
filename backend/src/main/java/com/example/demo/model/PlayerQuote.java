@@ -25,7 +25,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "player_quotes", indexes = {
         @Index(name = "idx_player_quotes_player_strategy_time", columnList = "player_id, strategy_code, calculated_at"),
-        @Index(name = "idx_player_quotes_strategy_time", columnList = "strategy_code, calculated_at")
+        @Index(name = "idx_player_quotes_strategy_time", columnList = "strategy_code, calculated_at"),
+        @Index(name = "idx_player_quotes_strategy_player_time_id_desc",
+                columnList = "strategy_code, player_id, calculated_at DESC, id DESC")
 })
 @Immutable
 @Getter
