@@ -60,7 +60,7 @@ public class BusinessMetrics {
     private final Counter strategyChanges;
     private final Map<ExternalSource, Map<ExternalCallOutcome, Counter>> externalCalls =
             new EnumMap<>(ExternalSource.class);
-    private final Map<AuthOutcome, Counter> registrations = new EnumMap<>(AuthOutcome.class);
+    private final Map<AuthOutcome, Counter> registrationCounters = new EnumMap<>(AuthOutcome.class);
     private final Map<AuthOutcome, Counter> logins = new EnumMap<>(AuthOutcome.class);
 
     public BusinessMetrics(MeterRegistry registry, UserRepository userRepository) {
@@ -119,7 +119,7 @@ public class BusinessMetrics {
             externalCalls.put(source, byOutcome);
         }
         for (AuthOutcome outcome : AuthOutcome.values()) {
-            registrations.put(outcome, Counter.builder(REGISTRATIONS)
+            registrationCounters.put(outcome, Counter.builder(REGISTRATIONS)
                     .description("Registros de usuarios por resultado")
                     .tag("outcome", outcome.tag()).register(registry));
             logins.put(outcome, Counter.builder(LOGINS)
@@ -183,7 +183,7 @@ public class BusinessMetrics {
 
     /** Un intento de registro y su resultado. */
     public void registration(AuthOutcome outcome) {
-        safely(REGISTRATIONS, () -> registrations.get(outcome).increment());
+        safely(REGISTRATIONS, () -> registrationCounters.get(outcome).increment());
     }
 
     /** Un intento de login y su resultado. */
