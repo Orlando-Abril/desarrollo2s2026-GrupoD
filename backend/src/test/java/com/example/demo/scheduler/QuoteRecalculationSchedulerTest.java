@@ -4,6 +4,7 @@ import com.example.demo.config.QuoteSchedulingConfig;
 import com.example.demo.config.SchedulingConfig;
 import com.example.demo.exception.RecalculationInProgressException;
 import com.example.demo.filter.CorrelationIdFilter;
+import com.example.demo.metrics.RecalculationTrigger;
 import com.example.demo.service.PlayerStatsService;
 import com.example.demo.service.valuation.QuoteCalculationService;
 import com.example.demo.service.valuation.QuoteRunResult;
@@ -61,11 +62,11 @@ class QuoteRecalculationSchedulerTest {
 
     @Test
     void delegatesOnceForAllStrategies() {
-        when(calculationService.recalculate(Optional.empty())).thenReturn(successResult());
+        when(calculationService.recalculate(Optional.empty(), RecalculationTrigger.SCHEDULED)).thenReturn(successResult());
 
         new QuoteRecalculationScheduler(calculationService).run();
 
-        verify(calculationService, times(1)).recalculate(Optional.empty());
+        verify(calculationService, times(1)).recalculate(Optional.empty(), RecalculationTrigger.SCHEDULED);
     }
 
     @Test
@@ -79,7 +80,7 @@ class QuoteRecalculationSchedulerTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(QuoteSchedulingConfig.class);
                     assertThat(context).hasSingleBean(QuoteRecalculationScheduler.class);
-                    verify(calculationService, never()).recalculate(Optional.empty());
+                    verify(calculationService, never()).recalculate(Optional.empty(), RecalculationTrigger.SCHEDULED);
                 });
     }
 
@@ -169,7 +170,7 @@ class QuoteRecalculationSchedulerTest {
     void successfulRunUsesOwnCorrelationIdAndLogsTheCompleteSummary(CapturedOutput output) {
         AtomicReference<String> delegatedCorrelationId = new AtomicReference<>();
         QuoteRunResult result = successResult();
-        when(calculationService.recalculate(Optional.empty())).thenAnswer(invocation -> {
+        when(calculationService.recalculate(Optional.empty(), RecalculationTrigger.SCHEDULED)).thenAnswer(invocation -> {
             delegatedCorrelationId.set(MDC.get(CorrelationIdFilter.MDC_KEY));
             return result;
         });
@@ -195,7 +196,7 @@ class QuoteRecalculationSchedulerTest {
     @Test
     void inProgressRunIsLoggedAsSkippedAndNotPropagated(CapturedOutput output) {
         AtomicReference<String> delegatedCorrelationId = new AtomicReference<>();
-        when(calculationService.recalculate(Optional.empty())).thenAnswer(invocation -> {
+        when(calculationService.recalculate(Optional.empty(), RecalculationTrigger.SCHEDULED)).thenAnswer(invocation -> {
             delegatedCorrelationId.set(MDC.get(CorrelationIdFilter.MDC_KEY));
             throw new RecalculationInProgressException();
         });
@@ -217,7 +218,7 @@ class QuoteRecalculationSchedulerTest {
     void unexpectedRuntimeExceptionLogsOnlyItsTypeAndIsNotPropagated(CapturedOutput output) {
         AtomicReference<String> delegatedCorrelationId = new AtomicReference<>();
         String sensitiveMessage = "secret-player-payload";
-        when(calculationService.recalculate(Optional.empty())).thenAnswer(invocation -> {
+        when(calculationService.recalculate(Optional.empty(), RecalculationTrigger.SCHEDULED)).thenAnswer(invocation -> {
             delegatedCorrelationId.set(MDC.get(CorrelationIdFilter.MDC_KEY));
             throw new IllegalStateException(sensitiveMessage);
         });

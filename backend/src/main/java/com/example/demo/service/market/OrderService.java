@@ -13,6 +13,8 @@ import com.example.demo.exception.OrderNotFoundException;
 import com.example.demo.exception.PlayerNotFoundException;
 import com.example.demo.exception.PlayerNotQuotedException;
 import com.example.demo.exception.PriceOutOfBandException;
+import com.example.demo.metrics.BusinessMetrics;
+import com.example.demo.metrics.OrderRejectionReason;
 import com.example.demo.model.Player;
 import com.example.demo.model.User;
 import com.example.demo.model.market.AuditAction;
@@ -62,12 +64,13 @@ public class OrderService {
     private final TradeRepository tradeRepository;
     private final PlayerRepository playerRepository;
     private final TransactionAuditService auditService;
+    private final BusinessMetrics metrics;
     private final Clock clock;
 
     public OrderService(MarketUserResolver userResolver, MarketLocks locks, OrderMatchingEngineService engine,
                         MarketOrderRepository orderRepository, HoldingRepository holdingRepository,
                         TradeRepository tradeRepository, PlayerRepository playerRepository,
-                        TransactionAuditService auditService, Clock clock) {
+                        TransactionAuditService auditService, BusinessMetrics metrics, Clock clock) {
         this.userResolver = userResolver;
         this.locks = locks;
         this.engine = engine;
@@ -76,6 +79,7 @@ public class OrderService {
         this.tradeRepository = tradeRepository;
         this.playerRepository = playerRepository;
         this.auditService = auditService;
+        this.metrics = metrics;
         this.clock = clock;
     }
 
@@ -158,7 +162,23 @@ public class OrderService {
         return new OrderResult(order, tradeRepository.findByBuyOrderIdOrSellOrderIdOrderByIdAsc(orderId, orderId));
     }
 
+    /** Cuenta los rechazos por saldo, tokens o banda de precio (spec 036) y relanza la misma excepción. */
     private OrderResult place(MarketPrincipal principal, OrderSide side, OrderRequest request) {
+        try {
+            return placeOrder(principal, side, request);
+        } catch (InsufficientBalanceException exception) {
+            metrics.orderRejected(OrderRejectionReason.INSUFFICIENT_BALANCE);
+            throw exception;
+        } catch (InsufficientTokensException exception) {
+            metrics.orderRejected(OrderRejectionReason.INSUFFICIENT_TOKENS);
+            throw exception;
+        } catch (PriceOutOfBandException exception) {
+            metrics.orderRejected(OrderRejectionReason.PRICE_OUT_OF_BAND);
+            throw exception;
+        }
+    }
+
+    private OrderResult placeOrder(MarketPrincipal principal, OrderSide side, OrderRequest request) {
         requireCoherent(request);
         Player player = locks.lockPlayer(request.playerId());
         requireQuotedAndWithinBand(player, request);
@@ -180,6 +200,7 @@ public class OrderService {
         MarketOrder order = orderRepository.save(request.type() == OrderType.LIMIT
                 ? MarketOrder.limit(owner, player, side, request.quantity(), request.limitPrice(), now)
                 : MarketOrder.market(owner, player, side, request.quantity(), now));
+        metrics.orderCreated(side, request.type());
         AuditActor actor = AuditActor.user(owner.getId());
         auditService.audit(actor, AuditAction.ORDER_CREATED, MarketEntityTypes.ORDER, order.getId(), null,
                 OrderSnapshot.of(order));
@@ -189,7 +210,9 @@ public class OrderService {
         Fills fills = new Fills(order, player, users, holdings, actor, now);
         List<Trade> trades = new ArrayList<>();
         for (Fill fill : match.fills()) {
-            trades.add(applyFill(fills, bookById.get(fill.bookOrderId()), fill));
+            Trade trade = applyFill(fills, bookById.get(fill.bookOrderId()), fill);
+            metrics.tradeExecuted(trade.getQuantity(), trade.getTotal());
+            trades.add(trade);
         }
         settleRemainder(fills);
 

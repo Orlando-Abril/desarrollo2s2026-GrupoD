@@ -4,6 +4,9 @@ import com.example.demo.adapter.whoscored.WhoScoredAdapter;
 import com.example.demo.adapter.whoscored.dto.WhoScoredPlayerStats;
 import com.example.demo.config.CacheConfig;
 import com.example.demo.exception.WhoScoredException;
+import com.example.demo.metrics.BusinessMetrics;
+import com.example.demo.metrics.ExternalCallOutcome;
+import com.example.demo.metrics.ExternalSource;
 import com.example.demo.model.League;
 import com.example.demo.model.Player;
 import com.example.demo.model.PlayerStats;
@@ -46,15 +49,17 @@ public class PlayerStatsService {
     private final WhoScoredAdapter adapter;
     private final TransactionOperations transactionOperations;
     private final CacheManager cacheManager;
+    private final BusinessMetrics metrics;
 
     public PlayerStatsService(PlayerRepository playerRepository, PlayerStatsRepository statsRepository,
                               WhoScoredAdapter adapter, TransactionOperations transactionOperations,
-                              CacheManager cacheManager) {
+                              CacheManager cacheManager, BusinessMetrics metrics) {
         this.playerRepository = playerRepository;
         this.statsRepository = statsRepository;
         this.adapter = adapter;
         this.transactionOperations = transactionOperations;
         this.cacheManager = cacheManager;
+        this.metrics = metrics;
     }
 
     /** Sin transacción envolvente: una falla puntual no deshace lo ya guardado de otros jugadores. */
@@ -96,6 +101,10 @@ public class PlayerStatsService {
             }
         }
         if (pending.isEmpty()) {
+            if (!players.isEmpty()) {
+                // Spec 036: la liga entera salió de la caché y no hizo falta consultar WhoScored.
+                metrics.externalCall(ExternalSource.WHOSCORED, ExternalCallOutcome.CACHE);
+            }
             return;
         }
         List<WhoScoredPlayerStats> rows;

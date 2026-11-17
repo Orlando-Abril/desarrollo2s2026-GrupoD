@@ -2,6 +2,7 @@ package com.example.demo.scheduler;
 
 import com.example.demo.exception.RecalculationInProgressException;
 import com.example.demo.filter.CorrelationIdFilter;
+import com.example.demo.metrics.RecalculationTrigger;
 import com.example.demo.service.valuation.QuoteCalculationService;
 import com.example.demo.service.valuation.QuoteRunResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -34,7 +35,7 @@ public class QuoteRecalculationScheduler {
         MDC.put(CorrelationIdFilter.MDC_KEY, "valuation-" + UUID.randomUUID());
         try {
             log.info("quote_scheduled_recalculation_started");
-            QuoteRunResult result = calculationService.recalculate(Optional.empty());
+            QuoteRunResult result = calculationService.recalculate(Optional.empty(), RecalculationTrigger.SCHEDULED);
             log.info("quote_scheduled_recalculation_finished runId={} calculated={} skipped={} processed={} "
                             + "failed={} activeStrategy={} marketValueUpdated={}",
                     result.runId(), result.calculated(), result.skipped(), result.playersProcessed(),

@@ -3,6 +3,9 @@ package com.example.demo.service.valuation;
 import com.example.demo.exception.RecalculationFailedException;
 import com.example.demo.exception.RecalculationInProgressException;
 import com.example.demo.filter.CorrelationIdFilter;
+import com.example.demo.metrics.BusinessMetrics;
+import com.example.demo.metrics.RecalculationOutcome;
+import com.example.demo.metrics.RecalculationTrigger;
 import com.example.demo.model.Player;
 import com.example.demo.model.PlayerQuote;
 import com.example.demo.model.PlayerStats;
@@ -25,6 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -66,6 +70,7 @@ public class QuoteCalculationService {
     private final TransactionTemplate readOnlyTransaction;
     private final ApplicationEventPublisher eventPublisher;
     private final MarketStrategyRecorder marketStrategyRecorder;
+    private final BusinessMetrics metrics;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public QuoteCalculationService(ValuationStrategyCatalog catalog,
@@ -74,7 +79,8 @@ public class QuoteCalculationService {
                                    Clock clock,
                                    PlatformTransactionManager transactionManager,
                                    ApplicationEventPublisher eventPublisher,
-                                   MarketStrategyRecorder marketStrategyRecorder) {
+                                   MarketStrategyRecorder marketStrategyRecorder,
+                                   BusinessMetrics metrics) {
         this.catalog = catalog;
         this.algorithms = byType(algorithms);
         this.snapshotService = data.snapshots();
@@ -87,6 +93,7 @@ public class QuoteCalculationService {
         this.readOnlyTransaction.setReadOnly(true);
         this.eventPublisher = eventPublisher;
         this.marketStrategyRecorder = marketStrategyRecorder;
+        this.metrics = metrics;
     }
 
     /**
@@ -97,7 +104,19 @@ public class QuoteCalculationService {
      * @throws RecalculationFailedException si falla el snapshot, la carga o el armado del resumen
      */
     public QuoteRunResult recalculate(Optional<String> strategyCode) {
+        return recalculate(strategyCode, RecalculationTrigger.MANUAL);
+    }
+
+    /**
+     * Como {@link #recalculate(Optional)}, indicando qué disparó la corrida para sus métricas (spec 036).
+     *
+     * @throws com.example.demo.exception.UnknownValuationStrategyException si el código no existe
+     * @throws RecalculationInProgressException si ya hay una corrida en curso
+     * @throws RecalculationFailedException si falla el snapshot, la carga o el armado del resumen
+     */
+    public QuoteRunResult recalculate(Optional<String> strategyCode, RecalculationTrigger trigger) {
         Objects.requireNonNull(strategyCode, "strategyCode must not be null");
+        Objects.requireNonNull(trigger, "trigger must not be null");
         List<ValuationStrategyDefinition> definitions = strategyCode
                 .map(code -> List.of(catalog.find(code)))
                 .orElseGet(catalog::all);
@@ -120,7 +139,7 @@ public class QuoteCalculationService {
             throw exception;
         }
         try {
-            return execute(run, strategyCode.orElse(null), definitions);
+            return execute(run, strategyCode.orElse(null), definitions, trigger);
         } finally {
             publishCompleted(run.id());
             running.set(false);
@@ -154,7 +173,8 @@ public class QuoteCalculationService {
         }
     }
 
-    private QuoteRunResult execute(Run run, String requestedStrategy, List<ValuationStrategyDefinition> definitions) {
+    private QuoteRunResult execute(Run run, String requestedStrategy, List<ValuationStrategyDefinition> definitions,
+                                   RecalculationTrigger trigger) {
         long startedAt = System.nanoTime();
         log.info("quote_recalculation_started runId={} requestedStrategy={}", run.id(), requestedStrategy);
         try {
@@ -169,6 +189,10 @@ public class QuoteCalculationService {
             if (result.marketValueUpdated()) {
                 recordMarketStrategy(run);
             }
+            metrics.recalculationFinished(trigger, RecalculationOutcome.SUCCESS, elapsedSince(startedAt));
+            for (StrategyRunCounts counts : result.calculated()) {
+                metrics.quotesCalculated(counts.code(), counts.calculated());
+            }
             log.info("quote_recalculation_finished runId={} calculated={} skipped={} processed={} failed={} "
                             + "marketValueUpdated={} durationMs={}",
                     run.id(), result.calculated(), result.skipped(), result.playersProcessed(),
@@ -176,6 +200,7 @@ public class QuoteCalculationService {
                     (System.nanoTime() - startedAt) / 1_000_000);
             return result;
         } catch (RuntimeException exception) {
+            metrics.recalculationFinished(trigger, RecalculationOutcome.FAILURE, elapsedSince(startedAt));
             Throwable cause = exception instanceof RecalculationFailedException && exception.getCause() != null
                     ? exception.getCause()
                     : exception;
@@ -183,6 +208,10 @@ public class QuoteCalculationService {
                     run.id(), cause.getClass().getSimpleName(), exception);
             throw exception;
         }
+    }
+
+    private static Duration elapsedSince(long startedAtNanos) {
+        return Duration.ofNanos(System.nanoTime() - startedAtNanos);
     }
 
     private Plan preparePlan(Run run, List<ValuationStrategyDefinition> definitions) {

@@ -2,14 +2,17 @@ package com.example.demo.service.market;
 
 import com.example.demo.dto.market.OrderRequest;
 import com.example.demo.exception.PlayerNotQuotedException;
+import com.example.demo.metrics.BusinessMetrics;
 import com.example.demo.model.Player;
 import com.example.demo.model.market.OrderType;
 import com.example.demo.repository.PlayerRepository;
+import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.market.HoldingRepository;
 import com.example.demo.repository.market.MarketOrderRepository;
 import com.example.demo.repository.market.MarketPrincipal;
 import com.example.demo.repository.market.TradeRepository;
 import com.example.demo.service.audit.TransactionAuditService;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -32,7 +35,7 @@ class OrderServiceNotQuotedTest {
     private final TransactionAuditService auditService = mock(TransactionAuditService.class);
     private final OrderService service = new OrderService(resolver, locks, new OrderMatchingEngineService(),
             orderRepository, mock(HoldingRepository.class), mock(TradeRepository.class), mock(PlayerRepository.class),
-            auditService, Clock.systemUTC());
+            auditService, new BusinessMetrics(new SimpleMeterRegistry(), mock(UserRepository.class)), Clock.systemUTC());
 
     @Test
     void anOrderForAPlayerWithoutMarketValueIsRejectedBeforeTouchingTheBook() {
