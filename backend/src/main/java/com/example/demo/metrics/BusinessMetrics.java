@@ -61,7 +61,7 @@ public class BusinessMetrics {
     private final Map<ExternalSource, Map<ExternalCallOutcome, Counter>> externalCalls =
             new EnumMap<>(ExternalSource.class);
     private final Map<AuthOutcome, Counter> registrationCounters = new EnumMap<>(AuthOutcome.class);
-    private final Map<AuthOutcome, Counter> logins = new EnumMap<>(AuthOutcome.class);
+    private final Map<AuthOutcome, Counter> loginCounters = new EnumMap<>(AuthOutcome.class);
 
     public BusinessMetrics(MeterRegistry registry, UserRepository userRepository) {
         this.registry = registry;
@@ -122,7 +122,7 @@ public class BusinessMetrics {
             registrationCounters.put(outcome, Counter.builder(REGISTRATIONS)
                     .description("Registros de usuarios por resultado")
                     .tag("outcome", outcome.tag()).register(registry));
-            logins.put(outcome, Counter.builder(LOGINS)
+            loginCounters.put(outcome, Counter.builder(LOGINS)
                     .description("Logins por resultado")
                     .tag("outcome", outcome.tag()).register(registry));
         }
@@ -188,7 +188,7 @@ public class BusinessMetrics {
 
     /** Un intento de login y su resultado. */
     public void login(AuthOutcome outcome) {
-        safely(LOGINS, () -> logins.get(outcome).increment());
+        safely(LOGINS, () -> loginCounters.get(outcome).increment());
     }
 
     /** Valor del gauge de usuarios: {@code NaN} si el conteo falla, para no romper la lectura de métricas. */
