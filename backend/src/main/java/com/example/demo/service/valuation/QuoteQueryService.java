@@ -37,6 +37,7 @@ import java.util.List;
 @Service
 public class QuoteQueryService {
     private static final Logger log = LoggerFactory.getLogger(QuoteQueryService.class);
+    private static final String ACTIVE_STRATEGY_ALIAS = "active";
     private static final LocalDate SQL_MAX_DATE = LocalDate.of(9999, 12, 31);
     private static final Instant SQL_MIN = LocalDate.of(1, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
     private static final Instant SQL_MAX = SQL_MAX_DATE.atTime(LocalTime.of(23, 59, 59, 999_999_000)).toInstant(ZoneOffset.UTC);
@@ -69,7 +70,7 @@ public class QuoteQueryService {
 
     public RankingPageResponse ranking(String strategy, League league, Position position, Pageable pageable) {
         long generation = rankingGeneration.get();
-        String code = strategy == null ? "active" : strategyCatalog.find(strategy).code();
+        String code = strategy == null ? ACTIVE_STRATEGY_ALIAS : strategyCatalog.find(strategy).code();
         String key = rankingKey(code, league, position, pageable, generation);
         RankingPageResponse cached = cacheGet(key);
         if (cached != null) return cached;
@@ -80,7 +81,6 @@ public class QuoteQueryService {
                 return flight.join();
             } catch (CompletionException ex) {
                 if (ex.getCause() instanceof RuntimeException runtime) throw runtime;
-                if (ex.getCause() instanceof Error error) throw error;
                 throw ex;
             }
         }
@@ -88,10 +88,13 @@ public class QuoteQueryService {
             RankingPageResponse result = loadRanking(key, code, league, position, pageable, generation);
             mine.complete(result);
             return result;
-        } catch (RuntimeException | Error ex) {
+        } catch (RuntimeException ex) {
             mine.completeExceptionally(ex);
             throw ex;
         } finally {
+            if (!mine.isDone()) {
+                mine.completeExceptionally(new IllegalStateException("La carga del ranking terminó sin resultado"));
+            }
             rankingLoads.remove(key, mine);
         }
     }
@@ -99,42 +102,64 @@ public class QuoteQueryService {
     private RankingPageResponse loadRanking(String key, String code, League league, Position position,
                                             Pageable pageable, long generation) {
         AtomicReference<RankingLoader.LoadedRanking> loaded = new AtomicReference<>();
-        Cache cache = rankingCache();
-        RankingPageResponse result;
-        if (cache == null) {
-            loaded.set(rankingLoader.load("active".equals(code) ? null : code, league, position, pageable));
-            result = loaded.get().page();
-        } else {
-            try {
-                result = cache.get(key, () -> {
-                    RankingLoader.LoadedRanking value = rankingLoader.load(
-                            "active".equals(code) ? null : code, league, position, pageable);
-                    loaded.set(value);
-                    return value.page();
-                });
-            } catch (Cache.ValueRetrievalException ex) {
-                throw ex;
-            } catch (RuntimeException ex) {
-                log.warn("quotes_ranking_cache_load_failed key={} errorType={}", key, ex.getClass().getSimpleName());
-                RankingLoader.LoadedRanking value = loaded.get();
-                if (value == null) {
-                    value = rankingLoader.load("active".equals(code) ? null : code, league, position, pageable);
-                    loaded.set(value);
-                }
-                result = value.page();
-            }
-        }
+        RankingPageResponse result = loadFromCacheOrRepository(key, code, league, position, pageable, loaded);
         RankingLoader.LoadedRanking value = loaded.get();
-        if (value != null && "active".equals(code) && rankingGeneration.get() == generation) {
+        publishExplicitStrategyKey(code, league, position, pageable, generation, result, value);
+        evictObsoleteGenerationKeys(key, code, league, position, pageable, generation, value);
+        return result;
+    }
+
+    private RankingPageResponse loadFromCacheOrRepository(String key, String code, League league, Position position,
+                                                          Pageable pageable,
+                                                          AtomicReference<RankingLoader.LoadedRanking> loaded) {
+        Cache cache = rankingCache();
+        if (cache == null) {
+            return loadAndCapture(code, league, position, pageable, loaded).page();
+        }
+        try {
+            return cache.get(key, () -> loadAndCapture(code, league, position, pageable, loaded).page());
+        } catch (Cache.ValueRetrievalException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            return fallbackAfterCacheFailure(key, code, league, position, pageable, loaded, ex);
+        }
+    }
+
+    private RankingLoader.LoadedRanking loadAndCapture(String code, League league, Position position,
+                                                       Pageable pageable,
+                                                       AtomicReference<RankingLoader.LoadedRanking> loaded) {
+        RankingLoader.LoadedRanking value = rankingLoader.load(
+                ACTIVE_STRATEGY_ALIAS.equals(code) ? null : code, league, position, pageable);
+        loaded.set(value);
+        return value;
+    }
+
+    private RankingPageResponse fallbackAfterCacheFailure(String key, String code, League league, Position position,
+                                                           Pageable pageable,
+                                                           AtomicReference<RankingLoader.LoadedRanking> loaded,
+                                                           RuntimeException ex) {
+        log.warn("quotes_ranking_cache_load_failed key={} errorType={}", key, ex.getClass().getSimpleName());
+        RankingLoader.LoadedRanking value = loaded.get();
+        if (value == null) value = loadAndCapture(code, league, position, pageable, loaded);
+        return value.page();
+    }
+
+    private void publishExplicitStrategyKey(String code, League league, Position position, Pageable pageable,
+                                            long generation, RankingPageResponse result,
+                                            RankingLoader.LoadedRanking value) {
+        if (value != null && ACTIVE_STRATEGY_ALIAS.equals(code) && rankingGeneration.get() == generation) {
             cachePut(rankingKey(value.strategyCode(), league, position, pageable, generation), result);
         }
+    }
+
+    private void evictObsoleteGenerationKeys(String key, String code, League league, Position position,
+                                             Pageable pageable, long generation, RankingLoader.LoadedRanking value) {
         if (rankingGeneration.get() != generation) {
             cacheEvict(key);
-            if (value != null && "active".equals(code)) {
+            if (value != null && ACTIVE_STRATEGY_ALIAS.equals(code)) {
                 cacheEvict(rankingKey(value.strategyCode(), league, position, pageable, generation));
             }
         }
-        return result;
     }
 
     static BigDecimal percentageChange(BigDecimal current, BigDecimal previous) {
