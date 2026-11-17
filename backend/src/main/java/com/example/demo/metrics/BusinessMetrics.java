@@ -44,6 +44,7 @@ public class BusinessMetrics {
     static final String REGISTRATIONS = "gdmarket.auth.registrations";
     static final String LOGINS = "gdmarket.auth.logins";
     static final String USERS_REGISTERED = "gdmarket.users.registered";
+    private static final String OUTCOME_TAG = "outcome";
 
     private static final Logger log = LoggerFactory.getLogger(BusinessMetrics.class);
 
@@ -95,7 +96,7 @@ public class BusinessMetrics {
             for (RecalculationOutcome outcome : RecalculationOutcome.values()) {
                 byOutcome.put(outcome, Timer.builder(RECALCULATION)
                         .description("Duración de cada recálculo de cotizaciones")
-                        .tag("trigger", trigger.tag()).tag("outcome", outcome.tag())
+                        .tag("trigger", trigger.tag()).tag(OUTCOME_TAG, outcome.tag())
                         .publishPercentileHistogram()
                         .register(registry));
             }
@@ -113,7 +114,7 @@ public class BusinessMetrics {
             for (ExternalCallOutcome outcome : ExternalCallOutcome.values()) {
                 byOutcome.put(outcome, Counter.builder(EXTERNAL_CALLS)
                         .description("Consultas a fuentes externas por resultado")
-                        .tag("source", source.tag()).tag("outcome", outcome.tag())
+                        .tag("source", source.tag()).tag(OUTCOME_TAG, outcome.tag())
                         .register(registry));
             }
             externalCalls.put(source, byOutcome);
@@ -121,10 +122,10 @@ public class BusinessMetrics {
         for (AuthOutcome outcome : AuthOutcome.values()) {
             registrationCounters.put(outcome, Counter.builder(REGISTRATIONS)
                     .description("Registros de usuarios por resultado")
-                    .tag("outcome", outcome.tag()).register(registry));
+                    .tag(OUTCOME_TAG, outcome.tag()).register(registry));
             loginCounters.put(outcome, Counter.builder(LOGINS)
                     .description("Logins por resultado")
-                    .tag("outcome", outcome.tag()).register(registry));
+                    .tag(OUTCOME_TAG, outcome.tag()).register(registry));
         }
         Gauge.builder(USERS_REGISTERED, this, BusinessMetrics::registeredUsers)
                 .description("Cuentas de usuario registradas")
