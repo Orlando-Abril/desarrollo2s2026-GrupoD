@@ -2,8 +2,6 @@ package com.example.demo.service.valuation;
 
 import com.example.demo.config.CacheConfig;
 import com.example.demo.dto.quote.PlayerQuoteResponse;
-import com.example.demo.dto.quote.RankingEntryResponse;
-import com.example.demo.dto.quote.RankingEntryResponse.RankingPlayerResponse;
 import com.example.demo.dto.quote.RankingPageResponse;
 import com.example.demo.exception.InvalidQuoteQueryException;
 import com.example.demo.exception.PlayerNotFoundException;
@@ -13,13 +11,12 @@ import com.example.demo.model.Player;
 import com.example.demo.model.Position;
 import com.example.demo.repository.PlayerQuoteRepository;
 import com.example.demo.repository.PlayerRepository;
-import com.example.demo.repository.RankingRowProjection;
 import com.example.demo.service.valuation.strategy.ValuationStrategyCatalog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,9 +26,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
-import java.util.HashMap;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class QuoteQueryService {
@@ -43,39 +44,97 @@ public class QuoteQueryService {
     private final PlayerQuoteRepository quoteRepository;
     private final ValuationStrategyCatalog strategyCatalog;
     private final CacheManager cacheManager;
+    private final RankingLoader rankingLoader;
+    private final AtomicLong rankingGeneration = new AtomicLong();
+    private final String rankingBootId = UUID.randomUUID().toString();
+    private final ConcurrentHashMap<String, CompletableFuture<RankingPageResponse>> rankingLoads = new ConcurrentHashMap<>();
 
+    @Autowired
     public QuoteQueryService(PlayerRepository playerRepository, PlayerQuoteRepository quoteRepository,
-                             ValuationStrategyCatalog strategyCatalog, CacheManager cacheManager) {
+                             ValuationStrategyCatalog strategyCatalog, CacheManager cacheManager,
+                             RankingLoader rankingLoader) {
         this.playerRepository = playerRepository;
         this.quoteRepository = quoteRepository;
         this.strategyCatalog = strategyCatalog;
         this.cacheManager = cacheManager;
+        this.rankingLoader = rankingLoader;
     }
 
-    @Transactional(readOnly = true)
+    /** Preserva la construcción de los tests de la entrega anterior. */
+    public QuoteQueryService(PlayerRepository playerRepository, PlayerQuoteRepository quoteRepository,
+                             ValuationStrategyCatalog strategyCatalog, CacheManager cacheManager) {
+        this(playerRepository, quoteRepository, strategyCatalog, cacheManager,
+                new RankingLoader(playerRepository, quoteRepository, strategyCatalog));
+    }
+
     public RankingPageResponse ranking(String strategy, League league, Position position, Pageable pageable) {
-        String code = strategy == null ? strategyCatalog.active().code() : strategyCatalog.find(strategy).code();
-        String key = rankingKey(code, league, position, pageable);
+        long generation = rankingGeneration.get();
+        String code = strategy == null ? "active" : strategyCatalog.find(strategy).code();
+        String key = rankingKey(code, league, position, pageable, generation);
         RankingPageResponse cached = cacheGet(key);
         if (cached != null) return cached;
-        Page<RankingRowProjection> rows = quoteRepository.findRanking(code, league == null ? null : league.name(),
-                position == null ? null : position.name(), pageable);
-        Map<Long, Player> players = new HashMap<>();
-        playerRepository.findAllById(rows.getContent().stream().map(RankingRowProjection::getPlayerId).toList())
-                .forEach(player -> players.put(player.getId(), player));
-        List<RankingEntryResponse> items = rows.getContent().stream().map(row -> toResponse(row, players)).toList();
-        RankingPageResponse response = new RankingPageResponse(items, pageable.getPageNumber(), pageable.getPageSize(),
-                rows.getTotalElements(), rows.getTotalPages());
-        cachePut(key, response);
-        return response;
+        CompletableFuture<RankingPageResponse> mine = new CompletableFuture<>();
+        CompletableFuture<RankingPageResponse> flight = rankingLoads.putIfAbsent(key, mine);
+        if (flight != null) {
+            try {
+                return flight.join();
+            } catch (CompletionException ex) {
+                if (ex.getCause() instanceof RuntimeException runtime) throw runtime;
+                if (ex.getCause() instanceof Error error) throw error;
+                throw ex;
+            }
+        }
+        try {
+            RankingPageResponse result = loadRanking(key, code, league, position, pageable, generation);
+            mine.complete(result);
+            return result;
+        } catch (RuntimeException | Error ex) {
+            mine.completeExceptionally(ex);
+            throw ex;
+        } finally {
+            rankingLoads.remove(key, mine);
+        }
     }
 
-    private RankingEntryResponse toResponse(RankingRowProjection row, Map<Long, Player> players) {
-        Player player = players.get(row.getPlayerId());
-        if (player == null) throw new IllegalStateException("El jugador del ranking ya no existe");
-        return new RankingEntryResponse(row.getRank(), new RankingPlayerResponse(player.getId(), row.getName(),
-                row.getTeam(), League.valueOf(row.getLeague()), player.getPositions()), row.getCurrentValue(),
-                percentageChange(row.getCurrentValue(), row.getPreviousValue()), row.getStrategy(), row.getVersion());
+    private RankingPageResponse loadRanking(String key, String code, League league, Position position,
+                                            Pageable pageable, long generation) {
+        AtomicReference<RankingLoader.LoadedRanking> loaded = new AtomicReference<>();
+        Cache cache = rankingCache();
+        RankingPageResponse result;
+        if (cache == null) {
+            loaded.set(rankingLoader.load("active".equals(code) ? null : code, league, position, pageable));
+            result = loaded.get().page();
+        } else {
+            try {
+                result = cache.get(key, () -> {
+                    RankingLoader.LoadedRanking value = rankingLoader.load(
+                            "active".equals(code) ? null : code, league, position, pageable);
+                    loaded.set(value);
+                    return value.page();
+                });
+            } catch (Cache.ValueRetrievalException ex) {
+                throw ex;
+            } catch (RuntimeException ex) {
+                log.warn("quotes_ranking_cache_load_failed key={} errorType={}", key, ex.getClass().getSimpleName());
+                RankingLoader.LoadedRanking value = loaded.get();
+                if (value == null) {
+                    value = rankingLoader.load("active".equals(code) ? null : code, league, position, pageable);
+                    loaded.set(value);
+                }
+                result = value.page();
+            }
+        }
+        RankingLoader.LoadedRanking value = loaded.get();
+        if (value != null && "active".equals(code) && rankingGeneration.get() == generation) {
+            cachePut(rankingKey(value.strategyCode(), league, position, pageable, generation), result);
+        }
+        if (rankingGeneration.get() != generation) {
+            cacheEvict(key);
+            if (value != null && "active".equals(code)) {
+                cacheEvict(rankingKey(value.strategyCode(), league, position, pageable, generation));
+            }
+        }
+        return result;
     }
 
     static BigDecimal percentageChange(BigDecimal current, BigDecimal previous) {
@@ -83,10 +142,24 @@ public class QuoteQueryService {
         return current.subtract(previous).multiply(BigDecimal.valueOf(100)).divide(previous, 2, RoundingMode.HALF_UP);
     }
 
-    private static String rankingKey(String strategy, League league, Position position, Pageable pageable) {
+    private String rankingKey(String strategy, League league, Position position, Pageable pageable, long generation) {
         return strategy + "|" + (league == null ? "-" : league.name())
                 + "|" + (position == null ? "-" : position.name())
-                + "|" + pageable.getPageNumber() + "|" + pageable.getPageSize();
+                + "|" + pageable.getPageNumber() + "|" + pageable.getPageSize()
+                + "|gen=" + rankingBootId + ":" + generation;
+    }
+
+    public long advanceRankingGeneration() { return rankingGeneration.incrementAndGet(); }
+
+    public long currentRankingGeneration() { return rankingGeneration.get(); }
+
+    private Cache rankingCache() {
+        try {
+            return cacheManager.getCache(CacheConfig.QUOTES_RANKING_CACHE);
+        } catch (RuntimeException ex) {
+            log.warn("quotes_ranking_cache_lookup_failed errorType={}", ex.getClass().getSimpleName());
+            return null;
+        }
     }
 
     private RankingPageResponse cacheGet(String key) {
@@ -105,6 +178,15 @@ public class QuoteQueryService {
             if (cache != null) cache.put(key, value);
         } catch (RuntimeException ex) {
             log.warn("quotes_ranking_cache_write_failed key={} errorType={}", key, ex.getClass().getSimpleName());
+        }
+    }
+
+    private void cacheEvict(String key) {
+        try {
+            Cache cache = rankingCache();
+            if (cache != null) cache.evict(key);
+        } catch (RuntimeException ex) {
+            log.warn("quotes_ranking_cache_evict_stale_failed key={} errorType={}", key, ex.getClass().getSimpleName());
         }
     }
 
