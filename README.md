@@ -1,77 +1,90 @@
-# Sistema de Valoracion de Jugadores y Mercado de Tokens
+# Sistema de Valoración de Jugadores y Mercado de Tokens
 
-Trabajo practico para la materia **Desarrollo de Aplicaciones** - **Universidad Nacional de Quilmes (UNQ)**.
+Trabajo práctico de **Desarrollo de Aplicaciones**, Universidad Nacional de Quilmes (UNQ).
 
-### Integrantes
-
-* Abril Orlando
-* Guadalupe Zitterkopf
+**Integrantes:** Abril Orlando y Guadalupe Zitterkopf.
 
 ---
 
-## Descripcion del proyecto
+## Descripción
 
-El sistema es una plataforma web que modela un mercado financiero basado en el rendimiento deportivo de futbolistas de las 5 grandes ligas de Europa (Premier League, La Liga, Serie A, Bundesliga y Ligue 1).
+Plataforma web que modela un mercado financiero basado en el rendimiento de futbolistas de las 5 grandes ligas de Europa (Premier League, La Liga, Serie A, Bundesliga y Ligue 1).
 
-A partir de datos estadisticos y resultados de partidos, el sistema calcula cotizaciones periodicas para cada jugador mediante estrategias de valuacion configurables. Los usuarios pueden comprar y vender tokens de futbolistas, gestionando su portfolio e historial de inversiones en tiempo real.
+A partir de estadísticas de Football-Data.org y WhoScored, el sistema calcula cotizaciones periódicas para cada jugador con estrategias de valuación configurables. Los usuarios compran y venden tokens de futbolistas y siguen su portfolio e historial de inversiones.
 
+| Entrega | Contenido | Specs |
+|---|---|---|
+| 1 | Seguridad (JWT y API key), registro y login, catálogo de jugadores, estadísticas de WhoScored, perfiles de test y e2e, frontend base | 001–012 |
+| 2 | Cotizaciones, estrategias OFFICIAL y MOMENTUM, recálculo manual y programado, historial, ranking, mercado, portfolio y feature extra | 013–032 |
+| 3 | Tests de arquitectura, auditoría de web services, Actuator y Prometheus, métricas de negocio, ranking de alta frecuencia | 033–037 |
+
+Cada funcionalidad tiene su spec, plan y quickstart en `specs/`.
 ---
 
-## Estructura del repositorio
+## Arquitectura
 
 ```text
-.
-+-- backend/              # API REST Spring Boot + Maven
-|   +-- pom.xml
-|   +-- mvnw
-|   +-- mvnw.cmd
-|   +-- src/
-+-- frontend/             # React + Vite
-|   +-- package.json
-|   +-- src/
-+-- .github/workflows/    # CI backend y frontend
-+-- .agents/
-+-- .claude/
-+-- .specify/
-+-- README.md
+backend/          API REST Spring Boot (Java 17) + Maven
+frontend/         React + Vite
+observability/    Prometheus y Grafana para la demo (Docker Compose)
+specs/            Especificaciones de cada funcionalidad
+docs/             Release notes
 ```
 
----
+El backend sigue un diseño en capas, validado por los tests de arquitectura:
 
-## Arquitectura y componentes
+- **Controllers:** endpoints REST y validación de entrada.
+- **Services:** lógica de negocio (mercado, valuación, portfolio).
+- **Repositories:** persistencia en PostgreSQL.
+- **Adapters:** integración con Football-Data.org y el scraper de WhoScored.
+- **Audit y metrics:** aspecto de auditoría y métricas de negocio.
 
-El backend sigue un diseno en capas para asegurar modularidad, mantenibilidad y tolerancia a fallos:
-
-* **Controllers:** Exposicion de endpoints REST y validacion de entrada.
-* **Services:** Logica de negocio (mercado, calculo de scores, valuacion y gestion de portfolios).
-* **Repositories:** Persistencia y acceso a datos con optimizacion de indices.
-* **Adapters:** Integracion con fuentes externas (API de Football-Data.org y scraper de WhoScored).
-
-### Requisitos tecnicos y no funcionales
-
-* **Scheduler:** Tareas automaticas para la actualizacion semanal de cotizaciones y estadisticas.
-* **Cache:** Capa de almacenamiento en cache para mitigar latencia y permitir operacion resiliente ante caidas de APIs externas.
-* **Auditoria y observabilidad:** Registro inmutable de transacciones financieras, logging estructurado y Correlation IDs para trazabilidad.
-* **Documentacion:** Especificacion de endpoints con OpenAPI / Swagger.
+Redis se usa como caché de las fuentes externas y del ranking. La API está documentada con OpenAPI en `http://localhost:8080/swagger-ui/index.html`.
 
 ---
 
-## Dominio y modelo de negocio
+## Dominio
 
-1. **Emision de tokens:** Cada jugador posee un total inicial de 100 tokens emitidos en poder de un superusuario inicial, con un valor base inicial de 1 credito.
-2. **Estrategias de valuacion:** Calculo de scores ponderados segun metricas de rendimiento. El sistema soporta multiples estrategias configurables con trazabilidad de version.
-3. **Operaciones de mercado:** Compra y venta de tokens con validacion de liquidez, disponibilidad, tenencia y actualizacion de posiciones.
-4. **Portfolio:** Visualizacion de saldo, cantidad de tokens por jugador, precio promedio de compra, valuacion actual y resultado neto.
+1. **Tokens:** cada jugador tiene 100 tokens emitidos a nombre de un superusuario, con valor inicial de 1 crédito.
+2. **Estrategias de valuación:**
+  - **OFFICIAL:** performance ponderada por posición según la fórmula de la consigna.
+  - **MOMENTUM:** sigue la forma reciente; compara las últimas 5 ventanas de estadísticas con el promedio de temporada del jugador y mueve el precio como máximo ±15 %.
+3. **Cotizaciones:** cada recálculo (manual o programado) guarda las dos estrategias en un historial inmutable. La estrategia **activa** fija el precio de mercado.
+4. **Mercado:** órdenes de compra y venta (MARKET y LIMIT) en un libro de órdenes, con validación de saldo, tenencia y banda de precio.
+5. **Portfolio:** saldo, tokens por jugador, precio promedio de compra, valuación actual y resultado.
 
 ---
 
-## Ejecucion local
+## Feature extra: comparador de estrategias y oportunidades
 
-### Backend
+Como cada recálculo guarda las dos estrategias, se puede comparar la activa con la alternativa sin alterar el mercado:
 
-El backend utiliza Java, Spring Boot, Maven, PostgreSQL y Redis.
+- **Portfolio con otra estrategia:** `GET /users/{id}/portfolio?strategy=MOMENTUM` agrega, por posición y en los totales, cuánto valdría y qué resultado tendría con esa estrategia.
+- **Oportunidades:** `GET /quotes/opportunities` lista jugadores subvaluados y sobrevaluados respecto de la estrategia alternativa, con filtros de liga y posición.
+- **Cambio de estrategia activa:** `PUT /strategies/active` (sólo ADMIN). El nuevo precio se aplica en el próximo recálculo.
 
-Configurar localmente la contrasena de PostgreSQL mediante la variable de entorno:
+En el frontend, un selector en el encabezado alterna álbum, detalle y portfolio entre OFFICIAL y MOMENTUM. El ranking muestra las oportunidades y, al superusuario, el control para cambiar la estrategia activa.
+
+---
+
+## Endpoints principales
+
+| Recurso | Endpoints |
+|---|---|
+| Autenticación | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `GET /auth/me` |
+| Jugadores | `GET /players`, `/players/{id}`, `/players/ranking`, `/players/{id}/quotes`, `POST /players/sync` |
+| Cotizaciones | `POST /quotes/recalculate`, `GET /quotes/latest`, `/quotes/opportunities` |
+| Estrategias | `GET /strategies/active`, `PUT /strategies/active` |
+| Mercado | `POST /orders/buy`, `/orders/sell`, `GET /orders/book`, `/orders/mine`, `DELETE /orders/{id}` |
+| Usuarios | `GET /users/{id}/portfolio`, `/users/{id}/transactions` |
+
+Para probarlos en Swagger: ejecutar `POST /auth/login`, copiar el `token` y pegarlo en **Authorize → bearerAuth**. La API key (`X-API-KEY`) queda como alternativa para scripts e integraciones.
+
+---
+
+## Ejecución local
+
+Requisitos: Java 17, Node, PostgreSQL con la base `desarrollo2_grupod` y Redis.
 
 ```env
 DB_PASSWORD=tu_contrasena_de_postgresql
@@ -79,212 +92,105 @@ JWT_SECRET=un_secreto_de_al_menos_32_bytes
 FOOTBALL_DATA_TOKEN=token_de_football_data
 ```
 
-También se pueden configurar `REDIS_HOST`, `REDIS_PORT`, `FOOTBALL_DATA_CACHE_TTL` (por
-defecto `6h`), `FOOTBALL_DATA_CONNECT_TIMEOUT` y `FOOTBALL_DATA_READ_TIMEOUT`.
-
-La aplicacion utiliza esta variable desde `backend/src/main/resources/application.properties`:
-
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/desarrollo2_grupod
-spring.datasource.username=postgres
-spring.datasource.password=${DB_PASSWORD}
-```
-
-La base de datos PostgreSQL debe existir con el nombre:
-
-```text
-desarrollo2_grupod
-```
-
-Para compilar y verificar el backend:
+Opcionales: `REDIS_HOST`, `REDIS_PORT`, `FOOTBALL_DATA_CACHE_TTL` (por defecto `6h`).
 
 ```bash
+# Backend (http://localhost:8080)
 cd backend
-./mvnw verify
-```
+./mvnw spring-boot:run
 
-Autenticación JWT en Swagger:
-
-1. Ejecutar `POST /auth/login` con usuario y contraseña.
-2. Copiar el campo `token` de la respuesta.
-3. Pulsar **Authorize** en Swagger y pegar el token en `bearerAuth`.
-4. Ejecutar los endpoints protegidos, por ejemplo `GET /players`.
-
-El usuario de la aplicación web no necesita ver ni manejar una API key: el frontend usa el
-JWT del login. `apiKeyAuth` sigue disponible como credencial alternativa para Swagger,
-scripts e integraciones programáticas.
-
-Catálogo de jugadores:
-
-* La carga desde Football-Data.org se dispara a pedido con `POST /players/sync` (con
-  `X-API-KEY`). Trae las 5 ligas, crea o actualiza jugadores por `externalId` y devuelve un
-  resumen (`COMPLETED`, `PARTIAL_FAILURE` o `FAILED`). No hay carga automática.
-* `GET /players` acepta `league`, `team` y `position`, exige `X-API-KEY` y consulta
-  exclusivamente PostgreSQL, así que sigue funcionando ante fallas externas. Devuelve `[]`
-  hasta la primera carga.
-* Redis cachea una respuesta por liga con TTL configurable.
-
-Estadísticas de rendimiento (WhoScored):
-
-* Un proceso semanal obtiene de WhoScored minutos, goles, asistencias, tiros, pases clave,
-  tackles, tarjetas y rating de los jugadores del catálogo, y los guarda en la tabla
-  `player_stats`.
-* **Viene deshabilitado.** Para activarlo se define `WHOSCORED_SYNC_ENABLED=true`. Corre los
-  lunes a las 04:00 UTC (`WHOSCORED_SYNC_CRON`, formato cron de Spring) y nunca al arrancar.
-  El catálogo tiene que estar cargado antes (`POST /players/sync`).
-* WhoScored bloquea a los clientes HTTP comunes, así que los datos se descargan con un
-  **Chromium sin ventana (Playwright)**. Hay que instalarlo una vez; la app no lo descarga
-  sola. Desde `backend/`:
-
-  ```bash
-  # Windows (PowerShell)
-  .\mvnw.cmd exec:java -e "-Dexec.mainClass=com.microsoft.playwright.CLI" "-Dexec.args=install chromium"
-  # Linux (incluye dependencias del sistema)
-  ./mvnw exec:java -e -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps chromium"
-  ```
-
-  Ocupa unos 700 MB. Sin Chromium, la app arranca igual y cada liga falla con
-  `code=browser_error` en el log, sin borrar datos.
-* Los resultados se cachean por jugador en Redis (`WHOSCORED_CACHE_TTL`, por defecto `24h`).
-  Si una liga no se puede obtener completa, no se guarda nada de esa liga y se conservan los
-  datos anteriores. Nunca se guarda un conjunto parcial de métricas.
-* Los jugadores se emparejan por nombre y equipo normalizados. Los equipos cuyo nombre en
-  WhoScored no se parece al de Football-Data se declaran en
-  `backend/src/main/java/com/example/demo/service/TeamAliases.java`.
-* Cada ejecución deja en el log `whoscored_stats_update_finished processed= updated=
-  fromCache= unmatched= failed=`. Los motivos de cada jugador sin datos quedan en
-  `whoscored_stats_unmatched`, y las ligas fallidas en `whoscored_stats_league_failed`.
-
-Una vez iniciado, el backend queda disponible en:
-
-```text
-http://localhost:8080
-```
-
-### Frontend
-
-El frontend esta creado con React + Vite.
-
-```bash
+# Frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-Para generar el build:
+**Datos iniciales:**
+
+- El catálogo se carga a pedido con `POST /players/sync` (con `X-API-KEY`). `GET /players` lee sólo de PostgreSQL, así que funciona aunque falle la API externa.
+- Las estadísticas de WhoScored se sincronizan los lunes a las 04:00 UTC, pero vienen deshabilitadas: se activan con `WHOSCORED_SYNC_ENABLED=true`. Necesitan Chromium de Playwright instalado una vez (ver [spec 005](specs/005-whoscored-player-stats/quickstart.md)).
+
+---
+
+## Monitoreo y métricas (Entrega 3)
+
+| Endpoint | Acceso |
+|---|---|
+| `/actuator/health` (con `/liveness` y `/readiness`), `/actuator/info` | Público |
+| `/actuator/metrics`, `/actuator/prometheus` | JWT ADMIN o API key con `ROLE_ADMIN` |
+
+Además de las métricas HTTP (latencia y errores por endpoint), se publican métricas propias del negocio con prefijo `gdmarket_`:
+
+| Área | Métricas |
+|---|---|
+| Mercado | órdenes creadas y rechazadas, trades, tokens y volumen en créditos |
+| Cotizaciones | duración del recálculo, cotizaciones por estrategia, cambios de estrategia activa |
+| Fuentes externas | llamadas a Football-Data y WhoScored (éxito, error o caché) |
+| Usuarios | registros, logins y usuarios registrados |
+
+Para la demo, `observability/` levanta Prometheus (`http://localhost:9090`) y Grafana (`http://localhost:3000`) con el dashboard **GD Market**:
 
 ```bash
-cd frontend
-npm run build
-```
-
-## Monitoreo
-
-Con el backend iniciado, `/actuator/health`, sus rutas `/liveness` y `/readiness`, y `/actuator/info` son públicos. `/actuator/metrics` y `/actuator/prometheus` requieren JWT ADMIN o una API key con `ROLE_ADMIN`. Swagger UI muestra el grupo Actuator en `http://localhost:8080/swagger-ui/index.html`.
-
-La demo de `observability/` requiere Docker Compose, PostgreSQL y Redis del backend levantados como se indica arriba, y `psql` para crear una clave de servicio en la base **local de desarrollo**. En PowerShell, con el backend ya iniciado:
-
-```powershell
-$bytes = New-Object byte[] 24
-$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-$rng.GetBytes($bytes)
-$rng.Dispose()
-$env:SCRAPE_API_KEY = 'sk_' + ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
-$sha = [System.Security.Cryptography.SHA256]::Create()
-$hash = ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($env:SCRAPE_API_KEY)))).Replace('-', '').ToLowerInvariant()
-$sha.Dispose()
-$prefix = $env:SCRAPE_API_KEY.Substring(0, 11)
-psql -h localhost -U postgres -d desarrollo2_grupod -c "INSERT INTO api_keys (key_hash, key_prefix, user_id, active, created_at) VALUES ('$hash', '$prefix', NULL, true, CURRENT_TIMESTAMP)"
-curl.exe -i -H "X-API-KEY: $env:SCRAPE_API_KEY" http://localhost:8080/actuator/prometheus
-```
-
-La última llamada debe devolver 200. La base guarda sólo el hash de la clave; el valor crudo permanece en `SCRAPE_API_KEY` durante la sesión. Desde la raíz del repositorio:
-
-```powershell
-docker compose -f observability/docker-compose.yml config --quiet
 docker compose -f observability/docker-compose.yml up -d
 ```
 
-Prometheus está en `http://localhost:9090/targets`: después del primer scrape de 15 segundos el objetivo `demo` debe figurar `UP`. Grafana está en `http://localhost:3000` (credenciales iniciales `admin`/`admin` para esta demo local) y ya tiene Prometheus como datasource. La aplicación puede arrancar sin estos contenedores. Para detener la demo:
+Prometheus necesita una API key de scrapeo en la variable `SCRAPE_API_KEY`. El paso a paso está en los quickstarts de la [035](specs/035-actuator-prometheus/quickstart.md) y la [036](specs/036-metricas-avanzadas/quickstart.md).
 
-```powershell
-docker compose -f observability/docker-compose.yml down
-psql -h localhost -U postgres -d desarrollo2_grupod -c "DELETE FROM api_keys WHERE key_hash = '$hash'"
-Remove-Item Env:SCRAPE_API_KEY
-```
+---
 
-No guardar la clave cruda en Git. La secuencia completa de comprobaciones está en [el quickstart de monitoreo](specs/035-actuator-prometheus/quickstart.md).
+## Auditoría de web services (Entrega 3)
 
-### Métricas de negocio
+Cada llamada a un endpoint deja una línea de auditoría. La lógica está en un aspecto (`audit/WebServiceAuditAspect`) que se aplica a todos los `@RestController`, sin tocar ningún controller. Cada línea incluye:
 
-`/actuator/prometheus` también publica métricas propias con prefijo `gdmarket_`, con el mismo acceso ADMIN. Sus etiquetas sólo toman valores fijos: nunca ids ni datos de usuarios o jugadores. Si registrar una métrica falla, la operación sigue igual y el log muestra `business_metric_failed`.
+- fecha y hora, y `correlationId`;
+- usuario (del JWT, de la API key o `anonymous`);
+- método HTTP, ruta y `Clase.método`;
+- parámetros, con contraseñas y tokens enmascarados;
+- duración en ms y resultado (`OK` o la excepción).
 
-| Serie | Etiquetas | Qué mide |
-|---|---|---|
-| `gdmarket_orders_placed_total` | `side`, `type` | Órdenes aceptadas y confirmadas |
-| `gdmarket_orders_rejected_total` | `reason` | Rechazos por saldo, tokens o banda de precio |
-| `gdmarket_trades_executed_total`, `gdmarket_trades_tokens_total`, `gdmarket_trades_volume_credits_total` | — | Trades, tokens y volumen en créditos |
-| `gdmarket_quotes_recalculation_seconds` | `trigger`, `outcome` | Duración de cada recálculo (histograma) |
-| `gdmarket_quotes_recalculation_last_seconds` | — | Duración del último recálculo (vuelve a 0 al reiniciar) |
-| `gdmarket_quotes_calculated_total` | `strategy` | Cotizaciones calculadas por estrategia |
-| `gdmarket_strategy_changes_total` | — | Cambios confirmados de estrategia activa |
-| `gdmarket_external_calls_total` | `source`, `outcome` | Llamadas a Football-Data y WhoScored: éxito, error o caché |
-| `gdmarket_auth_registrations_total`, `gdmarket_auth_logins_total` | `outcome` | Registros y logins por resultado |
-| `gdmarket_users_registered` | — | Cuentas registradas |
+Las líneas salen por la consola y por `logs/audit.log` (rotación diaria, 7 días). Se apaga con `audit.web-services.enabled=false` y el nivel se ajusta con `logging.level.WEB_SERVICE_AUDIT`.
 
-`gdmarket_users_registered` hace un `count()` sobre `users` en cada lectura de métricas (un scrape cada 15 s en la demo). El detalle está en [el contrato](specs/036-metricas-avanzadas/contracts/business-metrics.md).
+---
 
-Con la demo levantada, Grafana carga solo el dashboard **GD Market** (carpeta **Demo**): mercado, cotizaciones de los últimos 7 días, fuentes externas, usuarios, y la latencia p95 y la tasa de error 5xx HTTP.
+## Tests de arquitectura (Entrega 3)
 
-## Tests end-to-end con PostgreSQL y Redis reales
+Con ArchUnit, en `backend/src/test/java/com/example/demo/architecture/`:
 
-Los tests `e2e` son destructivos: antes y después de cada método ejecutan `TRUNCATE ... RESTART
-IDENTITY CASCADE` sobre todas las tablas del esquema PostgreSQL configurado y `FLUSHDB`
-sobre Redis. Use exclusivamente servicios dedicados a pruebas, sin datos que necesite
-conservar, y no ejecute estos tests en paralelo contra la misma infraestructura.
-
-Los valores predeterminados, iguales a los del CI, son:
-
-| Variable | Valor predeterminado |
+| Test | Qué valida |
 |---|---|
-| `E2E_DB_URL` | `jdbc:postgresql://localhost:5432/desarrollo2_grupod` |
-| `E2E_DB_USER` | `postgres` |
-| `E2E_DB_PASSWORD` | `postgres` |
-| `REDIS_HOST` | `localhost` |
-| `REDIS_PORT` | `6379` |
+| `LayeredArchitectureTest` | Dependencias permitidas entre controller, service, repository, adapter, model y dto |
+| `NamingConventionTest` | Sufijos y anotaciones de controllers y repositories; `@ControllerAdvice` en `exception` |
+| `CodingRulesTest` | Sin ciclos entre paquetes, sin `@Transactional` en controllers, sin `System.out` |
 
-Si PostgreSQL o Redis no tienen un socket disponible, los e2e se omiten localmente con un
-motivo que identifica el servicio. Con `CI=true` nunca se omiten: la falta de infraestructura
-o unas credenciales inválidas hacen fallar la ejecución. El sondeo local comprueba sockets,
-no credenciales ni la existencia de la base.
+No levantan Spring ni la base, y corren con el resto de los tests unitarios.
 
-Ejecute los comandos desde `backend/`.
+---
 
-Windows PowerShell:
+## Ranking para alta frecuencia (Entrega 3)
 
-```powershell
-# Sólo unitarios/no-e2e
-.\mvnw.cmd test '-DexcludedGroups=e2e'
+`GET /players/ranking` está optimizado para muchas consultas seguidas:
 
-# Sólo e2e
-.\mvnw.cmd test '-Dgroups=e2e'
+- cada página se cachea en Redis y una consulta cacheada no usa la base;
+- si llegan consultas iguales juntas, sólo una calcula el ranking;
+- después de cada recálculo o cambio de estrategia, la primera página se vuelve a precargar;
+- si Redis falla, responde desde PostgreSQL.
 
-# Todo, incluida la verificación y cobertura conjunta
-.\mvnw.cmd verify
-```
+En local, la primera consulta tarda unos 150 ms y las siguientes, 15 a 35 ms. Los aciertos y fallos del caché se ven en Prometheus (`cache_gets_total{cache="quotes-ranking"}`). Ver el [quickstart](specs/037-ranking-alta-frecuencia/quickstart.md).
 
-Linux/macOS:
+---
+
+## Tests
+
+Desde `backend/`:
 
 ```bash
-# Sólo unitarios/no-e2e
-./mvnw test -DexcludedGroups=e2e
-
-# Sólo e2e
-./mvnw test -Dgroups=e2e
-
-# Todo, incluida la verificación y cobertura conjunta
-./mvnw verify
+./mvnw test -DexcludedGroups=e2e   # sólo unitarios
+./mvnw test -Dgroups=e2e           # sólo e2e
+./mvnw verify                      # todo, con cobertura
 ```
 
-La configuración opcional de variables y la matriz completa de resultados esperados están
-en [el quickstart del perfil e2e](specs/010-perfil-e2e/quickstart.md).
+En Windows se usa `.\mvnw.cmd` con los mismos parámetros.
+
+Los e2e usan PostgreSQL y Redis reales y **borran todos sus datos** antes y después de cada test: úsenlos sólo con servicios de prueba. Si no encuentran los servicios, se omiten localmente; en el CI nunca se omiten. Detalle en [spec 010](specs/010-perfil-e2e/quickstart.md).
+
+El CI (`.github/workflows/ci.yml`) corre en cada PR el build y los tests del backend, los tests, el lint y el build del frontend, y el análisis de SonarCloud.
