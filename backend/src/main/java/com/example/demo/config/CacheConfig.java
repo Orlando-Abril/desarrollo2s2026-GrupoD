@@ -51,6 +51,7 @@ public class CacheConfig {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new JacksonJsonRedisSerializer<>(objectMapper, RankingPageResponse.class)));
         return RedisCacheManager.builder(connectionFactory)
+                .enableStatistics()
                 .cacheDefaults(defaults)
                 .withInitialCacheConfigurations(Map.of(
                         COMPETITION_TEAMS_CACHE, competitionConfig,
